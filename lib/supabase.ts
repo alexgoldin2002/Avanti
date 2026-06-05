@@ -1,0 +1,6 @@
+import { createClient } from '@supabase/supabase-js'
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+export type Trip = { id: string; name: string; destination: string; start_date: string; end_date: string; trip_type: string; organizer_id: string; invite_code: string; status: string; created_at: string }
+export type Traveler = { id: string; trip_id: string; full_name: string; email: string; phone: string; passport_number: string; passport_expiry: string; date_of_birth: string; nationality: string; departure_city: string; budget_per_day: number; accommodation_preference: string; dietary_restrictions: string; loyalty_programs: string[]; credit_cards: string[]; vibes: string[]; budget_categories: Record<string, number>; profile_complete: boolean }
