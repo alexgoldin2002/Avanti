@@ -92,7 +92,7 @@ export default function Dashboard() {
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
             <p style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#9a9a8a' }}>My trips</p>
-            <button onClick={() => setShowNewTrip(true)}
+            <button onClick={() => router.push('/create')}
               style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#1a1a1a', background: 'none', border: '1px solid #1a1a1a', padding: '8px 16px', cursor: 'pointer', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
               + New trip
             </button>
