@@ -27,6 +27,7 @@ export default function Home() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [rememberMe, setRememberMe] = useState(true)
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -45,6 +46,12 @@ export default function Home() {
     if (error) { setError(error.message); setLoading(false); return }
     const { data: profile } = await supabase.from('user_profiles').select('profile_complete').eq('user_id', data.user.id).maybeSingle()
     if (!profile?.profile_complete) { router.push('/profile') } else { router.push('/dashboard') }
+  }
+
+  const handleSubmit = () => {
+    const e = { preventDefault: () => {} } as React.FormEvent
+    if (mode === 'signup') handleSignUp(e)
+    else handleSignIn(e)
   }
 
   const handleGoogle = async () => {
@@ -91,7 +98,13 @@ export default function Home() {
         <form onSubmit={mode === 'signup' ? handleSignUp : handleSignIn} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           {error && <p style={{ fontSize: '12px', color: '#c0392b', textAlign: 'center' }}>{error}</p>}
           <div><label style={labelStyle}>Email</label><input type="email" required value={email} onChange={e => setEmail(e.target.value)} style={inputStyle} placeholder="your@email.com" /></div>
-          <div><label style={labelStyle}>Password</label><input type="password" required value={password} onChange={e => setPassword(e.target.value)} style={inputStyle} placeholder="••••••••" /></div>
+          <div><label style={labelStyle}>Password</label><input type="password" required value={password} onChange={e => setPassword(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit() }} style={inputStyle} placeholder="••••••••" /></div>
+          {mode === 'signin' && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+              <input type="checkbox" id="remember" checked={rememberMe} onChange={e => setRememberMe(e.target.checked)} style={{ cursor: 'pointer' }} />
+              <label htmlFor="remember" style={{ fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#9a9a8a', cursor: 'pointer', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>Keep me signed in</label>
+            </div>
+          )}
           <button type="submit" disabled={loading} style={{ width: '100%', border: '1px solid #1a1a1a', padding: '14px', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', color: '#1a1a1a', background: 'transparent', cursor: 'pointer', marginTop: '8px', fontFamily: 'var(--font-cormorant), Georgia, serif', opacity: loading ? 0.5 : 1 }}>
             {loading ? 'Please wait...' : mode === 'signup' ? 'Create account' : 'Sign in'}
           </button>

@@ -3,6 +3,10 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --avanti-accent: #2d5a18;
+  --avanti-accent-light: #e8f0e4;
+  --avanti-accent-dark: #182D09;
+  --avanti-border: #8aad7a;
 }
 
 @theme inline {

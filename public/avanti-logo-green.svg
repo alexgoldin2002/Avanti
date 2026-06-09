@@ -1,0 +1,23 @@
+<svg width="600" height="200" viewBox="0 0 600 200" xmlns="http://www.w3.org/2000/svg">
+  <rect width="600" height="200" fill="#2d5a18"/>
+  <g transform="translate(300, 100)">
+    <polygon
+      points="-168,-44 168,-44 161,44 -161,44"
+      fill="none"
+      stroke="rgba(255,255,255,0.7)"
+      stroke-width="1"
+    />
+    <text
+      x="4"
+      y="0"
+      text-anchor="middle"
+      dominant-baseline="middle"
+      font-family="Georgia, serif"
+      font-size="24"
+      font-weight="300"
+      fill="#ffffff"
+      letter-spacing="7"
+      font-style="oblique"
+    >AVANTI</text>
+  </g>
+</svg>
