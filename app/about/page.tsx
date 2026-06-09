@@ -11,21 +11,32 @@ export default function About() {
           <AvantiLogo size="sm" />
         </div>
         <p style={{ fontSize: '11px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#9a9a8a', margin: '0 0 12px' }}>Our story</p>
-        <h1 style={{ fontSize: '48px', fontWeight: 300, color: '#083807', margin: '0 0 24px', lineHeight: 1.1, ...s }}>Built for the person who always ends up planning the trip.</h1>
+        <h1 style={{ fontSize: '48px', fontWeight: 300, color: '#083807', margin: '0 0 24px', lineHeight: 1.1, ...s }}>Group travel is an absolute nightmare.</h1>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', marginBottom: '64px' }}>
           <p style={{ fontSize: '16px', color: '#3a3a3a', margin: 0, lineHeight: 1.9 }}>
-            Every group has one. The person who spends 40 hours in Google Docs, chasing people for availability, comparing hotels across six tabs, and still gets blamed when someone doesn't like the itinerary.
+            Too many people. Too many opinions. Too many moving parts. And somehow it all lands on one person.
           </p>
           <p style={{ fontSize: '16px', color: '#3a3a3a', margin: 0, lineHeight: 1.9 }}>
-            Avanti was built because that person deserves better. Not just a smarter checklist — but an actual thinking partner that knows what questions to ask, what costs to flag, and what smart moves most people miss.
+            Avanti handles the hard parts. The decisions nobody wants to finalize. The back-and-forth. The money, the logistics. The nudging people to voice an opinion or fill out their information and vote. The reminding. The tracking. And everything in between.
           </p>
           <p style={{ fontSize: '16px', color: '#3a3a3a', margin: 0, lineHeight: 1.9 }}>
-            We believe you can have a better trip than you think you can. Not by spending more — but by knowing what you have access to. The credit card benefit nobody read. The ferry that's faster and cheaper than the flight. The hotel that's $80 cheaper because it's two streets over and still walkable to everything.
+            And for everyone in the group — whether you&apos;re the one who checks every detail or the one who says &ldquo;I&apos;m honestly up for anything&rdquo; — Avanti makes sure you have exactly as much say as you want. No more, no less.
           </p>
           <p style={{ fontSize: '16px', color: '#3a3a3a', margin: 0, lineHeight: 1.9 }}>
-            Avanti thinks about all of it. You just show up.
+            When it&apos;s time to decide, Avanti makes the call. So nobody has to be the bad guy.
           </p>
+          <p style={{ fontSize: '16px', color: '#3a3a3a', margin: 0, lineHeight: 1.9 }}>
+            At the same time, Avanti is finding everything you didn&apos;t know to look for. The hidden benefits. The smarter route. The better hotel. The trip that&apos;s more enjoyable, more affordable, and more you — than anything the group chat could have figured out on its own.
+          </p>
+          <p style={{ fontSize: '16px', color: '#3a3a3a', margin: 0, lineHeight: 1.9 }}>
+            You can have a better trip than you think you can. Avanti makes sure of it.
+          </p>
+          <div style={{ borderTop: '0.5px solid #e4e4d8', marginTop: '8px', paddingTop: '32px' }}>
+            <p style={{ fontSize: '18px', fontStyle: 'italic', color: '#083807', margin: 0, lineHeight: 1.6, ...s }}>
+              The trip everyone wanted. The planning nobody did.
+            </p>
+          </div>
         </div>
 
         <div style={{ borderTop: '0.5px solid #e4e4d8', paddingTop: '48px' }}>
