@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import AvantiLogo from '../components/AvantiLogo'
 import SuitcaseLoader from '../components/SuitcaseLoader'
+import Footer from '../components/Footer'
 
 export default function Wallet() {
   const router = useRouter()
@@ -71,7 +72,8 @@ export default function Wallet() {
   if (loading) return <SuitcaseLoader message="Opening your wallet" />
 
   if (!pinSet || !pinEntered) return (
-    <main style={{ minHeight: '100vh', background: '#fafaf8', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: '100%', background: '#fafaf8', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
       <div style={{ width: '100%', maxWidth: '320px', textAlign: 'center' }}>
         <AvantiLogo size="sm" />
         <p style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#9a9a8a', margin: '20px 0 8px' }}>Wallet</p>
@@ -100,11 +102,13 @@ export default function Wallet() {
           ← Back to dashboard
         </button>
       </div>
-    </main>
+      </div>
+      <Footer />
+    </div>
   )
 
   return (
-    <main style={{ minHeight: '100vh', background: '#fafaf8', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: '100%', background: '#fafaf8', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
       <div style={{ maxWidth: '560px', margin: '0 auto', padding: '48px 24px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '48px' }}>
           <AvantiLogo size="sm" />
@@ -199,6 +203,7 @@ export default function Wallet() {
           </div>
         </div>
       )}
-    </main>
+      <Footer />
+    </div>
   )
 }

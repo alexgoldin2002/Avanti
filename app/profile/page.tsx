@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import AvantiLogo from '../components/AvantiLogo'
 import SuitcaseLoader from '../components/SuitcaseLoader'
+import Footer from '../components/Footer'
 
 const COUNTRIES = ["Afghanistan","Albania","Algeria","Andorra","Angola","Antigua and Barbuda","Argentina","Armenia","Australia","Austria","Azerbaijan","Bahamas","Bahrain","Bangladesh","Barbados","Belarus","Belgium","Belize","Benin","Bhutan","Bolivia","Bosnia and Herzegovina","Botswana","Brazil","Brunei","Bulgaria","Burkina Faso","Burundi","Cabo Verde","Cambodia","Cameroon","Canada","Central African Republic","Chad","Chile","China","Colombia","Comoros","Congo","Costa Rica","Croatia","Cuba","Cyprus","Czech Republic","Denmark","Djibouti","Dominica","Dominican Republic","Ecuador","Egypt","El Salvador","Equatorial Guinea","Eritrea","Estonia","Eswatini","Ethiopia","Fiji","Finland","France","Gabon","Gambia","Georgia","Germany","Ghana","Greece","Grenada","Guatemala","Guinea","Guinea-Bissau","Guyana","Haiti","Honduras","Hungary","Iceland","India","Indonesia","Iran","Iraq","Ireland","Israel","Italy","Jamaica","Japan","Jordan","Kazakhstan","Kenya","Kiribati","Kuwait","Kyrgyzstan","Laos","Latvia","Lebanon","Lesotho","Liberia","Libya","Liechtenstein","Lithuania","Luxembourg","Madagascar","Malawi","Malaysia","Maldives","Mali","Malta","Marshall Islands","Mauritania","Mauritius","Mexico","Micronesia","Moldova","Monaco","Mongolia","Montenegro","Morocco","Mozambique","Myanmar","Namibia","Nauru","Nepal","Netherlands","New Zealand","Nicaragua","Niger","Nigeria","North Korea","North Macedonia","Norway","Oman","Pakistan","Palau","Palestine","Panama","Papua New Guinea","Paraguay","Peru","Philippines","Poland","Portugal","Qatar","Romania","Russia","Rwanda","Saint Kitts and Nevis","Saint Lucia","Saint Vincent and the Grenadines","Samoa","San Marino","Sao Tome and Principe","Saudi Arabia","Senegal","Serbia","Seychelles","Sierra Leone","Singapore","Slovakia","Slovenia","Solomon Islands","Somalia","South Africa","South Korea","South Sudan","Spain","Sri Lanka","Sudan","Suriname","Sweden","Switzerland","Syria","Taiwan","Tajikistan","Tanzania","Thailand","Timor-Leste","Togo","Tonga","Trinidad and Tobago","Tunisia","Turkey","Turkmenistan","Tuvalu","Uganda","Ukraine","United Arab Emirates","United Kingdom","United States","Uruguay","Uzbekistan","Vanuatu","Vatican City","Venezuela","Vietnam","Yemen","Zambia","Zimbabwe"]
 
@@ -159,7 +160,8 @@ function ProfileSetupInner() {
   if (loading) return <SuitcaseLoader message="Loading your profile" />
 
   if (showWelcome) return (
-    <main style={{ minHeight: '100vh', background: '#fafaf8', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: '100%', background: '#fafaf8', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
       <div style={{ width: '100%', maxWidth: '400px', textAlign: 'center' }}>
         <div style={{ marginBottom: '40px' }}><AvantiLogo size="md" /></div>
         <h1 style={{ fontSize: '36px', fontWeight: 300, color: '#1a1a1a', margin: '0 0 12px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>Welcome to Avanti</h1>
@@ -184,15 +186,31 @@ function ProfileSetupInner() {
           Let's get started →
         </button>
       </div>
-    </main>
+      </div>
+      <Footer />
+    </div>
   )
 
   return (
-    <main style={{ minHeight: '100vh', background: '#fafaf8', paddingBottom: '80px', ...s }}>
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: '100%', background: '#fafaf8', paddingBottom: '80px', ...s }}>
       <div style={{ maxWidth: '560px', margin: '0 auto', padding: '48px 24px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '40px' }}>
           <AvantiLogo size="sm" />
           <button onClick={() => router.push('/dashboard')} style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#9a9a8a', background: 'none', border: 'none', cursor: 'pointer', ...s }}>← Dashboard</button>
+        </div>
+
+        <h1 style={{ fontSize: '36px', fontWeight: 300, color: '#083807', margin: '0 0 32px', ...s }}>My profile</h1>
+
+        <div style={{ display: 'flex', borderBottom: '1px solid #e8e8e0', marginBottom: '32px' }}>
+          {[{ key: 'profile', label: 'Profile' }, { key: 'travelers', label: 'Travelers' }].map(tab => {
+            const activeTab = searchParams.get('tab') === 'travelers' ? 'travelers' : 'profile'
+            return (
+              <button key={tab.key} onClick={() => router.push(tab.key === 'travelers' ? '/profile?tab=travelers' : '/profile')}
+                style={{ flex: 1, padding: '10px 0', fontSize: '11px', letterSpacing: '0.15em', textTransform: 'uppercase', color: activeTab === tab.key ? '#1a1a1a' : '#9a9a8a', background: 'none', border: 'none', borderBottom: `2px solid ${activeTab === tab.key ? '#083807' : 'transparent'}`, cursor: 'pointer', ...s }}>
+                {tab.label}
+              </button>
+            )
+          })}
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '40px' }}>
@@ -297,7 +315,8 @@ function ProfileSetupInner() {
           Sign out
         </button>
       </div>
-    </main>
+      <Footer />
+    </div>
   )
 }
 

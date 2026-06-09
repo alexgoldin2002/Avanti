@@ -22,6 +22,7 @@
 
 # misc
 .DS_Store
+public/.chrome-tmp/
 *.pem
 
 # debug

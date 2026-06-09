@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import AvantiLogo from '../../components/AvantiLogo'
+import Footer from '../../components/Footer'
 
 function PendingContent() {
   const searchParams = useSearchParams()
@@ -41,7 +42,8 @@ function PendingContent() {
   }, [router, tripId])
 
   return (
-    <main style={{ minHeight: '100vh', background: '#fafaf8', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px', ...s }}>
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: '100%', background: '#fafaf8', ...s }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
       <div style={{ width: '100%', maxWidth: '400px', textAlign: 'center' }}>
         <div style={{ marginBottom: '40px' }}><AvantiLogo size="sm" /></div>
         <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: '#faeeda', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', fontSize: '24px' }}>⏳</div>
@@ -63,7 +65,9 @@ function PendingContent() {
         </div>
       </div>
       <style>{`@keyframes pulse { 0%, 100% { opacity: 0.3; transform: scale(0.8); } 50% { opacity: 1; transform: scale(1.2); } }`}</style>
-    </main>
+      </div>
+      <Footer />
+    </div>
   )
 }
 

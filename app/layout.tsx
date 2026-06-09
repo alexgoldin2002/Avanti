@@ -11,7 +11,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css" />
       </head>
-      <body className={`${cormorant.variable} antialiased`} style={{ fontFamily: 'var(--font-cormorant), Georgia, serif', background: '#fafaf8', color: '#1a1a1a' }}>{children}</body>
+      <body className={`${cormorant.variable} antialiased`} style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', fontFamily: 'var(--font-cormorant), Georgia, serif', background: '#fafaf8', color: '#1a1a1a' }}>
+        <main style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+          {children}
+        </main>
+      </body>
     </html>
   )
 }

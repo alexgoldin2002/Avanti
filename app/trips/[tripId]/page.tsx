@@ -4,6 +4,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import AvantiLogo from '../../components/AvantiLogo'
 import SuitcaseLoader from '../../components/SuitcaseLoader'
+import Footer from '../../components/Footer'
 
 const STEP_COLORS = [
   { bg: '#e8f0e4', border: '#8aad7a', numBg: '#1a4a0e', titleColor: '#0a2a06', subColor: '#1a5a32' },
@@ -37,6 +38,7 @@ export default function TripDashboard() {
   const [nameInput, setNameInput] = useState('')
   const [showWelcome, setShowWelcome] = useState(false)
   const [welcomeName, setWelcomeName] = useState('')
+  const [isOrganizer, setIsOrganizer] = useState(false)
 
   useEffect(() => {
     const load = async () => {
@@ -44,6 +46,7 @@ export default function TripDashboard() {
       if (user) setUserId(user.id)
       const { data: tripData } = await supabase.from('trips').select('*').eq('id', tripId).single()
       if (user && tripData) {
+        setIsOrganizer(tripData.organizer_id === user.id)
         const { data: myTraveler } = await supabase
           .from('travelers')
           .select('*')
@@ -66,7 +69,12 @@ export default function TripDashboard() {
         }
       }
       const { data: travelerData } = await supabase.from('travelers').select('*').eq('trip_id', tripId)
-      const { data: voteData } = await supabase.from('group_votes').select('*').eq('trip_id', tripId).eq('status', 'open').order('created_at', { ascending: false })
+      const { data: voteData } = await supabase
+        .from('group_votes')
+        .select('id, vote_type, options, status, submission_deadline, voting_deadline, deadline, created_at')
+        .eq('trip_id', tripId)
+        .neq('status', 'closed')
+        .order('created_at', { ascending: false })
       if (tripData) {
         setTrip(tripData)
         if (tripData.step_colors) setStepColors(tripData.step_colors)
@@ -201,8 +209,8 @@ export default function TripDashboard() {
   }
 
   return (
-    <main style={{ minHeight: '100vh', background: '#fafaf8', ...s }}>
-      <div style={{ maxWidth: '720px', margin: '0 auto', padding: '32px 24px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: '100%', background: '#fafaf8', ...s }}>
+      <div style={{ flex: 1, maxWidth: '720px', margin: '0 auto', padding: '32px 24px', width: '100%' }}>
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
           <AvantiLogo size="sm" />
@@ -242,6 +250,12 @@ export default function TripDashboard() {
                   <button onClick={() => { setEditingName(true); setNameInput(trip.name) }} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', cursor: 'pointer', borderRadius: '50%', width: '26px', height: '26px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <i className="ti ti-pencil" style={{ fontSize: '12px', color: 'rgba(255,255,255,0.55)' }} aria-hidden="true" />
                   </button>
+                  {isOrganizer && (
+                    <button onClick={() => router.push(`/trips/${tripId}/settings`)}
+                      style={{ background: 'rgba(255,255,255,0.15)', border: 'none', cursor: 'pointer', borderRadius: '50%', width: '26px', height: '26px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <i className="ti ti-settings" style={{ fontSize: '12px', color: 'rgba(255,255,255,0.55)' }} aria-hidden="true" />
+                    </button>
+                  )}
                 </>
               )}
             </div>
@@ -299,14 +313,14 @@ export default function TripDashboard() {
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {votes.map(vote => (
+                  {votes.filter(vote => vote.id).map(vote => (
                     <button key={vote.id} onClick={() => router.push(`/trips/${tripId}/vote/${vote.id}`)}
                       style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', background: '#fff', border: '1.5px solid #2d5a18', borderRadius: '10px', cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                         <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#2d5a18' }} />
                         <div>
                           <p style={{ fontSize: '13px', color: '#1a1a1a', margin: '0 0 2px' }}>Vote — {vote.vote_type}</p>
-                          <p style={{ fontSize: '11px', color: '#9a9a8a', margin: 0 }}>{vote.deadline ? getDaysLeft(vote.deadline) : 'No deadline set'} · {(vote.options || []).length} options</p>
+                          <p style={{ fontSize: '11px', color: '#9a9a8a', margin: 0 }}>{vote.voting_deadline ? getDaysLeft(vote.voting_deadline) : vote.submission_deadline ? getDaysLeft(vote.submission_deadline) : vote.deadline ? getDaysLeft(vote.deadline) : 'No deadline set'} · {(vote.options || []).length} options</p>
                         </div>
                       </div>
                       <span style={{ fontSize: '18px', color: '#2d5a18' }}>›</span>
@@ -315,6 +329,13 @@ export default function TripDashboard() {
                 </div>
               )}
             </div>
+
+            <button
+              onClick={() => router.push(`/trips/${tripId}/decisions`)}
+              style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', background: '#fff', border: '0.5px solid #e4e4d8', borderRadius: '10px', cursor: 'pointer', marginBottom: '20px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+              <span style={{ fontSize: '14px', color: '#1a1a1a', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>Decisions</span>
+              <span style={{ fontSize: '11px', color: '#9a9a8a', letterSpacing: '0.1em', textTransform: 'uppercase' }}>View all →</span>
+            </button>
 
             <p style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#9a9a8a', margin: '0 0 12px' }}>Planning steps</p>
 
@@ -328,10 +349,10 @@ export default function TripDashboard() {
                 return (
                   <div key={step.number} onClick={() => !isLocked && router.push(step.path)}
                     style={{ background: colors.bg, border: isActive ? `2px solid ${colors.numBg}` : `0.5px solid ${colors.border}`, borderRadius: '12px', padding: '16px', position: 'relative', cursor: isLocked ? 'default' : 'pointer', opacity: isLocked ? 0.42 : 1, transition: 'all 0.2s', minHeight: '90px', boxShadow: isActive ? `0 0 0 3px ${colors.bg}` : 'none' }}>
-                    <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: isCompleted ? colors.numBg : isLocked ? '#d4d4c8' : colors.numBg, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '15px', fontWeight: 300, position: 'absolute', top: '10px', right: '10px', ...s }}>
+                    <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: isCompleted ? colors.numBg : isLocked ? '#d4d4c8' : isActive ? '#083807' : colors.numBg, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '15px', fontWeight: 300, position: 'absolute', top: '10px', right: '10px', ...s }}>
                       {isCompleted ? '✓' : step.number}
                     </div>
-                    {isActive && <div style={{ position: 'absolute', top: '8px', left: '8px', width: '6px', height: '6px', borderRadius: '50%', background: colors.numBg }} />}
+                    {isActive && <div style={{ position: 'absolute', top: '8px', left: '8px', width: '6px', height: '6px', borderRadius: '50%', background: '#083807' }} />}
                     <p style={{ fontSize: '14px', fontWeight: 400, color: colors.titleColor, margin: '0 0 4px', lineHeight: 1.2, paddingRight: '38px', ...s }}>{step.title}</p>
                     <p style={{ fontSize: '11px', color: colors.subColor, margin: 0, lineHeight: 1.4, opacity: 0.85 }}>{step.description}</p>
                     {isLocked && <i className="ti ti-lock" style={{ position: 'absolute', bottom: '10px', right: '10px', fontSize: '12px', color: '#b4b4a8', opacity: 0.5 }} aria-hidden="true" />}
@@ -349,10 +370,10 @@ export default function TripDashboard() {
                 return (
                   <div key={step.number} onClick={() => !isLocked && router.push(step.path)}
                     style={{ background: colors.bg, border: isActive ? `2px solid ${colors.numBg}` : `0.5px solid ${colors.border}`, borderRadius: '12px', padding: '16px', position: 'relative', cursor: isLocked ? 'default' : 'pointer', opacity: isLocked ? 0.42 : 1, transition: 'all 0.2s', minHeight: '90px' }}>
-                    <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: isCompleted ? colors.numBg : isLocked ? '#d4d4c8' : colors.numBg, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '15px', fontWeight: 300, position: 'absolute', top: '10px', right: '10px', ...s }}>
+                    <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: isCompleted ? colors.numBg : isLocked ? '#d4d4c8' : isActive ? '#083807' : colors.numBg, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '15px', fontWeight: 300, position: 'absolute', top: '10px', right: '10px', ...s }}>
                       {isCompleted ? '✓' : step.number}
                     </div>
-                    {isActive && <div style={{ position: 'absolute', top: '8px', left: '8px', width: '6px', height: '6px', borderRadius: '50%', background: colors.numBg }} />}
+                    {isActive && <div style={{ position: 'absolute', top: '8px', left: '8px', width: '6px', height: '6px', borderRadius: '50%', background: '#083807' }} />}
                     <p style={{ fontSize: '14px', fontWeight: 400, color: colors.titleColor, margin: '0 0 4px', lineHeight: 1.2, paddingRight: '38px', ...s }}>{step.title}</p>
                     <p style={{ fontSize: '11px', color: colors.subColor, margin: 0, lineHeight: 1.4, opacity: 0.85 }}>{step.description}</p>
                     {isLocked && <i className="ti ti-lock" style={{ position: 'absolute', bottom: '10px', right: '10px', fontSize: '12px', color: '#b4b4a8', opacity: 0.5 }} aria-hidden="true" />}
@@ -424,6 +445,7 @@ export default function TripDashboard() {
           </div>
         </div>
       )}
-    </main>
+      <Footer />
+    </div>
   )
 }

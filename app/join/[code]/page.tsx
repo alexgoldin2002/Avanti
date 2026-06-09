@@ -4,6 +4,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import AvantiLogo from '../../components/AvantiLogo'
 import SuitcaseLoader from '../../components/SuitcaseLoader'
+import Footer from '../../components/Footer'
 
 export default function JoinTrip() {
   const params = useParams()
@@ -109,29 +110,35 @@ export default function JoinTrip() {
 
   if (loading) return <SuitcaseLoader message="Loading invitation" />
   if (linkClosed) return (
-    <main style={{ minHeight: '100vh', background: '#fafaf8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: '100%', background: '#fafaf8', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ textAlign: 'center', padding: '24px', maxWidth: '360px' }}>
         <div style={{ marginBottom: '24px' }}><AvantiLogo size="sm" /></div>
         <div style={{ fontSize: '32px', marginBottom: '16px' }}>🔒</div>
         <h2 style={{ fontSize: '24px', fontWeight: 300, color: '#1a1a1a', margin: '0 0 10px' }}>Invite link closed</h2>
         <p style={{ fontSize: '13px', color: '#9a9a8a', lineHeight: 1.7 }}>The organizer has closed this trip to new guests. If you think this is a mistake, reach out to the trip organizer directly.</p>
       </div>
-    </main>
+      </div>
+      <Footer />
+    </div>
   )
   if (!trip) return (
-    <main style={{ minHeight: '100vh', background: '#fafaf8', display: 'flex', alignItems: 'center', justifyContent: 'center', ...s }}>
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: '100%', background: '#fafaf8', ...s }}>
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ textAlign: 'center', padding: '24px' }}>
         <AvantiLogo size="sm" />
         <p style={{ fontSize: '14px', color: '#9a9a8a', marginTop: '24px' }}>This invite link is invalid or has expired.</p>
       </div>
-    </main>
+      </div>
+      <Footer />
+    </div>
   )
 
   const organizerName = organizer?.nickname || organizer?.full_name?.split(' ')[0] || 'Someone'
 
   return (
-    <main style={{ minHeight: '100vh', background: '#fafaf8', ...s }}>
-      <div style={{ position: 'relative', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: '100%', background: '#fafaf8', ...s }}>
+      <div style={{ position: 'relative', flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
 
         <div style={{ width: '100%', maxWidth: '420px', filter: showAuthModal ? 'blur(2px)' : 'none', transition: 'filter 0.2s' }}>
           <div style={{ textAlign: 'center', marginBottom: '32px' }}>
@@ -220,6 +227,7 @@ export default function JoinTrip() {
           </div>
         )}
       </div>
-    </main>
+      <Footer />
+    </div>
   )
 }

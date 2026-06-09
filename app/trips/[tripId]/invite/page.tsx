@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import AvantiLogo from '../../../components/AvantiLogo'
+import Footer from '../../../components/Footer'
 
 export default function InviteGuests() {
   const params = useParams()
@@ -257,8 +258,8 @@ export default function InviteGuests() {
   const guests = attendees.filter(a => a.role !== 'organizer' && (a.status === 'approved' || a.status === null))
 
   return (
-    <main style={{ minHeight: '100vh', background: '#fafaf8', ...s }}>
-      <div style={{ maxWidth: '560px', margin: '0 auto', padding: '40px 24px 80px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: '100%', background: '#fafaf8', ...s }}>
+      <div style={{ flex: 1, maxWidth: '560px', margin: '0 auto', padding: '40px 24px 80px', width: '100%' }}>
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '36px' }}>
           <AvantiLogo size="sm" />
@@ -718,6 +719,7 @@ export default function InviteGuests() {
           </div>
         </div>
       )}
-    </main>
+      <Footer />
+    </div>
   )
 }

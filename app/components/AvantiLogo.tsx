@@ -5,12 +5,12 @@ export default function AvantiLogo({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' 
   return (
     <Link href="/dashboard" style={{ textDecoration: 'none', cursor: 'pointer' }}>
       <div style={{ display: 'inline-block', position: 'relative' }}>
-        <div style={{ clipPath: 'polygon(4% 0%, 100% 0%, 96% 100%, 0% 100%)', border: '1px solid #2d6a4f', padding: `${s.py} ${s.px}` }}>
+        <div style={{ clipPath: 'polygon(4% 0%, 100% 0%, 96% 100%, 0% 100%)', border: '1px solid #083807', padding: `${s.py} ${s.px}` }}>
           <span style={{
             fontSize: s.text,
             fontWeight: 300,
             letterSpacing: '0.3em',
-            color: '#2d6a4f',
+            color: '#083807',
             fontFamily: 'var(--font-cormorant), Georgia, serif',
             textTransform: 'uppercase',
             fontStyle: 'oblique 8deg'

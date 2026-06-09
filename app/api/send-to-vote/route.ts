@@ -3,22 +3,19 @@ import { createClient } from '@supabase/supabase-js'
 
 export async function POST(request: NextRequest) {
   try {
-    const { tripId, options, voteType, deadlineDays } = await request.json()
+    const { tripId, options, voteType } = await request.json()
     
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     )
 
-    const deadline = new Date()
-    deadline.setDate(deadline.getDate() + (deadlineDays || 2))
-
     const { data, error } = await supabase.from('group_votes').insert({
       trip_id: tripId,
       vote_type: voteType || 'Destination',
       options,
-      deadline: deadline.toISOString(),
       status: 'open',
+      current_round: 1,
     }).select().single()
 
     if (error) return NextResponse.json({ error: error.message })

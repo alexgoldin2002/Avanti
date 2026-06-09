@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import AvantiLogo from '../components/AvantiLogo'
 import SuitcaseLoader from '../components/SuitcaseLoader'
 import PlacesAutocomplete from '../components/PlacesAutocomplete'
+import Footer from '../components/Footer'
 
 const COLORS = [
   { name: 'Midnight', value: '#1a1a1a' },
@@ -62,6 +63,8 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [profile, setProfile] = useState<any>(null)
   const [trips, setTrips] = useState<any[]>([])
+  const [dragIndex, setDragIndex] = useState<number | null>(null)
+  const [tripOrder, setTripOrder] = useState<string[]>([])
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [showModal, setShowModal] = useState(false)
   const [creating, setCreating] = useState(false)
@@ -150,10 +153,12 @@ export default function Dashboard() {
       }
 
       const allTrips = [...(organizerTrips || []), ...memberTrips]
+      allTrips.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
       const uniqueTrips = allTrips.filter((trip, index, self) =>
         index === self.findIndex(t => t.id === trip.id)
       )
       setTrips(uniqueTrips)
+      setTripOrder(uniqueTrips.map((t: any) => t.id))
       setLoading(false)
     }
     load()
@@ -244,22 +249,24 @@ export default function Dashboard() {
 
   if (loading) return <SuitcaseLoader message="Welcome back" />
 
+  const orderedTrips = tripOrder.map((id: string) => trips.find((t: any) => t.id === id)).filter(Boolean)
+
   return (
-    <main style={{ minHeight: '100vh', background: '#fafaf8', ...s }}>
-      <div style={{ display: 'flex', minHeight: '100vh' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: '100%', background: '#fafaf8', ...s }}>
+      <div style={{ display: 'flex', flex: 1 }}>
         <div style={{ flex: 1, padding: '48px 40px' }}>
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '48px' }}>
             <AvantiLogo size="sm" />
             <button onClick={() => setSidebarOpen(!sidebarOpen)}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#9a9a8a', ...s }}>
+              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#083807', ...s }}>
               {sidebarOpen ? 'Close ×' : `${firstName} ☰`}
             </button>
           </div>
 
           <div style={{ marginBottom: '48px' }}>
             <p style={{ fontSize: '13px', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#9a9a8a', marginBottom: '8px' }}>{greeting}</p>
-            <h1 style={{ fontSize: '48px', fontWeight: 300, color: '#1a1a1a', letterSpacing: '-0.01em', lineHeight: 1.1, margin: 0 }}>{firstName}</h1>
+            <h1 style={{ fontSize: '48px', fontWeight: 300, color: '#083807', letterSpacing: '-0.01em', lineHeight: 1.1, margin: 0 }}>{firstName}</h1>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
@@ -282,9 +289,20 @@ export default function Dashboard() {
             </div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }}>
-              {trips.map(trip => (
+              {orderedTrips.map((trip: any, i: number) => (
                 <div key={trip.id} onClick={() => router.push(`/trips/${trip.id}`)}
-                  style={{ position: 'relative', height: '200px', cursor: 'pointer', overflow: 'hidden', borderRadius: '8px' }}>
+                  draggable={true}
+                  onDragStart={() => setDragIndex(i)}
+                  onDragOver={e => e.preventDefault()}
+                  onDrop={() => {
+                    if (dragIndex === null || dragIndex === i) return
+                    const newOrder = [...tripOrder]
+                    const [moved] = newOrder.splice(dragIndex, 1)
+                    newOrder.splice(i, 0, moved)
+                    setTripOrder(newOrder)
+                    setDragIndex(null)
+                  }}
+                  style={{ position: 'relative', height: '200px', cursor: 'grab', overflow: 'hidden', borderRadius: '8px', opacity: dragIndex === i ? 0.5 : 1 }}>
                   <>
                     {trip.cover_image ? (
                       <>
@@ -292,7 +310,7 @@ export default function Dashboard() {
                         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.1) 60%, transparent 100%)' }} />
                       </>
                     ) : (
-                      <div style={{ width: '100%', height: '100%', background: getTripColor(trips.indexOf(trip)) }} />
+                      <div style={{ width: '100%', height: '100%', background: getTripColor(i) }} />
                     )}
                     <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '20px' }}>
                       <p style={{ fontSize: '18px', fontWeight: 400, color: '#ffffff', margin: '0 0 4px', letterSpacing: '0.02em' }}>{trip.name}</p>
@@ -514,6 +532,7 @@ export default function Dashboard() {
           </div>
         </div>
       )}
-    </main>
+      <Footer />
+    </div>
   )
 }
