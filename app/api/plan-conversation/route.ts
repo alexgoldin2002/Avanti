@@ -2,19 +2,43 @@ import Anthropic from '@anthropic-ai/sdk'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-const client = new Anthropic()
+export const maxDuration = 60
+
+const client = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY,
+})
 
 export async function POST(request: NextRequest) {
-  const { tripId, messages, userMessage } = await request.json()
-  
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
-  
-  const { data: trip } = await supabase.from('trips').select('*').eq('id', tripId).single()
-  
-  const systemPrompt = `You are Avanti, a luxury travel planning companion. You are direct, concise, and never waste words.
+  try {
+    if (!process.env.ANTHROPIC_API_KEY) {
+      console.error('[plan-conversation] ANTHROPIC_API_KEY is not configured')
+      return NextResponse.json({ error: 'API key not configured' }, { status: 500 })
+    }
+
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+      console.error('[plan-conversation] Supabase env vars missing')
+      return NextResponse.json({ error: 'Database not configured' }, { status: 500 })
+    }
+
+    const { tripId, messages, userMessage } = await request.json()
+    console.log('[plan-conversation] request', { tripId, messageCount: messages?.length, userMessageLength: userMessage?.length })
+
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
+
+    const { data: trip, error: tripError } = await supabase.from('trips').select('*').eq('id', tripId).single()
+    if (tripError) {
+      console.error('[plan-conversation] trip fetch failed', { tripId, error: tripError.message })
+      return NextResponse.json({ error: 'Trip not found', details: tripError.message }, { status: 404 })
+    }
+    if (!trip) {
+      console.error('[plan-conversation] trip not found', { tripId })
+      return NextResponse.json({ error: 'Trip not found' }, { status: 404 })
+    }
+
+    const systemPrompt = `You are Avanti, a luxury travel planning companion. You are direct, concise, and never waste words.
 
 PERSONALITY:
 - Never say "I love this!" or "Amazing!" or "Great choice!" — just get to work
@@ -98,34 +122,52 @@ CARD FORMAT — return this exact JSON when ready:
 
 Trip context: ${trip?.name}, destination: ${trip?.destination || 'TBD'}`
 
-  const conversationMessages = [
-    ...messages,
-    { role: 'user', content: userMessage }
-  ]
+    const conversationMessages = [
+      ...messages,
+      { role: 'user', content: userMessage }
+    ]
 
-  const response = await client.messages.create({
-    model: 'claude-sonnet-4-6',
-    max_tokens: 2000,
-    system: systemPrompt,
-    messages: conversationMessages
-  })
+    console.log('[plan-conversation] calling Anthropic', { model: 'claude-sonnet-4-6', messageCount: conversationMessages.length })
 
-  const content = response.content[0]
-  if (content.type !== 'text') return NextResponse.json({ text: 'Something went wrong', cards: null })
+    const response = await client.messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 2000,
+      system: systemPrompt,
+      messages: conversationMessages
+    })
 
-  const text = content.text
-  
-  const cardsMatch = text.match(/<<<CARDS>>>([\s\S]*?)<<<END_CARDS>>>/)
-  
-  if (cardsMatch) {
-    try {
-      const cards = JSON.parse(cardsMatch[1].trim())
-      const cleanText = text.replace(/<<<CARDS>>>[\s\S]*?<<<END_CARDS>>>/, '').trim()
-      return NextResponse.json({ text: cleanText, cards })
-    } catch (e) {
-      return NextResponse.json({ text, cards: null })
+    const content = response.content[0]
+    if (content.type !== 'text') {
+      console.error('[plan-conversation] unexpected response type', { type: content.type })
+      return NextResponse.json({ text: 'Something went wrong', cards: null })
     }
-  }
 
-  return NextResponse.json({ text, cards: null })
+    const text = content.text
+    console.log('[plan-conversation] response received', { textLength: text.length, hasCards: text.includes('<<<CARDS>>>') })
+
+    const cardsMatch = text.match(/<<<CARDS>>>([\s\S]*?)<<<END_CARDS>>>/)
+
+    if (cardsMatch) {
+      try {
+        const cards = JSON.parse(cardsMatch[1].trim())
+        const cleanText = text.replace(/<<<CARDS>>>[\s\S]*?<<<END_CARDS>>>/, '').trim()
+        console.log('[plan-conversation] parsed cards', { cardCount: cards.length })
+        return NextResponse.json({ text: cleanText, cards })
+      } catch (e) {
+        console.error('[plan-conversation] card JSON parse failed', { error: e instanceof Error ? e.message : String(e) })
+        return NextResponse.json({ text, cards: null })
+      }
+    }
+
+    return NextResponse.json({ text, cards: null })
+  } catch (error) {
+    console.error('[plan-conversation] unhandled error', {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    })
+    return NextResponse.json(
+      { error: 'Internal server error', details: error instanceof Error ? error.message : String(error) },
+      { status: 500 }
+    )
+  }
 }
