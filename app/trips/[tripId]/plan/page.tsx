@@ -471,7 +471,7 @@ export default function PlanConversation() {
                                       {(option.details?.pros?.length ?? 0) > 0 && (
                                         <div>
                                           <p style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#2d6a4f', margin: '0 0 8px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>Pros</p>
-                                          {option.details.pros.map((pro, i) => (
+                                          {(option.details?.pros ?? []).map((pro, i) => (
                                             <div key={i} style={{ display: 'flex', gap: '6px', marginBottom: '5px' }}>
                                               <span style={{ color: '#2d6a4f', fontSize: '10px', marginTop: '3px', flexShrink: 0 }}>✓</span>
                                               <p style={{ fontSize: '12px', color: '#3a3a3a', margin: 0, lineHeight: 1.5, fontFamily: 'var(--font-cormorant), Georgia, serif' }}>{pro}</p>
@@ -482,7 +482,7 @@ export default function PlanConversation() {
                                       {(option.details?.cons?.length ?? 0) > 0 && (
                                         <div>
                                           <p style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#854f0b', margin: '0 0 8px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>Watch out</p>
-                                          {option.details.cons.map((con, i) => (
+                                          {(option.details?.cons ?? []).map((con, i) => (
                                             <div key={i} style={{ display: 'flex', gap: '6px', marginBottom: '5px' }}>
                                               <span style={{ color: '#854f0b', fontSize: '10px', marginTop: '3px', flexShrink: 0 }}>⚠</span>
                                               <p style={{ fontSize: '12px', color: '#854f0b', margin: 0, lineHeight: 1.5, fontFamily: 'var(--font-cormorant), Georgia, serif' }}>{con}</p>
@@ -496,7 +496,7 @@ export default function PlanConversation() {
                                   {(option.details?.things_to_do?.length ?? 0) > 0 && (
                                     <div>
                                       <p style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#9a9a8a', margin: '0 0 8px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>Top things to do</p>
-                                      {option.details.things_to_do.map((item, i) => (
+                                      {(option.details?.things_to_do ?? []).map((item, i) => (
                                         <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: '0.5px solid #f0f0e8' }}>
                                           <p style={{ fontSize: '12px', color: '#1a1a1a', margin: 0, fontFamily: 'var(--font-cormorant), Georgia, serif' }}>{item.activity}</p>
                                           <p style={{ fontSize: '11px', color: '#9a9a8a', margin: 0, flexShrink: 0, marginLeft: '12px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>{item.cost}</p>
@@ -530,7 +530,7 @@ export default function PlanConversation() {
                                     <div>
                                       <p style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#9a9a8a', margin: '0 0 8px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>See it for yourself</p>
                                       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                        {option.details.tiktok_searches.map((term, i) => (
+                                        {(option.details?.tiktok_searches ?? []).map((term, i) => (
                                           <a key={i} href={`https://www.tiktok.com/search?q=${encodeURIComponent(term)}`} target="_blank" rel="noopener noreferrer"
                                             style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: '#fff', border: '0.5px solid #e4e4d8', borderRadius: '8px', textDecoration: 'none' }}>
                                             <span style={{ fontSize: '14px' }}>🎵</span>
