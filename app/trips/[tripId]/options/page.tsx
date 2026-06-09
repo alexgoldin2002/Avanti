@@ -183,7 +183,7 @@ export default function TripOptions() {
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  {opt.perks_flagged?.length > 0 && (
+                  {(opt.perks_flagged?.length ?? 0) > 0 && (
                     <div style={{ background: '#eaf3de', border: '0.5px solid #97c459', borderRadius: '10px', padding: '16px' }}>
                       <p style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#3b6d11', margin: '0 0 8px' }}>Perks flagged</p>
                       {opt.perks_flagged.map((perk: string, i: number) => (
@@ -191,7 +191,7 @@ export default function TripOptions() {
                       ))}
                     </div>
                   )}
-                  {opt.warnings?.length > 0 && (
+                  {(opt.warnings?.length ?? 0) > 0 && (
                     <div style={{ background: '#faeeda', border: '0.5px solid #ef9f27', borderRadius: '10px', padding: '16px' }}>
                       <p style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#854f0b', margin: '0 0 8px' }}>Watch out</p>
                       {opt.warnings.map((w: string, i: number) => (
@@ -202,7 +202,7 @@ export default function TripOptions() {
                 </div>
               </div>
 
-              {opt.sub_group_routing?.length > 0 && (
+              {(opt.sub_group_routing?.length ?? 0) > 0 && (
                 <div style={{ background: '#fff', border: `0.5px solid ${colors.border}`, borderRadius: '10px', padding: '18px', marginBottom: '12px' }}>
                   <p style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: colors.accent, margin: '0 0 12px' }}>Routing by sub-group</p>
                   {opt.sub_group_routing.map((route: string, i: number) => (
@@ -211,7 +211,7 @@ export default function TripOptions() {
                 </div>
               )}
 
-              {opt.itinerary_highlights?.length > 0 && (
+              {(opt.itinerary_highlights?.length ?? 0) > 0 && (
                 <div style={{ background: '#fff', border: `0.5px solid ${colors.border}`, borderRadius: '10px', padding: '18px', marginBottom: '12px' }}>
                   <p style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: colors.accent, margin: '0 0 12px' }}>Itinerary highlights</p>
                   {opt.itinerary_highlights.map((day: string, i: number) => (

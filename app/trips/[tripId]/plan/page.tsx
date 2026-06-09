@@ -4,6 +4,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import AvantiLogo from '../../../components/AvantiLogo'
 import PlacesAutocomplete from '../../../components/PlacesAutocomplete'
+import Footer from '../../../components/Footer'
 
 interface CardBullet {
   text: string
@@ -57,6 +58,8 @@ export default function PlanConversation() {
   const [expandedCard, setExpandedCard] = useState<string | null>(null)
   const [addedCards, setAddedCards] = useState<DestinationCard[]>([])
   const [sendingToGroup, setSendingToGroup] = useState(false)
+  const [showVoteConfirm, setShowVoteConfirm] = useState(false)
+  const [createdVoteId, setCreatedVoteId] = useState<string | null>(null)
   const [followUpSubmitted, setFollowUpSubmitted] = useState(false)
   const [departureCities, setDepartureCities] = useState<string[]>([])
   const [departureCityInput, setDepartureCityInput] = useState('')
@@ -237,20 +240,27 @@ export default function PlanConversation() {
   const sendToGroupVote = async (selectedOptions: any[]) => {
     setSendingToGroup(true)
     try {
-      const res = await fetch('/api/send-to-vote', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tripId,
-          options: selectedOptions,
-          voteType: 'Destination',
-          deadlineDays: 2,
+      const { data: existingVote } = await supabase
+        .from('group_votes')
+        .select('*')
+        .eq('trip_id', tripId)
+        .eq('status', 'open')
+        .maybeSingle()
+
+      if (existingVote) {
+        const combined = [...(existingVote.options || []), ...selectedOptions]
+        await supabase.from('group_votes').update({ options: combined }).eq('id', existingVote.id)
+        setCreatedVoteId(existingVote.id)
+      } else {
+        const res = await fetch('/api/send-to-vote', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tripId, options: selectedOptions, voteType: 'Destination', deadlineDays: 2 })
         })
-      })
-      const data = await res.json()
-      if (data.vote) {
-        router.push(`/trips/${tripId}/vote/${data.vote.id}`)
+        const data = await res.json()
+        if (data.vote) setCreatedVoteId(data.vote.id)
       }
+      setShowVoteConfirm(true)
     } catch (e) {
       console.error('Send to vote error:', e)
     }
@@ -282,7 +292,7 @@ export default function PlanConversation() {
   if (!trip) return null
 
   return (
-    <main style={{ height: '100vh', background: '#fafaf8', display: 'flex', flexDirection: 'column', ...s }}>
+    <div style={{ flex: 1, minHeight: '100%', background: '#fafaf8', display: 'flex', flexDirection: 'column', ...s }}>
       {/* Top bar */}
       <div style={{
         flexShrink: 0,
@@ -305,6 +315,71 @@ export default function PlanConversation() {
       </div>
 
       <div style={{ display: 'flex', flex: 1, position: 'relative', minHeight: 0 }}>
+        {showMemberConvos && (
+          <div style={{ width: '260px', borderRight: '0.5px solid #e4e4d8', background: '#fafaf8', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
+            {!showConvosPanel ? (
+              <div style={{ padding: '20px 16px' }}>
+                <p style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#9a9a8a', margin: '0 0 14px' }}>Group conversations</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {travelers.filter(t => t.user_id !== currentUserId).map(traveler => (
+                    <button
+                      key={traveler.id}
+                      onClick={() => loadTravelerConvo(traveler)}
+                      style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', border: '0.5px solid #e4e4d8', background: '#fff', cursor: 'pointer', borderRadius: '10px', textAlign: 'left', fontFamily: 'var(--font-cormorant), Georgia, serif', transition: 'border-color 0.2s' }}>
+                      <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#182D09', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', color: '#fff', flexShrink: 0 }}>
+                        {traveler.nickname?.charAt(0).toUpperCase() || traveler.full_name?.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <p style={{ fontSize: '13px', color: '#1a1a1a', margin: '0 0 2px' }}>{traveler.nickname || traveler.full_name?.split(' ')[0]}</p>
+                        <p style={{ fontSize: '10px', color: '#9a9a8a', margin: 0 }}>View conversation →</p>
+                      </div>
+                    </button>
+                  ))}
+                  {travelers.filter(t => t.user_id !== currentUserId).length === 0 && (
+                    <p style={{ fontSize: '12px', color: '#b4b4a8', textAlign: 'center', padding: '20px 0', fontStyle: 'italic' }}>No other members yet</p>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+                <div style={{ padding: '14px 16px', borderBottom: '0.5px solid #e4e4d8', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <button
+                    onClick={() => { setShowConvosPanel(false); setViewingTraveler(null); setViewingMessages([]) }}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9a9a8a', fontSize: '16px', padding: 0, lineHeight: 1 }}>
+                    ←
+                  </button>
+                  <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#182D09', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', color: '#fff', flexShrink: 0 }}>
+                    {viewingTraveler?.nickname?.charAt(0).toUpperCase() || viewingTraveler?.full_name?.charAt(0).toUpperCase()}
+                  </div>
+                  <p style={{ fontSize: '13px', color: '#1a1a1a', margin: 0, fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+                    {viewingTraveler?.nickname || viewingTraveler?.full_name?.split(' ')[0]}
+                  </p>
+                  <p style={{ fontSize: '10px', color: '#9a9a8a', margin: 0, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Read only</p>
+                </div>
+                <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {loadingConvo && (
+                    <p style={{ fontSize: '12px', color: '#9a9a8a', textAlign: 'center', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>Loading...</p>
+                  )}
+                  {!loadingConvo && viewingMessages.length === 0 && (
+                    <p style={{ fontSize: '12px', color: '#b4b4a8', textAlign: 'center', fontStyle: 'italic', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>No messages yet</p>
+                  )}
+                  {viewingMessages.map((msg, i) => (
+                    <div key={i} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start', gap: '6px', alignItems: 'flex-start' }}>
+                      {msg.role === 'assistant' && (
+                        <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: '#182D09', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: '2px' }}>
+                          <span style={{ fontSize: '8px', color: '#fff' }}>A</span>
+                        </div>
+                      )}
+                      <div style={{ maxWidth: '85%', padding: '8px 12px', borderRadius: msg.role === 'user' ? '12px 0 12px 12px' : '0 12px 12px 12px', background: msg.role === 'user' ? '#182D09' : '#fff', border: msg.role === 'assistant' ? '0.5px solid #e4e4d8' : 'none' }}>
+                        <p style={{ fontSize: '11px', color: msg.role === 'user' ? '#fff' : '#1a1a1a', margin: 0, lineHeight: 1.5, fontFamily: 'var(--font-cormorant), Georgia, serif' }}>{msg.content}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0 }}>
       {/* Thread */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: addedCards.length ? '160px' : '24px' }}>
@@ -391,9 +466,9 @@ export default function PlanConversation() {
                                     </div>
                                   )}
 
-                                  {(option.details?.pros?.length > 0 || option.details?.cons?.length > 0) && (
+                                  {((option.details?.pros?.length ?? 0) > 0 || (option.details?.cons?.length ?? 0) > 0) && (
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                                      {option.details?.pros?.length > 0 && (
+                                      {(option.details?.pros?.length ?? 0) > 0 && (
                                         <div>
                                           <p style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#2d6a4f', margin: '0 0 8px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>Pros</p>
                                           {option.details.pros.map((pro, i) => (
@@ -404,7 +479,7 @@ export default function PlanConversation() {
                                           ))}
                                         </div>
                                       )}
-                                      {option.details?.cons?.length > 0 && (
+                                      {(option.details?.cons?.length ?? 0) > 0 && (
                                         <div>
                                           <p style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#854f0b', margin: '0 0 8px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>Watch out</p>
                                           {option.details.cons.map((con, i) => (
@@ -418,7 +493,7 @@ export default function PlanConversation() {
                                     </div>
                                   )}
 
-                                  {option.details?.things_to_do?.length > 0 && (
+                                  {(option.details?.things_to_do?.length ?? 0) > 0 && (
                                     <div>
                                       <p style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#9a9a8a', margin: '0 0 8px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>Top things to do</p>
                                       {option.details.things_to_do.map((item, i) => (
@@ -451,7 +526,7 @@ export default function PlanConversation() {
                                     </div>
                                   )}
 
-                                  {option.details?.tiktok_searches?.length > 0 && (
+                                  {(option.details?.tiktok_searches?.length ?? 0) > 0 && (
                                     <div>
                                       <p style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#9a9a8a', margin: '0 0 8px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>See it for yourself</p>
                                       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -696,73 +771,29 @@ export default function PlanConversation() {
         </div>
       </div>
         </div>
-
-        {showMemberConvos && (
-          <div style={{ width: '260px', borderLeft: '0.5px solid #e4e4d8', background: '#fafaf8', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
-            {!showConvosPanel ? (
-              <div style={{ padding: '20px 16px' }}>
-                <p style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#9a9a8a', margin: '0 0 14px' }}>Group conversations</p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {travelers.filter(t => t.user_id !== currentUserId).map(traveler => (
-                    <button
-                      key={traveler.id}
-                      onClick={() => loadTravelerConvo(traveler)}
-                      style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', border: '0.5px solid #e4e4d8', background: '#fff', cursor: 'pointer', borderRadius: '10px', textAlign: 'left', fontFamily: 'var(--font-cormorant), Georgia, serif', transition: 'border-color 0.2s' }}>
-                      <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#182D09', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', color: '#fff', flexShrink: 0 }}>
-                        {traveler.nickname?.charAt(0).toUpperCase() || traveler.full_name?.charAt(0).toUpperCase()}
-                      </div>
-                      <div>
-                        <p style={{ fontSize: '13px', color: '#1a1a1a', margin: '0 0 2px' }}>{traveler.nickname || traveler.full_name?.split(' ')[0]}</p>
-                        <p style={{ fontSize: '10px', color: '#9a9a8a', margin: 0 }}>View conversation →</p>
-                      </div>
-                    </button>
-                  ))}
-                  {travelers.filter(t => t.user_id !== currentUserId).length === 0 && (
-                    <p style={{ fontSize: '12px', color: '#b4b4a8', textAlign: 'center', padding: '20px 0', fontStyle: 'italic' }}>No other members yet</p>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
-                <div style={{ padding: '14px 16px', borderBottom: '0.5px solid #e4e4d8', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <button
-                    onClick={() => { setShowConvosPanel(false); setViewingTraveler(null); setViewingMessages([]) }}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9a9a8a', fontSize: '16px', padding: 0, lineHeight: 1 }}>
-                    ←
-                  </button>
-                  <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#182D09', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', color: '#fff', flexShrink: 0 }}>
-                    {viewingTraveler?.nickname?.charAt(0).toUpperCase() || viewingTraveler?.full_name?.charAt(0).toUpperCase()}
-                  </div>
-                  <p style={{ fontSize: '13px', color: '#1a1a1a', margin: 0, fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
-                    {viewingTraveler?.nickname || viewingTraveler?.full_name?.split(' ')[0]}
-                  </p>
-                  <p style={{ fontSize: '10px', color: '#9a9a8a', margin: 0, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Read only</p>
-                </div>
-                <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  {loadingConvo && (
-                    <p style={{ fontSize: '12px', color: '#9a9a8a', textAlign: 'center', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>Loading...</p>
-                  )}
-                  {!loadingConvo && viewingMessages.length === 0 && (
-                    <p style={{ fontSize: '12px', color: '#b4b4a8', textAlign: 'center', fontStyle: 'italic', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>No messages yet</p>
-                  )}
-                  {viewingMessages.map((msg, i) => (
-                    <div key={i} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start', gap: '6px', alignItems: 'flex-start' }}>
-                      {msg.role === 'assistant' && (
-                        <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: '#182D09', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: '2px' }}>
-                          <span style={{ fontSize: '8px', color: '#fff' }}>A</span>
-                        </div>
-                      )}
-                      <div style={{ maxWidth: '85%', padding: '8px 12px', borderRadius: msg.role === 'user' ? '12px 0 12px 12px' : '0 12px 12px 12px', background: msg.role === 'user' ? '#182D09' : '#fff', border: msg.role === 'assistant' ? '0.5px solid #e4e4d8' : 'none' }}>
-                        <p style={{ fontSize: '11px', color: msg.role === 'user' ? '#fff' : '#1a1a1a', margin: 0, lineHeight: 1.5, fontFamily: 'var(--font-cormorant), Georgia, serif' }}>{msg.content}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
       </div>
-    </main>
+      {showVoteConfirm && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: '24px' }}>
+          <div style={{ background: '#fafaf8', borderRadius: '16px', padding: '32px', width: '100%', maxWidth: '380px', textAlign: 'center', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+            <div style={{ fontSize: '32px', marginBottom: '16px' }}>✓</div>
+            <h3 style={{ fontSize: '22px', fontWeight: 300, color: '#1a1a1a', margin: '0 0 8px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>Sent to the group</h3>
+            <p style={{ fontSize: '13px', color: '#9a9a8a', margin: '0 0 24px', lineHeight: 1.7 }}>Your options are ready for the group to vote on. You can set the voting timeline from the trip dashboard.</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <button
+                onClick={() => { setShowVoteConfirm(false); router.push(`/trips/${tripId}/decisions`) }}
+                style={{ width: '100%', border: '1px solid #1a3a2a', background: '#1a3a2a', color: '#fff', padding: '14px', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '8px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+                Go to Decisions →
+              </button>
+              <button
+                onClick={() => setShowVoteConfirm(false)}
+                style={{ width: '100%', border: '0.5px solid #d4d4c8', background: 'transparent', color: '#9a9a8a', padding: '14px', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '8px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+                Stay here
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      <Footer />
+    </div>
   )
 }
