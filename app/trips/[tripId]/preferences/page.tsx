@@ -2,262 +2,459 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import StepLayout from '../step-layout'
+import AvantiLogo from '../../../components/AvantiLogo'
+import SuitcaseLoader from '../../../components/SuitcaseLoader'
 
-const VIBE_TAGS = [
-  'Beach', 'Hiking', 'Nightlife', 'Fine dining', 'Street food', 'Culture & museums',
-  'Boat days', 'Slow mornings', 'Late nights', 'Local markets', 'Off the beaten path',
-  'Wellness & spa', 'Shopping', 'Architecture', 'Photography', 'Adventure sports',
-  'Wine & drinks', 'Live music', 'Relaxed pace', 'Packed schedule'
+const PRIORITY_ITEMS = [
+  { id: 'cost', label: 'Cost', description: 'How much we spend matters' },
+  { id: 'adventure', label: 'Adventure', description: 'Physical activity and thrills' },
+  { id: 'travel_time', label: 'Travel time', description: 'Getting there quickly' },
+  { id: 'nightlife', label: 'Nightlife', description: 'Evenings out and social energy' },
+  { id: 'culture', label: 'Culture & history', description: 'Art, architecture, heritage' },
+  { id: 'relaxation', label: 'Relaxation', description: 'Rest, slowness, unwinding' },
+  { id: 'food', label: 'Food & drink', description: 'Eating and drinking well' },
+  { id: 'nature', label: 'Natural beauty', description: 'Landscapes, scenery, outdoors' },
 ]
 
-const MUST_DOS_BY_DESTINATION: Record<string, string[]> = {
-  greece: ['Sunset in Oia', 'Beach club day', 'Fresh fish at a harbor taverna', 'Ferry between islands', 'Explore old town', 'Delos day trip', 'Little Venice (Mykonos)', 'Day trip to Delphi', 'Athens Acropolis'],
-  mykonos: ['Beach club day', 'Little Venice sunset', 'Delos day trip', 'Fresh fish at harbor', 'Party on Super Paradise Beach', 'Windmills at sunset'],
-  italy: ['Colosseum & Roman Forum', 'Vatican Museums', 'Aperitivo hour', 'Fresh pasta class', 'Amalfi Coast drive', 'Pompeii', 'Cinque Terre', 'Florence Uffizi', 'Venice gondola'],
-  paris: ['Eiffel Tower', 'Louvre', 'Montmartre walk', 'Seine river cruise', 'Day trip to Versailles', 'Père Lachaise', 'French pastry tour'],
-  japan: ['Tsukiji fish market', 'Shibuya crossing', 'Fushimi Inari hike', 'Bullet train', 'Tea ceremony', 'Onsen experience', 'Mount Fuji day trip'],
-  default: ['Local food tour', 'Day trip outside the city', 'Sunset viewpoint', 'Historic old town', 'Local market', 'Cooking class', 'Boat or water activity']
-}
+const ACTIVITY_CATEGORIES = [
+  {
+    label: 'On your feet',
+    items: [
+      { id: 'hiking', label: 'Hiking & trekking' },
+      { id: 'cycling', label: 'Cycling' },
+      { id: 'watersports', label: 'Watersports' },
+      { id: 'adrenaline', label: 'Adrenaline sports' },
+    ]
+  },
+  {
+    label: 'Culturally driven',
+    items: [
+      { id: 'history', label: 'History & ruins' },
+      { id: 'art', label: 'Art & architecture' },
+      { id: 'markets', label: 'Food & markets' },
+      { id: 'festivals', label: 'Local festivals & nightlife' },
+    ]
+  },
+  {
+    label: 'Slow & sensory',
+    items: [
+      { id: 'wine', label: 'Wine & spirits' },
+      { id: 'wellness', label: 'Spas & wellness' },
+      { id: 'cooking', label: 'Cooking classes' },
+      { id: 'wandering', label: 'Wandering & exploring' },
+    ]
+  },
+  {
+    label: 'Nature without exertion',
+    items: [
+      { id: 'wildlife', label: 'Wildlife & safari' },
+      { id: 'scenic', label: 'Scenic drives & boat trips' },
+      { id: 'beaches', label: 'Beaches & swimming' },
+      { id: 'photography', label: 'Photography & sightseeing' },
+    ]
+  },
+]
 
-function getMustDos(destination: string): string[] {
-  const d = destination.toLowerCase()
-  for (const key of Object.keys(MUST_DOS_BY_DESTINATION)) {
-    if (d.includes(key)) return MUST_DOS_BY_DESTINATION[key]
-  }
-  return MUST_DOS_BY_DESTINATION.default
-}
+type ActivityState = 'neutral' | 'yes' | 'skip'
+type DragItem = { id: string; label: string; description: string }
 
-export default function PreferencesPage() {
-  const params = useParams()
+export default function TripPreferences() {
+  const { tripId } = useParams() as { tripId: string }
   const router = useRouter()
-  const tripId = params.tripId as string
-  const [trip, setTrip] = useState<any>(null)
-  const [userId, setUserId] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
-  const [deadline, setDeadline] = useState('')
-  const [mustDoOptions, setMustDoOptions] = useState<string[]>([])
-  const saveTimer = useRef<any>(null)
-  const [autoSaved, setAutoSaved] = useState(false)
+  const [trip, setTrip] = useState<any>(null)
+  const [section, setSection] = useState(0)
 
-  const [form, setForm] = useState({
-    departure_city: '',
-    available_from: '',
-    available_to: '',
-    budget_accommodation_comfortable: 100,
-    budget_accommodation_ideal: 150,
-    budget_accommodation_max: 250,
-    budget_dining_comfortable: 50,
-    budget_dining_ideal: 75,
-    budget_dining_max: 150,
-    budget_experience_comfortable: 50,
-    budget_experience_ideal: 100,
-    budget_experience_max: 200,
-    budget_transport_comfortable: 30,
-    budget_transport_ideal: 50,
-    budget_transport_max: 100,
-    vibe_tags: [] as string[],
-    vibe_freetext: '',
-    must_dos: {} as Record<string, 'yes' | 'no' | 'maybe'>,
+  const [priorities, setPriorities] = useState<DragItem[]>(PRIORITY_ITEMS)
+  const [dragging, setDragging] = useState<string | null>(null)
+  const [dragOver, setDragOver] = useState<string | null>(null)
+  const dragItem = useRef<number | null>(null)
+  const dragOverItem = useRef<number | null>(null)
+
+  const [dayStructure, setDayStructure] = useState<string>('')
+  const [groupTime, setGroupTime] = useState<number>(2)
+  const [activities, setActivities] = useState<Record<string, ActivityState>>(() => {
+    const init: Record<string, ActivityState> = {}
+    ACTIVITY_CATEGORIES.forEach(cat => cat.items.forEach(item => { init[item.id] = 'neutral' }))
+    return init
   })
+
+  const [nightlifeClarifier, setNightlifeClarifier] = useState('')
+  const [adventureClarifier, setAdventureClarifier] = useState('')
+  const [anchorRequest, setAnchorRequest] = useState('')
+  const [flags, setFlags] = useState({
+    accessibility: '',
+    dietary: '',
+    safety: '',
+    medical: '',
+    other: '',
+  })
+
+  const s = { fontFamily: 'var(--font-cormorant), Georgia, serif' }
+  const inputStyle = { width: '100%', borderBottom: '1px solid #d4d4c8', background: 'transparent', padding: '8px 0', fontSize: '15px', color: '#1a1a1a', outline: 'none', ...s }
+  const labelStyle = { fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase' as const, color: '#9a9a8a', display: 'block', marginBottom: '6px' }
+
+  const nightlifeSelected = activities['festivals'] === 'yes'
+  const adventureSelected = activities['hiking'] === 'yes' || activities['adrenaline'] === 'yes' || activities['watersports'] === 'yes'
 
   useEffect(() => {
     const load = async () => {
       const { data: { user } } = await supabase.auth.getUser()
-      if (user) setUserId(user.id)
+      if (!user) { router.push('/'); return }
       const { data: tripData } = await supabase.from('trips').select('*').eq('id', tripId).single()
-      if (tripData) {
-        setTrip(tripData)
-        setMustDoOptions(getMustDos(tripData.destination || ''))
-        if (tripData.preferences_deadline) setDeadline(tripData.preferences_deadline.split('T')[0])
+      if (tripData) setTrip(tripData)
+
+      const { data: profile } = await supabase.from('user_profiles').select('email').eq('user_id', user.id).single()
+      const { data: traveler } = await supabase.from('travelers').select('*').eq('trip_id', tripId).eq('email', profile?.email || '').single()
+      if (traveler?.preferences) {
+        const p = traveler.preferences
+        if (p.priorities) setPriorities(p.priorities)
+        if (p.day_structure) setDayStructure(p.day_structure)
+        if (p.group_time !== undefined) setGroupTime(p.group_time)
+        if (p.activities) setActivities(p.activities)
+        if (p.nightlife_clarifier) setNightlifeClarifier(p.nightlife_clarifier)
+        if (p.adventure_clarifier) setAdventureClarifier(p.adventure_clarifier)
+        if (p.anchor_request) setAnchorRequest(p.anchor_request)
+        if (p.flags) setFlags(p.flags)
       }
-      if (user) {
-        const { data: existing } = await supabase.from('trip_preferences').select('*').eq('trip_id', tripId).eq('user_id', user.id).maybeSingle()
-        if (existing) setForm((f: any) => ({ ...f, ...existing }))
-        const { data: profile } = await supabase.from('user_profiles').select('*').eq('user_id', user.id).maybeSingle()
-        if (profile && !existing) setForm((f: any) => ({ ...f }))
-      }
+      setLoading(false)
     }
     load()
-  }, [tripId])
+  }, [tripId, router])
 
-  const autoSave = (updatedForm: typeof form, updatedDeadline?: string) => {
-    if (!userId) return
-    clearTimeout(saveTimer.current)
-    saveTimer.current = setTimeout(async () => {
-      await supabase.from('trip_preferences').upsert({
-        trip_id: tripId,
-        user_id: userId,
-        ...updatedForm,
-      })
-      const dl = updatedDeadline ?? deadline
-      if (dl) {
-        await supabase.from('trips').update({ preferences_deadline: new Date(dl).toISOString() }).eq('id', tripId)
-      }
-      setAutoSaved(true)
-      setTimeout(() => setAutoSaved(false), 2000)
-    }, 1500)
+  const handleDragStart = (index: number) => {
+    dragItem.current = index
+    setDragging(priorities[index].id)
+  }
+  const handleDragEnter = (index: number) => {
+    dragOverItem.current = index
+    setDragOver(priorities[index].id)
+  }
+  const handleDragEnd = () => {
+    if (dragItem.current === null || dragOverItem.current === null) return
+    const newList = [...priorities]
+    const dragged = newList.splice(dragItem.current, 1)[0]
+    newList.splice(dragOverItem.current, 0, dragged)
+    setPriorities(newList)
+    dragItem.current = null
+    dragOverItem.current = null
+    setDragging(null)
+    setDragOver(null)
   }
 
-  const toggleVibeTag = (tag: string) => {
-    const updated = { ...form, vibe_tags: form.vibe_tags.includes(tag) ? form.vibe_tags.filter(t => t !== tag) : [...form.vibe_tags, tag] }
-    setForm(updated)
-    autoSave(updated)
-  }
-
-  const setMustDo = (item: string, val: 'yes' | 'no' | 'maybe') => {
-    const updated = { ...form, must_dos: { ...form.must_dos, [item]: val } }
-    setForm(updated)
-    autoSave(updated)
-  }
-
-  const handleSave = async (submit = false) => {
-    setSaving(true)
-    await supabase.from('trip_preferences').upsert({
-      trip_id: tripId, user_id: userId, ...form,
-      submitted_at: submit ? new Date().toISOString() : null,
+  const cycleActivity = (id: string) => {
+    setActivities(prev => {
+      const current = prev[id]
+      const next: ActivityState = current === 'neutral' ? 'yes' : current === 'yes' ? 'skip' : 'neutral'
+      return { ...prev, [id]: next }
     })
-    if (deadline) {
-      await supabase.from('trips').update({ preferences_deadline: new Date(deadline).toISOString() }).eq('id', tripId)
+  }
+
+  const getActivityStyle = (state: ActivityState) => {
+    if (state === 'yes') return { background: '#e8f5ee', border: '1px solid #2d6a4f', color: '#1a3a2a' }
+    if (state === 'skip') return { background: '#fef0f0', border: '1px solid #ffb4b4', color: '#9a3a3a' }
+    return { background: '#fff', border: '0.5px solid #e4e4d8', color: '#6a6a6a' }
+  }
+
+  const getActivityIcon = (state: ActivityState) => {
+    if (state === 'yes') return '✓'
+    if (state === 'skip') return '✕'
+    return ''
+  }
+
+  const groupTimeLabels = [
+    'Together for everything',
+    'Shared anchors, free time between',
+    'Base camp — share mornings & evenings',
+    'Total independence',
+  ]
+
+  const save = async () => {
+    setSaving(true)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const { data: profile } = await supabase.from('user_profiles').select('email').eq('user_id', user.id).single()
+      const preferences = {
+        priorities,
+        day_structure: dayStructure,
+        group_time: groupTime,
+        activities,
+        nightlife_clarifier: nightlifeSelected ? nightlifeClarifier : '',
+        adventure_clarifier: adventureSelected ? adventureClarifier : '',
+        anchor_request: anchorRequest,
+        flags,
+        completed_at: new Date().toISOString(),
+      }
+      await supabase.from('travelers')
+        .update({ preferences, profile_complete: true })
+        .eq('trip_id', tripId)
+        .eq('email', profile?.email || '')
+      setSaved(true)
+      setTimeout(() => router.push(`/trips/${tripId}`), 1200)
+    } catch (e: unknown) {
+      alert('Failed to save: ' + (e instanceof Error ? e.message : 'Unknown error'))
     }
     setSaving(false)
-    if (submit) { setSaved(true); setTimeout(() => router.push(`/trips/${tripId}`), 1500) }
   }
 
-  const s = { fontFamily: 'var(--font-cormorant), Georgia, serif' }
-  const inputStyle = { width: '100%', borderBottom: '1px solid #d4d4c8', background: 'transparent', padding: '8px 0', fontSize: '14px', color: '#1a1a1a', outline: 'none', ...s }
-  const labelStyle = { fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase' as const, color: '#9a9a8a', display: 'block', marginBottom: '6px' }
-  const sectionStyle = { fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase' as const, color: '#9a9a8a', borderBottom: '1px solid #e8e8e0', paddingBottom: '8px', marginBottom: '16px', marginTop: '8px' }
+  if (loading) return <SuitcaseLoader message="Loading your preferences" />
 
-  if (!trip) return null
-
-  if (saved) return (
-    <StepLayout tripId={tripId} stepNumber={2} stepTitle="Preference input">
-      <div style={{ textAlign: 'center', padding: '32px 0' }}>
-        <p style={{ fontSize: '32px', marginBottom: '16px' }}>✓</p>
-        <p style={{ fontSize: '18px', fontWeight: 300, color: '#2d5a18', ...s }}>Preferences submitted</p>
-        <p style={{ fontSize: '13px', color: '#9a9a8a', marginTop: '8px' }}>Returning to trip dashboard...</p>
-      </div>
-    </StepLayout>
-  )
+  const sections = [
+    'Priorities',
+    'Your days',
+    'Group time',
+    'Activities',
+    'Final touches',
+  ]
 
   return (
-    <StepLayout tripId={tripId} stepNumber={2} stepTitle="Preference input" stepDescription="Tell Avanti what you want from this trip. The more you share, the better the plan." autoSaved={autoSaved}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
-        {autoSaved && (
-          <p style={{ fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#2d5a18', textAlign: 'right', marginBottom: '8px' }}>✓ Saved</p>
-        )}
-
-        <div>
-          <p style={sectionStyle}>Your dates & departure</p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-            <div>
-              <label style={labelStyle}>Departure city *</label>
-              <input style={inputStyle} value={form.departure_city} onChange={e => { const updated = {...form, departure_city: e.target.value}; setForm(updated); autoSave(updated) }} placeholder="Chicago, IL" />
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-              <div>
-                <label style={labelStyle}>Available from *</label>
-                <input type="date" style={inputStyle} value={form.available_from} onChange={e => { const updated = {...form, available_from: e.target.value}; setForm(updated); autoSave(updated) }} />
-              </div>
-              <div>
-                <label style={labelStyle}>Available to *</label>
-                <input type="date" style={inputStyle} value={form.available_to} onChange={e => { const updated = {...form, available_to: e.target.value}; setForm(updated); autoSave(updated) }} />
-              </div>
-            </div>
-          </div>
+    <main style={{ minHeight: '100vh', background: '#fafaf8', ...s }}>
+      <div style={{ maxWidth: '560px', margin: '0 auto', padding: '48px 24px 100px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '32px' }}>
+          <AvantiLogo size="sm" />
+          <button onClick={() => router.push(`/trips/${tripId}`)} style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#9a9a8a', background: 'none', border: 'none', cursor: 'pointer', ...s }}>← Back</button>
         </div>
 
-        <div>
-          <p style={sectionStyle}>Budget by category <span style={{ fontSize: '9px', color: '#b4b4a8', textTransform: 'none', letterSpacing: 0 }}>per person · per day</span></p>
-          <p style={{ fontSize: '12px', color: '#9a9a8a', marginBottom: '16px', lineHeight: 1.7 }}>Set three levels for each category. Avanti uses these to find options that fit and flag trade-offs.</p>
+        <p style={{ fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', color: '#9a9a8a', margin: '0 0 6px' }}>Step 2</p>
+        <h1 style={{ fontSize: '36px', fontWeight: 300, color: '#1a1a1a', margin: '0 0 6px' }}>{trip?.name}</h1>
+        <p style={{ fontSize: '14px', color: '#9a9a8a', margin: '0 0 32px', lineHeight: 1.6 }}>Tell us what matters to you. This shapes the whole trip.</p>
 
-          {[
-            { key: 'accommodation', label: 'Accommodation', unit: 'per night' },
-            { key: 'dining', label: 'Dining', unit: 'per day' },
-            { key: 'experience', label: 'Experiences', unit: 'per activity' },
-            { key: 'transport', label: 'Local transport', unit: 'per day' },
-          ].map(cat => (
-            <div key={cat.key} style={{ marginBottom: '20px' }}>
-              <label style={{ ...labelStyle, marginBottom: '10px' }}>{cat.label} <span style={{ textTransform: 'none', letterSpacing: 0, fontSize: '10px', color: '#b4b4a8' }}>({cat.unit})</span></label>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
-                {[
-                  { tier: 'comfortable', label: 'Comfortable', color: '#2d5a18' },
-                  { tier: 'ideal', label: 'Ideal', color: '#1a4a3a' },
-                  { tier: 'max', label: 'Max ever', color: '#0a2a1e' },
-                ].map(tier => (
-                  <div key={tier.tier}>
-                    <label style={{ fontSize: '9px', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#b4b4a8', display: 'block', marginBottom: '4px' }}>{tier.label}</label>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <span style={{ fontSize: '12px', color: '#9a9a8a' }}>$</span>
-                      <input type="number" min="0" max="10000" step="10"
-                        value={(form as any)[`budget_${cat.key}_${tier.tier}`]}
-                        onChange={e => { const updated = {...form, [`budget_${cat.key}_${tier.tier}`]: parseInt(e.target.value) || 0}; setForm(updated); autoSave(updated) }}
-                        style={{ ...inputStyle, width: '100%', fontSize: '15px', fontWeight: 400 }} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+        <div style={{ display: 'flex', gap: '6px', marginBottom: '40px' }}>
+          {sections.map((sec, i) => (
+            <button key={i} onClick={() => setSection(i)} style={{ flex: 1, height: '3px', background: i <= section ? '#1a3a2a' : '#e4e4d8', border: 'none', cursor: 'pointer', borderRadius: '2px', transition: 'background 0.2s' }} />
           ))}
         </div>
 
-        <div>
-          <p style={sectionStyle}>Vibe</p>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '16px' }}>
-            {VIBE_TAGS.map(tag => (
-              <button key={tag} onClick={() => toggleVibeTag(tag)}
-                style={{ padding: '6px 14px', fontSize: '12px', border: `1px solid ${form.vibe_tags.includes(tag) ? '#2d5a18' : '#d4d4c8'}`, background: form.vibe_tags.includes(tag) ? '#e8f0e4' : 'transparent', color: form.vibe_tags.includes(tag) ? '#2d5a18' : '#6a6a6a', cursor: 'pointer', borderRadius: '20px', transition: 'all 0.2s', ...s }}>
-                {tag}
+        <p style={{ fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', color: '#9a9a8a', margin: '0 0 6px' }}>{section + 1} of {sections.length}</p>
+        <h2 style={{ fontSize: '28px', fontWeight: 300, color: '#1a1a1a', margin: '0 0 28px' }}>{sections[section]}</h2>
+
+        {section === 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <p style={{ fontSize: '13px', color: '#9a9a8a', margin: '0 0 8px', lineHeight: 1.6 }}>Drag to rank what matters most for this trip. #1 is your top priority.</p>
+            {priorities.map((item, index) => (
+              <div
+                key={item.id}
+                draggable
+                onDragStart={() => handleDragStart(index)}
+                onDragEnter={() => handleDragEnter(index)}
+                onDragEnd={handleDragEnd}
+                onDragOver={e => e.preventDefault()}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '14px',
+                  padding: '16px 18px',
+                  background: dragging === item.id ? '#f0f5f0' : dragOver === item.id ? '#e8f5ee' : '#fff',
+                  border: `0.5px solid ${dragOver === item.id ? '#2d6a4f' : '#e4e4d8'}`,
+                  borderRadius: '12px', cursor: 'grab',
+                  opacity: dragging === item.id ? 0.5 : 1,
+                  transition: 'all 0.1s',
+                  userSelect: 'none',
+                }}
+              >
+                <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: index < 3 ? '#1a3a2a' : '#f5f5f0', display: 'flex', alignItems: 'center', justifyContent: 'center', color: index < 3 ? '#fff' : '#9a9a8a', fontSize: '13px', fontWeight: 500, flexShrink: 0 }}>
+                  {index + 1}
+                </div>
+                <div style={{ flex: 1 }}>
+                  <p style={{ fontSize: '14px', color: '#1a1a1a', margin: '0 0 2px', fontWeight: 400, ...s }}>{item.label}</p>
+                  <p style={{ fontSize: '11px', color: '#9a9a8a', margin: 0 }}>{item.description}</p>
+                </div>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d4d4c8" strokeWidth="2" style={{ flexShrink: 0 }}>
+                  <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/>
+                  <line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+                </svg>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {section === 1 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <p style={{ fontSize: '13px', color: '#9a9a8a', margin: '0 0 8px', lineHeight: 1.6 }}>How do you want your days to feel on this trip?</p>
+            {[
+              { value: 'packed', label: 'Packed', desc: 'Something planned every day — I want to make the most of every hour' },
+              { value: 'balanced', label: 'Balanced', desc: 'Mix of activity and downtime, roughly half and half' },
+              { value: 'relaxed', label: 'Relaxed', desc: 'Happy doing one thing and then nothing — I\'m here to recharge' },
+              { value: 'flexible', label: 'Flexible', desc: 'I\'ll decide when I\'m there — don\'t over-plan for me' },
+            ].map(opt => (
+              <button key={opt.value} onClick={() => setDayStructure(opt.value)} style={{ display: 'flex', alignItems: 'flex-start', gap: '14px', padding: '18px 20px', background: dayStructure === opt.value ? '#e8f5ee' : '#fff', border: `1px solid ${dayStructure === opt.value ? '#2d6a4f' : '#e4e4d8'}`, borderRadius: '12px', cursor: 'pointer', textAlign: 'left', ...s }}>
+                <div style={{ width: '20px', height: '20px', borderRadius: '50%', border: `2px solid ${dayStructure === opt.value ? '#2d6a4f' : '#d4d4c8'}`, background: dayStructure === opt.value ? '#2d6a4f' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: '2px' }}>
+                  {dayStructure === opt.value && <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#fff' }} />}
+                </div>
+                <div>
+                  <p style={{ fontSize: '15px', color: '#1a1a1a', margin: '0 0 4px', fontWeight: 400, ...s }}>{opt.label}</p>
+                  <p style={{ fontSize: '12px', color: '#9a9a8a', margin: 0, lineHeight: 1.5 }}>{opt.desc}</p>
+                </div>
               </button>
             ))}
           </div>
-          <label style={labelStyle}>Describe your ideal day on this trip</label>
-          <p style={{ fontSize: '11px', color: '#b4b4a8', marginBottom: '8px', fontStyle: 'italic' }}>The more specific the better — Avanti reads every word.</p>
-          <textarea value={form.vibe_freetext} onChange={e => { const updated = {...form, vibe_freetext: e.target.value}; setForm(updated); autoSave(updated) }}
-            placeholder="Early morning hike, then beach by noon, fresh fish for lunch, afternoon nap, aperitivo in a piazza, late dinner somewhere local, maybe dancing after..."
-            rows={5}
-            style={{ width: '100%', border: '1px solid #d4d4c8', background: 'transparent', padding: '12px', fontSize: '14px', color: '#1a1a1a', outline: 'none', resize: 'vertical', lineHeight: 1.7, ...s }} />
-        </div>
+        )}
 
-        <div>
-          <p style={sectionStyle}>Must-dos</p>
-          <p style={{ fontSize: '12px', color: '#9a9a8a', marginBottom: '16px', lineHeight: 1.7 }}>Based on where you're going. Tap yes, maybe, or no for each.</p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {mustDoOptions.map(item => (
-              <div key={item} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', border: '0.5px solid #e4e4d8', background: '#fff', borderRadius: '8px' }}>
-                <p style={{ fontSize: '13px', color: '#1a1a1a', margin: 0 }}>{item}</p>
-                <div style={{ display: 'flex', gap: '6px' }}>
-                  {(['yes', 'maybe', 'no'] as const).map(val => (
-                    <button key={val} onClick={() => setMustDo(item, val)}
-                      style={{ padding: '4px 10px', fontSize: '11px', border: `1px solid ${form.must_dos[item] === val ? (val === 'yes' ? '#2d5a18' : val === 'maybe' ? '#ba7517' : '#a32d2d') : '#d4d4c8'}`, background: form.must_dos[item] === val ? (val === 'yes' ? '#e8f0e4' : val === 'maybe' ? '#faeeda' : '#fcebeb') : 'transparent', color: form.must_dos[item] === val ? (val === 'yes' ? '#2d5a18' : val === 'maybe' ? '#854f0b' : '#a32d2d') : '#9a9a8a', cursor: 'pointer', borderRadius: '4px', ...s }}>
-                      {val}
+        {section === 2 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            <p style={{ fontSize: '13px', color: '#9a9a8a', margin: '0 0 8px', lineHeight: 1.6 }}>How do you picture the group dynamic on this trip?</p>
+            <div style={{ padding: '8px 0' }}>
+              <input
+                type="range" min={0} max={3} step={1} value={groupTime}
+                onChange={e => setGroupTime(parseInt(e.target.value))}
+                style={{ width: '100%', accentColor: '#1a3a2a', cursor: 'pointer' }}
+              />
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px' }}>
+                <span style={{ fontSize: '10px', color: '#9a9a8a' }}>Together</span>
+                <span style={{ fontSize: '10px', color: '#9a9a8a' }}>Independent</span>
+              </div>
+            </div>
+            <div style={{ background: '#e8f5ee', border: '0.5px solid #a8d4b8', borderRadius: '12px', padding: '20px' }}>
+              <p style={{ fontSize: '16px', color: '#1a3a2a', margin: '0 0 6px', ...s }}>{groupTimeLabels[groupTime]}</p>
+              <p style={{ fontSize: '12px', color: '#2d6a4f', margin: 0, lineHeight: 1.6 }}>
+                {groupTime === 0 && 'We move as one — same activities, same meals, always together.'}
+                {groupTime === 1 && 'We share the anchors — meals, key experiences — and split off in between.'}
+                {groupTime === 2 && 'We share a home base and meet for mornings and evenings. Days are your own.'}
+                {groupTime === 3 && 'We\'re traveling together in name — I\'ll find my own rhythm and check in when it feels right.'}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {section === 3 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
+            <p style={{ fontSize: '13px', color: '#9a9a8a', margin: '0 0 4px', lineHeight: 1.6 }}>
+              Tap once to mark something you want. Tap again to say you&apos;d rather skip it. Leave it blank if you&apos;re indifferent.
+            </p>
+            <div style={{ display: 'flex', gap: '12px', fontSize: '11px', color: '#9a9a8a', margin: '0 0 8px' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><span style={{ width: '16px', height: '16px', borderRadius: '4px', background: '#e8f5ee', border: '1px solid #2d6a4f', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', color: '#1a3a2a' }}>✓</span> Want it</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><span style={{ width: '16px', height: '16px', borderRadius: '4px', background: '#fef0f0', border: '1px solid #ffb4b4', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', color: '#9a3a3a' }}>✕</span> Skip it</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><span style={{ width: '16px', height: '16px', borderRadius: '4px', background: '#fff', border: '0.5px solid #e4e4d8', display: 'inline-flex' }}></span> Either way</span>
+            </div>
+            {ACTIVITY_CATEGORIES.map(cat => (
+              <div key={cat.label}>
+                <p style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#9a9a8a', margin: '0 0 10px' }}>{cat.label}</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {cat.items.map(item => {
+                    const state = activities[item.id]
+                    const style = getActivityStyle(state)
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => cycleActivity(item.id)}
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 16px', borderRadius: '10px', cursor: 'pointer', transition: 'all 0.15s', ...style, ...s }}
+                      >
+                        <span style={{ fontSize: '13px' }}>{item.label}</span>
+                        <div style={{ width: '22px', height: '22px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 600, background: state === 'yes' ? '#2d6a4f' : state === 'skip' ? '#ffb4b4' : '#f5f5f0', color: state === 'yes' ? '#fff' : state === 'skip' ? '#9a3a3a' : '#d4d4c8', flexShrink: 0 }}>
+                          {getActivityIcon(state)}
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            ))}
+            {nightlifeSelected && (
+              <div style={{ background: '#f5f5f0', borderRadius: '12px', padding: '20px' }}>
+                <p style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#9a9a8a', margin: '0 0 12px' }}>What does a great night out look like?</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {[
+                    { value: 'going_hard', label: 'Going hard', desc: 'Clubs, bar crawls, late nights — the night is the point' },
+                    { value: 'drinks_vibes', label: 'Drinks and good vibes', desc: 'Sunset cocktails, rooftop bars, dinner with wine' },
+                    { value: 'cultural', label: 'Cultural nights', desc: 'Night markets, live music, evening experiences' },
+                    { value: 'mix', label: 'Mix of all three', desc: 'Some nights one way, some nights another' },
+                  ].map(opt => (
+                    <button key={opt.value} onClick={() => setNightlifeClarifier(opt.value)} style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', padding: '14px 16px', background: nightlifeClarifier === opt.value ? '#e8f5ee' : '#fff', border: `1px solid ${nightlifeClarifier === opt.value ? '#2d6a4f' : '#e4e4d8'}`, borderRadius: '10px', cursor: 'pointer', textAlign: 'left', ...s }}>
+                      <div style={{ width: '18px', height: '18px', borderRadius: '50%', border: `2px solid ${nightlifeClarifier === opt.value ? '#2d6a4f' : '#d4d4c8'}`, background: nightlifeClarifier === opt.value ? '#2d6a4f' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: '2px' }}>
+                        {nightlifeClarifier === opt.value && <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#fff' }} />}
+                      </div>
+                      <div>
+                        <p style={{ fontSize: '13px', color: '#1a1a1a', margin: '0 0 2px', ...s }}>{opt.label}</p>
+                        <p style={{ fontSize: '11px', color: '#9a9a8a', margin: 0 }}>{opt.desc}</p>
+                      </div>
                     </button>
                   ))}
                 </div>
               </div>
-            ))}
+            )}
+            {adventureSelected && (
+              <div style={{ background: '#f5f5f0', borderRadius: '12px', padding: '20px' }}>
+                <p style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#9a9a8a', margin: '0 0 12px' }}>What kind of adventure?</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {[
+                    { value: 'water', label: 'Water-based', desc: 'Surfing, diving, kayaking, sailing' },
+                    { value: 'hiking', label: 'Hiking & trekking', desc: 'Trails, mountains, long walks in beautiful places' },
+                    { value: 'adrenaline', label: 'Adrenaline', desc: 'Zip-lining, cliff jumping, skydiving, motorsports' },
+                    { value: 'whatever', label: 'Whatever\'s available', desc: 'I\'m up for anything — surprise me' },
+                  ].map(opt => (
+                    <button key={opt.value} onClick={() => setAdventureClarifier(opt.value)} style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', padding: '14px 16px', background: adventureClarifier === opt.value ? '#e8f5ee' : '#fff', border: `1px solid ${adventureClarifier === opt.value ? '#2d6a4f' : '#e4e4d8'}`, borderRadius: '10px', cursor: 'pointer', textAlign: 'left', ...s }}>
+                      <div style={{ width: '18px', height: '18px', borderRadius: '50%', border: `2px solid ${adventureClarifier === opt.value ? '#2d6a4f' : '#d4d4c8'}`, background: adventureClarifier === opt.value ? '#2d6a4f' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: '2px' }}>
+                        {adventureClarifier === opt.value && <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#fff' }} />}
+                      </div>
+                      <div>
+                        <p style={{ fontSize: '13px', color: '#1a1a1a', margin: '0 0 2px', ...s }}>{opt.label}</p>
+                        <p style={{ fontSize: '11px', color: '#9a9a8a', margin: 0 }}>{opt.desc}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
-        </div>
+        )}
 
-        <div>
-          <p style={sectionStyle}>Preference deadline</p>
-          <p style={{ fontSize: '12px', color: '#9a9a8a', marginBottom: '10px', lineHeight: 1.7 }}>Set a date for when preferences close. Once the deadline passes, Avanti builds the options from whatever was submitted.</p>
-          <input type="date" style={inputStyle} value={deadline} onChange={e => { setDeadline(e.target.value); autoSave(form, e.target.value) }} />
-        </div>
+        {section === 4 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
+            <div>
+              <label style={labelStyle}>One thing you&apos;d love this trip to include</label>
+              <p style={{ fontSize: '12px', color: '#b4b4a8', margin: '0 0 10px', lineHeight: 1.5, fontStyle: 'italic' }}>Optional. Something specific — an experience, a type of place, something you&apos;ve always wanted to do.</p>
+              <textarea
+                value={anchorRequest}
+                onChange={e => setAnchorRequest(e.target.value)}
+                placeholder="e.g. A meal I'll be talking about for years. Somewhere I can learn to surf. A night under the stars."
+                maxLength={200}
+                rows={3}
+                style={{ width: '100%', border: 'none', borderBottom: '1px solid #d4d4c8', background: 'transparent', padding: '8px 0', fontSize: '14px', color: '#1a1a1a', outline: 'none', resize: 'none', lineHeight: 1.6, ...s }}
+              />
+              <p style={{ fontSize: '10px', color: '#b4b4a8', margin: '4px 0 0', textAlign: 'right' }}>{anchorRequest.length}/200</p>
+            </div>
+            <div>
+              <p style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#9a9a8a', margin: '0 0 12px' }}>Anything the group should know about you?</p>
+              <p style={{ fontSize: '12px', color: '#b4b4a8', margin: '0 0 16px', lineHeight: 1.5, fontStyle: 'italic' }}>All optional. Only shared with the AI to improve your recommendations — never shown to other travelers individually.</p>
+              {[
+                { key: 'accessibility', label: 'Accessibility or mobility needs', placeholder: 'e.g. Bad knee, can\'t do long stairs, wheelchair accessible required' },
+                { key: 'dietary', label: 'Dietary requirements', placeholder: 'e.g. Vegan, severe nut allergy, kosher, halal' },
+                { key: 'safety', label: 'Identity-based safety considerations', placeholder: 'e.g. LGBTQ+ traveler, want to avoid certain regions, safety conscious' },
+                { key: 'medical', label: 'Medical needs', placeholder: 'e.g. Need access to good hospitals, traveling with medication' },
+                { key: 'other', label: 'Anything else', placeholder: 'Anything the AI should factor in when planning for you' },
+              ].map(field => (
+                <div key={field.key} style={{ marginBottom: '20px' }}>
+                  <label style={labelStyle}>{field.label}</label>
+                  <input
+                    style={inputStyle}
+                    value={flags[field.key as keyof typeof flags]}
+                    onChange={e => setFlags(f => ({ ...f, [field.key]: e.target.value }))}
+                    placeholder={field.placeholder}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          <button onClick={() => handleSave(true)} disabled={saving || !form.departure_city || !form.available_from || !form.available_to}
-            style={{ width: '100%', border: '1px solid #2d5a18', padding: '16px', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', color: '#2d5a18', background: 'transparent', cursor: 'pointer', opacity: saving || !form.departure_city || !form.available_from || !form.available_to ? 0.4 : 1, ...s }}>
-            {saving ? 'Submitting...' : 'Submit preferences →'}
-          </button>
-          <button onClick={() => handleSave(false)} disabled={saving}
-            style={{ width: '100%', border: '1px solid #d4d4c8', padding: '14px', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', color: '#9a9a8a', background: 'transparent', cursor: 'pointer', ...s }}>
-            Save draft
-          </button>
+        <div style={{ display: 'flex', gap: '10px', marginTop: '40px' }}>
+          {section > 0 && (
+            <button onClick={() => setSection(s => s - 1)} style={{ flex: 1, border: '0.5px solid #d4d4c8', padding: '14px', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#9a9a8a', background: 'transparent', cursor: 'pointer', ...s }}>
+              ← Back
+            </button>
+          )}
+          {section < sections.length - 1 ? (
+            <button onClick={() => setSection(s => s + 1)} style={{ flex: 1, border: '1px solid #1a1a1a', padding: '14px', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#1a1a1a', background: 'transparent', cursor: 'pointer', ...s }}>
+              Next →
+            </button>
+          ) : (
+            <button onClick={save} disabled={saving} style={{ flex: 1, border: '1px solid #1a3a2a', padding: '14px', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#fafaf8', background: saved ? '#2d6a4f' : '#1a3a2a', cursor: 'pointer', opacity: saving ? 0.6 : 1, transition: 'background 0.3s', ...s }}>
+              {saving ? 'Saving...' : saved ? 'Saved ✓' : 'Save my preferences →'}
+            </button>
+          )}
         </div>
       </div>
-    </StepLayout>
+    </main>
   )
 }

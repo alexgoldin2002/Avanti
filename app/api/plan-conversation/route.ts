@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { parsePlanResponse } from '@/lib/parse-plan-response'
 
 export const maxDuration = 60
 
@@ -38,100 +39,54 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Trip not found' }, { status: 404 })
     }
 
-    const systemPrompt = `You are Avanti, a luxury travel planning companion. You are direct, concise, and never waste words.
+    const systemPrompt = `You are Avanti's group travel AI. Recommend destinations for a specific group.
 
-PERSONALITY:
-- Never say "I love this!" or "Amazing!" or "Great choice!" — just get to work
-- Speak like a smart friend who knows travel inside out
-- Always have an opinion and share it
-- Be honest even when it's not what they want to hear
+When the user asks you to generate destination cards, respond immediately using the CARDS format below. Do not ask follow-up questions if stops, budget, and accommodation are already provided.
 
-WHAT YOU NEED BEFORE GENERATING OPTIONS:
-1. Dates or timeframe (already provided if in the trip details — do NOT ask again)
-2. Departure cities (already provided if mentioned — do NOT ask again)
+When generating cards use this exact format:
 
-Once you have both, generate destination cards immediately. Never ask for budget upfront — cost shows on the cards.
+CARDS:
+---
+DESTINATION: [Name]
+TAGLINE: [One sentence why it fits this specific group]
+GETTING THERE: [Routing and hours from their departure cities]
+COST: [Total trip cost per person in USD — flights, accommodation, food, activities]
+WEATHER: [Temp in °F and conditions for their travel window]
+ACTIVITIES: [2–3 sentences specific to this group's interests]
+FLEXIBILITY: [High/Medium/Low — one sentence reason]
+FOOTNOTES: [Only if triggered: unusual laws, safety advisories, peak pricing >30%, weather risk. Omit entirely if nothing to flag.]
+---
+DESTINATION: [Name]
+[same format]
+---
+DESTINATION: [Name]
+[same format]
+---
+WILDCARD:
+DESTINATION: [Name]
+TAGLINE: [Enthusiastic — different voice from the main three]
+GETTING THERE: [Routing]
+COST: [Total trip cost per person in USD]
+WEATHER: [Temp °F and conditions]
+ACTIVITIES: [What makes it genuinely exciting for this group]
+FLEXIBILITY: [High/Medium/Low]
+TRADEOFF: [One honest sentence about what it doesn't deliver vs the main three]
+FOOTNOTES: [If triggered]
+---
 
-DESTINATION LOGIC — CRITICAL:
-- If someone mentions a specific destination (e.g. Mykonos), ALWAYS suggest other options within the same country/region FIRST before suggesting other countries
-- For Greece: always suggest Paros, Naxos, Santorini, Rhodes, Crete as second destinations before suggesting Croatia or Italy
-- Only suggest other countries if the user explicitly says they're open to other countries or asks for something different
-- When suggesting a second destination to pair with an existing one, the price on the card MUST include BOTH destinations combined — never just the second leg alone
-- Label the price clearly as "total trip per person" not just the second destination
+For refinement messages after cards are shown, respond conversationally in plain text unless the user asks for new cards — then regenerate using the CARDS format above.
 
-DATE OPTIMIZATION:
-- When dates are flexible, find the best dates for the GROUP — meaning the overlap window where most people can go
-- Then within that window, flag if certain days are significantly cheaper for flights
-- Never optimize purely for cheapest flights if it means people can't attend
+All temperatures in Fahrenheit. All costs in USD. Never Celsius. Never euros.`
 
-AVANTI'S OPINION FRAMEWORK:
-When recommending one option over another, always ground the opinion in at least two of these factors specific to the group:
-
-1. VIBE MATCH — does the destination actually match what they said they want?
-   (9 girls who want to dance on tables → Hvar YES, Malta nightlife NO)
-
-2. TRUE COST — what does it actually cost all-in, not just the hotel price?
-   (Santorini looks cheaper until you add the overpriced restaurants and taxis)
-
-3. TRAVEL LOGIC — how hard is it to get between destinations?
-   (Mykonos → Paros = 45 min ferry. Mykonos → Sardinia = flight + connection)
-
-4. SEASONAL REALITY — is this destination actually good at the time they're going?
-   (Croatia in late June is perfect. Malta in July is extremely hot)
-
-5. GROUP SIZE MATH — what changes when you have 9 people vs 2?
-   (Group ferry fares, private villa vs hotel rooms, table minimums at restaurants)
-
-6. THE INSTAGRAM FACTOR — for this group, content matters
-   (Paros old town > Naxos for photos. Hvar's Carpe Diem beach > generic beach clubs)
-
-Always cite which factor(s) drove the recommendation. Say "For 9 girls who want to dance and get content — Hvar wins over Malta because X and Y" not just "I'd recommend Hvar."
-
-CARD FORMAT — return this exact JSON when ready:
-[One short sentence intro max]
-
-<<<CARDS>>>
-[
-  {
-    "title": "Destination name",
-    "price": 2800,
-    "priceRange": "2400–3200",
-    "priceNote": "total trip per person inc. Mykonos",
-    "tagline": "One sentence",
-    "bullets": [
-      { "text": "Key point", "type": "positive" },
-      { "text": "Warning", "type": "warning" }
-    ],
-    "details": {
-      "avanti_take": "Why Avanti recommends this specifically for this group — grounded in their vibe, budget, travel logic, season, group size",
-      "pros": ["Pro 1", "Pro 2", "Pro 3"],
-      "cons": ["Con 1", "Con 2"],
-      "things_to_do": [
-        { "activity": "Activity name", "cost": "~€30/person" },
-        { "activity": "Activity name", "cost": "Free" }
-      ],
-      "food": "What the food scene is actually like, price range per dinner, what to order",
-      "weather": "Temperature, water temp, crowd level, rain chance for their specific travel month",
-      "getting_there": "From [their origin destination]: how to get there, duration, rough cost per person",
-      "tiktok_searches": ["Search term 1", "Search term 2"]
-    },
-    "bottomLine": "One honest sentence bottom line"
-  }
-]
-<<<END_CARDS>>>
-
-Trip context: ${trip?.name}, destination: ${trip?.destination || 'TBD'}`
-
-    const conversationMessages = [
-      ...messages,
-      { role: 'user', content: userMessage }
-    ]
+    const conversationMessages = userMessage
+      ? [...(messages || []), { role: 'user', content: userMessage }]
+      : (messages || [])
 
     console.log('[plan-conversation] calling Anthropic', { model: 'claude-sonnet-4-6', messageCount: conversationMessages.length })
 
     const response = await client.messages.create({
       model: 'claude-sonnet-4-6',
-      max_tokens: 2000,
+      max_tokens: 4096,
       system: systemPrompt,
       messages: conversationMessages
     })
@@ -143,23 +98,25 @@ Trip context: ${trip?.name}, destination: ${trip?.destination || 'TBD'}`
     }
 
     const text = content.text
-    console.log('[plan-conversation] response received', { textLength: text.length, hasCards: text.includes('<<<CARDS>>>') })
+    const parsed = parsePlanResponse(text)
+    console.log('[plan-conversation] response received', {
+      textLength: text.length,
+      hasCards: Boolean(parsed.cards?.length),
+      hasOptions: Boolean(parsed.options?.length),
+      openText: parsed.openText,
+    })
 
-    const cardsMatch = text.match(/<<<CARDS>>>([\s\S]*?)<<<END_CARDS>>>/)
-
-    if (cardsMatch) {
-      try {
-        const cards = JSON.parse(cardsMatch[1].trim())
-        const cleanText = text.replace(/<<<CARDS>>>[\s\S]*?<<<END_CARDS>>>/, '').trim()
-        console.log('[plan-conversation] parsed cards', { cardCount: cards.length })
-        return NextResponse.json({ text: cleanText, cards })
-      } catch (e) {
-        console.error('[plan-conversation] card JSON parse failed', { error: e instanceof Error ? e.message : String(e) })
-        return NextResponse.json({ text, cards: null })
-      }
+    if (parsed.cards?.length) {
+      console.log('[plan-conversation] parsed cards', { cardCount: parsed.cards.length })
     }
 
-    return NextResponse.json({ text, cards: null })
+    return NextResponse.json({
+      message: text,
+      text: parsed.text,
+      cards: parsed.cards,
+      options: parsed.options,
+      openText: parsed.openText,
+    })
   } catch (error) {
     console.error('[plan-conversation] unhandled error', {
       message: error instanceof Error ? error.message : String(error),

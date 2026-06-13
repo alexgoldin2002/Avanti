@@ -1,5 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { NextRequest, NextResponse } from 'next/server'
+import { ITINERARY_SYSTEM_PROMPT } from './prompt'
+
 const client = new Anthropic()
 export async function POST(request: NextRequest) {
   const { trip, travelers } = await request.json()
@@ -7,6 +9,7 @@ export async function POST(request: NextRequest) {
   const message = await client.messages.create({
     model: 'claude-sonnet-4-6',
     max_tokens: 4000,
+    system: ITINERARY_SYSTEM_PROMPT,
     messages: [{ role: 'user', content: `You are Avanti, an expert travel planner. Create a day-by-day itinerary. TRIP: ${trip.name}. DESTINATION: ${trip.destination}. DATES: ${trip.start_date} to ${trip.end_date}. TRAVELERS: ${travelerSummary}. Return ONLY valid complete JSON, no extra text, no markdown. Use this exact structure: {"summary":"one sentence","days":[{"date":"YYYY-MM-DD","title":"short title","items":[{"time":"9:00am","name":"place","detail":"brief tip","type":"activity"}],"morning_briefing":"one sentence","evening_note":"one sentence"}]}. Maximum 4 items per day. Keep all text very short.` }]
   })
   const content = message.content[0]
