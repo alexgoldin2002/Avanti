@@ -86,20 +86,20 @@ export default function InvitePage() {
   const s = { fontFamily: 'var(--font-cormorant), Georgia, serif' }
 
   return (
-    <main style={{ minHeight: '100vh', background: '#fafaf8', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px', ...s }}>
+    <main style={{ minHeight: '100vh', background: 'var(--cream)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px', ...s }}>
       <div style={{ width: '100%', maxWidth: '480px' }}>
         <div style={{ textAlign: 'center', marginBottom: '48px' }}>
           <AvantiLogo size="sm" />
-          <p style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#9a9a8a', marginTop: '16px' }}>Your trip is ready</p>
-          <h2 style={{ fontSize: '32px', fontWeight: 300, color: '#1a1a1a', margin: '8px 0 0' }}>{trip.name}</h2>
-          <p style={{ fontSize: '13px', color: '#9a9a8a', margin: '6px 0 0' }}>{trip.destination}</p>
+          <p style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--muted-foreground)', marginTop: '16px' }}>Your trip is ready</p>
+          <h2 style={{ fontSize: '32px', fontWeight: 300, color: 'var(--foreground)', margin: '8px 0 0' }}>{trip.name}</h2>
+          <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', margin: '6px 0 0' }}>{trip.destination}</p>
         </div>
 
         {trip.join_code && (
           <div style={{ background: '#f0f0e8', padding: '20px 24px', marginBottom: '24px', textAlign: 'center' }}>
-            <p style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#9a9a8a', marginBottom: '8px' }}>Join code</p>
-            <p style={{ fontSize: '32px', fontWeight: 300, color: '#1a1a1a', margin: '0 0 6px', letterSpacing: '0.4em' }}>{trip.join_code}</p>
-            <p style={{ fontSize: '11px', color: '#9a9a8a', margin: 0 }}>Share this with your group along with the invite link</p>
+            <p style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--muted-foreground)', marginBottom: '8px' }}>Join code</p>
+            <p style={{ fontSize: '32px', fontWeight: 300, color: 'var(--foreground)', margin: '0 0 6px', letterSpacing: '0.4em' }}>{trip.join_code}</p>
+            <p style={{ fontSize: '11px', color: 'var(--muted-foreground)', margin: 0 }}>Share this with your group along with the invite link</p>
           </div>
         )}
 
@@ -109,8 +109,8 @@ export default function InvitePage() {
               style={{
                 display: 'flex', alignItems: 'center', gap: '16px',
                 padding: '16px 20px',
-                border: `1px solid ${opt.primary ? '#1a1a1a' : '#e4e4d8'}`,
-                background: opt.primary ? '#1a1a1a' : '#fff',
+                border: `1px solid ${opt.primary ? 'var(--foreground)' : 'var(--border)'}`,
+                background: opt.primary ? 'var(--foreground)' : '#fff',
                 cursor: 'pointer', textAlign: 'left', ...s,
                 transition: 'all 0.2s',
               }}>
@@ -118,19 +118,19 @@ export default function InvitePage() {
                 width: '36px', height: '36px', borderRadius: '50%',
                 background: opt.primary ? 'rgba(255,255,255,0.15)' : '#f5f5f0',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: '16px', color: opt.primary ? '#fafaf8' : '#1a1a1a',
+                fontSize: '16px', color: opt.primary ? 'var(--cream)' : 'var(--foreground)',
                 flexShrink: 0,
               }}>{opt.icon}</div>
               <div>
-                <p style={{ fontSize: '13px', fontWeight: 500, color: opt.primary ? '#fafaf8' : '#1a1a1a', margin: '0 0 2px', letterSpacing: '0.05em' }}>{opt.label}</p>
-                <p style={{ fontSize: '11px', color: opt.primary ? 'rgba(255,255,255,0.6)' : '#9a9a8a', margin: 0 }}>{opt.sublabel}</p>
+                <p style={{ fontSize: '13px', fontWeight: 500, color: opt.primary ? 'var(--cream)' : 'var(--foreground)', margin: '0 0 2px', letterSpacing: '0.05em' }}>{opt.label}</p>
+                <p style={{ fontSize: '11px', color: opt.primary ? 'rgba(255,255,255,0.6)' : 'var(--muted-foreground)', margin: 0 }}>{opt.sublabel}</p>
               </div>
             </button>
           ))}
         </div>
 
         <button onClick={() => router.push(`/trip/${tripId}/dashboard`)}
-          style={{ width: '100%', border: '1px solid #d4d4c8', padding: '14px', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', color: '#9a9a8a', background: 'transparent', cursor: 'pointer', ...s }}>
+          style={{ width: '100%', border: '1px solid var(--border)', padding: '14px', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', color: 'var(--muted-foreground)', background: 'transparent', cursor: 'pointer', ...s }}>
           Go to trip dashboard →
         </button>
       </div>

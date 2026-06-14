@@ -6,14 +6,14 @@ import Link from 'next/link'
 export default function PrivacyPolicy() {
   const s = { fontFamily: 'var(--font-cormorant), Georgia, serif' }
   return (
-    <div style={{ minHeight: '100vh', background: '#fafaf8', display: 'flex', flexDirection: 'column', ...s }}>
+    <div style={{ minHeight: '100vh', background: 'var(--cream)', display: 'flex', flexDirection: 'column', ...s }}>
       <div style={{ maxWidth: '720px', margin: '0 auto', padding: '48px 24px', flex: 1 }}>
         <div style={{ marginBottom: '40px' }}>
           <AvantiLogo size="sm" />
         </div>
-        <p style={{ fontSize: '11px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#9a9a8a', margin: '0 0 12px' }}>Legal</p>
-        <h1 style={{ fontSize: '40px', fontWeight: 300, color: '#083807', margin: '0 0 8px', ...s }}>Privacy Policy</h1>
-        <p style={{ fontSize: '13px', color: '#9a9a8a', margin: '0 0 48px' }}>Last updated: June 2026</p>
+        <p style={{ fontSize: '11px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--muted-foreground)', margin: '0 0 12px' }}>Legal</p>
+        <h1 style={{ fontSize: '40px', fontWeight: 300, color: 'var(--forest-deep)', margin: '0 0 8px', ...s }}>Privacy Policy</h1>
+        <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', margin: '0 0 48px' }}>Last updated: June 2026</p>
 
         {[
           { title: 'Who we are', content: 'Avanti is a group travel planning platform that helps friends and families plan trips together. We are based in the United States. If you have questions about this policy, contact us at privacy@avanti.app.' },
@@ -28,7 +28,7 @@ export default function PrivacyPolicy() {
           { title: 'Contact us', content: 'For privacy-related questions or requests, email privacy@avanti.app.' },
         ].map(section => (
           <div key={section.title} style={{ marginBottom: '36px' }}>
-            <h2 style={{ fontSize: '20px', fontWeight: 400, color: '#083807', margin: '0 0 10px', ...s }}>{section.title}</h2>
+            <h2 style={{ fontSize: '20px', fontWeight: 400, color: 'var(--forest-deep)', margin: '0 0 10px', ...s }}>{section.title}</h2>
             <p style={{ fontSize: '14px', color: '#3a3a3a', margin: 0, lineHeight: 1.8 }}>{section.content}</p>
           </div>
         ))}

@@ -95,9 +95,9 @@ export default function TripOptions() {
 
   const getVotesForOption = (i: number) => votes.filter(v => v.option_index === i).length
   const optionColors = [
-    { bg: '#e8f0e4', border: '#8aad7a', accent: '#1a4a0e', light: '#fafaf8', dark: '#0a2a06' },
-    { bg: '#eeedfe', border: '#afa9ec', accent: '#534ab7', light: '#fafaf8', dark: '#26215c' },
-    { bg: '#faeeda', border: '#ef9f27', accent: '#854f0b', light: '#fafaf8', dark: '#412402' },
+    { bg: 'var(--accent-light)', border: '#8aad7a', accent: '#1a4a0e', light: 'var(--cream)', dark: '#0a2a06' },
+    { bg: '#eeedfe', border: '#afa9ec', accent: '#534ab7', light: 'var(--cream)', dark: '#26215c' },
+    { bg: '#faeeda', border: '#ef9f27', accent: '#854f0b', light: 'var(--cream)', dark: '#412402' },
   ]
 
   const s = { fontFamily: 'var(--font-cormorant), Georgia, serif' }
@@ -108,20 +108,20 @@ export default function TripOptions() {
   const optionList = options.options || []
 
   return (
-    <main style={{ minHeight: '100vh', background: '#fafaf8', ...s }}>
+    <main style={{ minHeight: '100vh', background: 'var(--cream)', ...s }}>
       <div style={{ maxWidth: '720px', margin: '0 auto', padding: '48px 24px' }}>
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '40px' }}>
           <AvantiLogo size="sm" />
-          <button onClick={() => router.push(`/trips/${tripId}`)} style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#9a9a8a', background: 'none', border: 'none', cursor: 'pointer', ...s }}>← Back to trip</button>
+          <button onClick={() => router.push(`/trips/${tripId}`)} style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--muted-foreground)', background: 'none', border: 'none', cursor: 'pointer', ...s }}>← Back to trip</button>
         </div>
 
         <div style={{ marginBottom: '40px' }}>
-          <p style={{ fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', color: '#9a9a8a', margin: '0 0 8px' }}>Trip options</p>
-          <h1 style={{ fontSize: '40px', fontWeight: 300, color: '#1a1a1a', margin: '0 0 12px', letterSpacing: '-0.5px', lineHeight: 1.1 }}>{trip.name}</h1>
+          <p style={{ fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', color: 'var(--muted-foreground)', margin: '0 0 8px' }}>Trip options</p>
+          <h1 style={{ fontSize: '40px', fontWeight: 300, color: 'var(--foreground)', margin: '0 0 12px', letterSpacing: '-0.5px', lineHeight: 1.1 }}>{trip.name}</h1>
           {options.group_insights && (
-            <div style={{ background: '#e8f0e4', border: '0.5px solid #8aad7a', borderRadius: '10px', padding: '16px 20px' }}>
-              <p style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#2d5a18', margin: '0 0 6px' }}>Avanti noticed</p>
+            <div style={{ background: 'var(--accent-light)', border: '0.5px solid #8aad7a', borderRadius: '10px', padding: '16px 20px' }}>
+              <p style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--forest)', margin: '0 0 6px' }}>Avanti noticed</p>
               <p style={{ fontSize: '13px', color: '#0a2a06', margin: 0, lineHeight: 1.7 }}>{options.group_insights}</p>
             </div>
           )}
@@ -130,7 +130,7 @@ export default function TripOptions() {
         <div style={{ display: 'flex', gap: '8px', marginBottom: '32px', overflowX: 'auto', paddingBottom: '4px' }}>
           {optionList.map((opt: any, i: number) => (
             <button key={i} onClick={() => setSelectedOption(i)}
-              style={{ flexShrink: 0, padding: '10px 20px', border: `1.5px solid ${selectedOption === i ? optionColors[i].accent : '#e4e4d8'}`, background: selectedOption === i ? optionColors[i].bg : 'transparent', color: selectedOption === i ? optionColors[i].dark : '#9a9a8a', cursor: 'pointer', borderRadius: '24px', fontSize: '13px', transition: 'all 0.2s', ...s }}>
+              style={{ flexShrink: 0, padding: '10px 20px', border: `1.5px solid ${selectedOption === i ? optionColors[i].accent : 'var(--border)'}`, background: selectedOption === i ? optionColors[i].bg : 'transparent', color: selectedOption === i ? optionColors[i].dark : 'var(--muted-foreground)', cursor: 'pointer', borderRadius: '24px', fontSize: '13px', transition: 'all 0.2s', ...s }}>
               {i === (options.recommended_option || 0) && <span style={{ fontSize: '10px', marginRight: '6px' }}>★</span>}
               Option {String.fromCharCode(65 + i)}
               {getVotesForOption(i) > 0 && <span style={{ marginLeft: '8px', background: optionColors[i].accent, color: '#fff', borderRadius: '10px', padding: '1px 7px', fontSize: '10px' }}>{getVotesForOption(i)}</span>}
@@ -240,7 +240,7 @@ export default function TripOptions() {
                 <textarea value={myComment} onChange={e => setMyComment(e.target.value)}
                   placeholder="Add a comment or condition (optional)..."
                   rows={2}
-                  style={{ width: '100%', border: `0.5px solid ${colors.border}`, background: 'rgba(255,255,255,0.7)', padding: '10px 12px', fontSize: '13px', color: '#1a1a1a', outline: 'none', resize: 'none', borderRadius: '6px', marginBottom: '12px', ...s }} />
+                  style={{ width: '100%', border: `0.5px solid ${colors.border}`, background: 'rgba(255,255,255,0.7)', padding: '10px 12px', fontSize: '13px', color: 'var(--foreground)', outline: 'none', resize: 'none', borderRadius: '6px', marginBottom: '12px', ...s }} />
                 <button onClick={() => handleVote(selectedOption)} disabled={voting}
                   style={{ width: '100%', background: myVote === selectedOption ? colors.accent : 'transparent', border: `1.5px solid ${colors.accent}`, padding: '14px', fontSize: '11px', letterSpacing: '0.2em', textTransform: 'uppercase', color: myVote === selectedOption ? '#ffffff' : colors.accent, cursor: 'pointer', borderRadius: '6px', transition: 'all 0.2s', ...s }}>
                   {myVote === selectedOption ? '✓ You voted for this option' : voting ? 'Voting...' : `Vote for Option ${String.fromCharCode(65 + selectedOption)}`}
@@ -249,18 +249,18 @@ export default function TripOptions() {
 
               <div style={{ marginBottom: '20px' }}>
                 <button onClick={() => setShowAdjust(showAdjust === selectedOption ? null : selectedOption)}
-                  style={{ width: '100%', border: '0.5px solid #e4e4d8', padding: '12px', fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#9a9a8a', background: '#fff', cursor: 'pointer', borderRadius: '8px', ...s }}>
+                  style={{ width: '100%', border: '0.5px solid var(--border)', padding: '12px', fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--muted-foreground)', background: '#fff', cursor: 'pointer', borderRadius: '8px', ...s }}>
                   ✦ Ask Avanti to adjust this option
                 </button>
                 {showAdjust === selectedOption && (
-                  <div style={{ padding: '16px', background: '#f5f5f0', borderRadius: '0 0 8px 8px', border: '0.5px solid #e4e4d8', borderTop: 'none' }}>
-                    <p style={{ fontSize: '12px', color: '#9a9a8a', margin: '0 0 10px' }}>Describe what you'd like to change about this option</p>
+                  <div style={{ padding: '16px', background: '#f5f5f0', borderRadius: '0 0 8px 8px', border: '0.5px solid var(--border)', borderTop: 'none' }}>
+                    <p style={{ fontSize: '12px', color: 'var(--muted-foreground)', margin: '0 0 10px' }}>Describe what you'd like to change about this option</p>
                     <textarea value={adjustText} onChange={e => setAdjustText(e.target.value)}
                       placeholder="Can we skip the morning museum and sleep in? Is there a ferry instead of the flight from Athens? What if we added an extra night in Paros?"
                       rows={3}
-                      style={{ width: '100%', border: '0.5px solid #d4d4c8', background: '#fff', padding: '10px 12px', fontSize: '13px', color: '#1a1a1a', outline: 'none', resize: 'none', borderRadius: '6px', marginBottom: '10px', ...s }} />
+                      style={{ width: '100%', border: '0.5px solid var(--border)', background: '#fff', padding: '10px 12px', fontSize: '13px', color: 'var(--foreground)', outline: 'none', resize: 'none', borderRadius: '6px', marginBottom: '10px', ...s }} />
                     <div style={{ display: 'flex', gap: '8px' }}>
-                      <button onClick={() => setShowAdjust(null)} style={{ flex: 1, border: '0.5px solid #d4d4c8', padding: '10px', fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#9a9a8a', background: 'transparent', cursor: 'pointer', ...s }}>Cancel</button>
+                      <button onClick={() => setShowAdjust(null)} style={{ flex: 1, border: '0.5px solid var(--border)', padding: '10px', fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--muted-foreground)', background: 'transparent', cursor: 'pointer', ...s }}>Cancel</button>
                       <button onClick={() => handleAdjust(selectedOption)} disabled={adjusting || !adjustText.trim()}
                         style={{ flex: 2, border: `1px solid ${colors.accent}`, padding: '10px', fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: colors.accent, background: 'transparent', cursor: 'pointer', opacity: adjusting || !adjustText.trim() ? 0.4 : 1, ...s }}>
                         {adjusting ? 'Adjusting...' : 'Adjust this option →'}
@@ -271,11 +271,11 @@ export default function TripOptions() {
               </div>
 
               {isOrganizer && (
-                <div style={{ borderTop: '0.5px solid #e4e4d8', paddingTop: '20px' }}>
-                  <p style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#9a9a8a', margin: '0 0 12px' }}>Organizer — lock in this option</p>
-                  <p style={{ fontSize: '12px', color: '#9a9a8a', margin: '0 0 14px', lineHeight: 1.6 }}>Once you lock an option, Phase A is complete. The trip details update and Phase B (booking) begins.</p>
+                <div style={{ borderTop: '0.5px solid var(--border)', paddingTop: '20px' }}>
+                  <p style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--muted-foreground)', margin: '0 0 12px' }}>Organizer — lock in this option</p>
+                  <p style={{ fontSize: '12px', color: 'var(--muted-foreground)', margin: '0 0 14px', lineHeight: 1.6 }}>Once you lock an option, Phase A is complete. The trip details update and Phase B (booking) begins.</p>
                   <button onClick={() => handleLock(selectedOption)} disabled={locking}
-                    style={{ width: '100%', background: '#182D09', border: 'none', padding: '16px', fontSize: '11px', letterSpacing: '0.25em', textTransform: 'uppercase', color: '#ffffff', cursor: 'pointer', borderRadius: '8px', opacity: locking ? 0.6 : 1, ...s }}>
+                    style={{ width: '100%', background: 'var(--forest-deep)', border: 'none', padding: '16px', fontSize: '11px', letterSpacing: '0.25em', textTransform: 'uppercase', color: '#ffffff', cursor: 'pointer', borderRadius: '8px', opacity: locking ? 0.6 : 1, ...s }}>
                     {locking ? 'Locking...' : `Lock in Option ${String.fromCharCode(65 + selectedOption)} →`}
                   </button>
                 </div>

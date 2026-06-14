@@ -87,11 +87,11 @@ export default function PlacesAutocomplete({ value, onChange, onSelect, placehol
 
   const inputStyle: React.CSSProperties = {
     width: '100%',
-    borderBottom: `1px solid ${error ? '#c0392b' : '#d4d4c8'}`,
+    borderBottom: `1px solid ${error ? '#c0392b' : 'var(--border)'}`,
     background: 'transparent',
     padding: '10px 0',
     fontSize: '14px',
-    color: '#1a1a1a',
+    color: 'var(--foreground)',
     outline: 'none',
     fontFamily: 'var(--font-cormorant), Georgia, serif',
     ...style,
@@ -113,7 +113,7 @@ export default function PlacesAutocomplete({ value, onChange, onSelect, placehol
       />
       {error && <p style={{ fontSize: '11px', color: '#c0392b', margin: '4px 0 0' }}>{error}</p>}
       {selectedPlace && (
-        <div style={{ marginTop: '8px', display: 'inline-flex', alignItems: 'center', gap: '8px', background: '#1a1a1a', color: '#fff', borderRadius: '20px', padding: '4px 12px', fontSize: '12px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+        <div style={{ marginTop: '8px', display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'var(--foreground)', color: '#fff', borderRadius: '20px', padding: '4px 12px', fontSize: '12px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
           📍 {selectedPlace}
           <button onClick={clearSelection} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.7)', cursor: 'pointer', fontSize: '14px', padding: 0 }}>×</button>
         </div>

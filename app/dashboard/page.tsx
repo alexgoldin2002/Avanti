@@ -8,7 +8,7 @@ import PlacesAutocomplete from '../components/PlacesAutocomplete'
 import Footer from '../components/Footer'
 
 const COLORS = [
-  { name: 'Midnight', value: '#1a1a1a' },
+  { name: 'Midnight', value: 'var(--foreground)' },
   { name: 'Forest', value: '#2d4a3e' },
   { name: 'Navy', value: '#1e3a5f' },
   { name: 'Burgundy', value: '#4a1a2c' },
@@ -46,7 +46,7 @@ function getTripImage(destination: string, coverImage?: string) {
 
 function getTripColor(index: number): string {
   const greens = [
-    '#182D09',
+    'var(--forest-deep)',
     '#2d4a3e',
     '#1e4a2a',
     '#3a4a1e',
@@ -87,7 +87,7 @@ export default function Dashboard() {
     destination_input: '',
     destination_place: null as any,
     destinations_places: [] as any[],
-    cover_color: '#1a1a1a',
+    cover_color: 'var(--foreground)',
     cover_image: '',
   }
   const [form, setForm] = useState(defaultForm)
@@ -244,35 +244,38 @@ export default function Dashboard() {
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
 
   const s = { fontFamily: 'var(--font-cormorant), Georgia, serif' }
-  const inputStyle = { width: '100%', borderBottom: '1px solid #d4d4c8', background: 'transparent', padding: '8px 0', fontSize: '14px', color: '#1a1a1a', outline: 'none', ...s }
-  const labelStyle = { fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase' as const, color: '#9a9a8a', display: 'block', marginBottom: '6px' }
+  const inputStyle = { width: '100%', borderBottom: '1px solid var(--border)', background: 'transparent', padding: '8px 0', fontSize: '14px', color: 'var(--foreground)', outline: 'none', ...s }
+  const labelStyle = { fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase' as const, color: 'var(--muted-foreground)', display: 'block', marginBottom: '6px' }
 
   if (loading) return <SuitcaseLoader message="Welcome back" />
 
   const orderedTrips = tripOrder.map((id: string) => trips.find((t: any) => t.id === id)).filter(Boolean)
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: '100%', background: '#fafaf8', ...s }}>
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: '100%', background: 'var(--cream)', ...s }}>
       <div style={{ display: 'flex', flex: 1 }}>
         <div style={{ flex: 1, padding: '48px 40px' }}>
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '48px' }}>
             <AvantiLogo size="sm" />
+            <button onClick={() => router.push('/features')} style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--muted-foreground)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+              Features
+            </button>
             <button onClick={() => setSidebarOpen(!sidebarOpen)}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#083807', ...s }}>
+              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--forest-deep)', ...s }}>
               {sidebarOpen ? 'Close ×' : `${firstName} ☰`}
             </button>
           </div>
 
           <div style={{ marginBottom: '48px' }}>
-            <p style={{ fontSize: '13px', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#9a9a8a', marginBottom: '8px' }}>{greeting}</p>
-            <h1 style={{ fontSize: '48px', fontWeight: 300, color: '#083807', letterSpacing: '-0.01em', lineHeight: 1.1, margin: 0 }}>{firstName}</h1>
+            <p style={{ fontSize: '13px', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--muted-foreground)', marginBottom: '8px' }}>{greeting}</p>
+            <h1 style={{ fontSize: '48px', fontWeight: 300, color: 'var(--forest-deep)', letterSpacing: '-0.01em', lineHeight: 1.1, margin: 0 }}>{firstName}</h1>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
-            <p style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#9a9a8a', margin: 0 }}>My trips</p>
+            <p style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--muted-foreground)', margin: 0 }}>My trips</p>
             <button onClick={() => setShowModal(true)}
-              style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#2d5a18', background: 'none', border: '1px solid #2d5a18', padding: '8px 16px', cursor: 'pointer', ...s }}>
+              style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--forest)', background: 'none', border: '1px solid var(--forest)', padding: '8px 16px', cursor: 'pointer', ...s }}>
               + New trip
             </button>
           </div>
@@ -280,10 +283,10 @@ export default function Dashboard() {
           {trips.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '80px 0' }}>
               <p style={{ fontSize: '40px', margin: '0 0 16px' }}>✈️</p>
-              <p style={{ fontSize: '20px', fontWeight: 300, color: '#1a1a1a', marginBottom: '8px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>No trips yet</p>
-              <p style={{ fontSize: '13px', color: '#9a9a8a', marginBottom: '24px', lineHeight: 1.7 }}>Create your first trip and Avanti handles the rest.<br/>Or ask a friend to send you an invite link.</p>
+              <p style={{ fontSize: '20px', fontWeight: 300, color: 'var(--foreground)', marginBottom: '8px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>No trips yet</p>
+              <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', marginBottom: '24px', lineHeight: 1.7 }}>Create your first trip and Avanti handles the rest.<br/>Or ask a friend to send you an invite link.</p>
               <button onClick={() => setShowModal(true)}
-                style={{ border: '1px solid #182D09', background: '#182D09', color: '#fff', padding: '14px 28px', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '8px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+                style={{ border: '1px solid var(--forest-deep)', background: 'var(--forest-deep)', color: '#fff', padding: '14px 28px', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '8px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
                 Create your first trip →
               </button>
             </div>
@@ -327,11 +330,11 @@ export default function Dashboard() {
         </div>
 
         {sidebarOpen && (
-          <div style={{ width: '320px', background: '#f0f0e8', borderLeft: '1px solid #e4e4d8', padding: '48px 32px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div style={{ width: '320px', background: '#f0f0e8', borderLeft: '1px solid var(--border)', padding: '48px 32px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <div style={{ marginBottom: '32px' }}>
-              <p style={{ fontSize: '11px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#9a9a8a', marginBottom: '4px' }}>Signed in as</p>
-              <p style={{ fontSize: '15px', color: '#1a1a1a', margin: '0 0 2px' }}>{profile?.full_name}</p>
-              <p style={{ fontSize: '12px', color: '#9a9a8a', margin: 0 }}>{profile?.email}</p>
+              <p style={{ fontSize: '11px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--muted-foreground)', marginBottom: '4px' }}>Signed in as</p>
+              <p style={{ fontSize: '15px', color: 'var(--foreground)', margin: '0 0 2px' }}>{profile?.full_name}</p>
+              <p style={{ fontSize: '12px', color: 'var(--muted-foreground)', margin: 0 }}>{profile?.email}</p>
             </div>
             {[
               { label: 'My profile', path: '/profile' },
@@ -340,12 +343,12 @@ export default function Dashboard() {
               { label: 'Settings', path: '/settings' },
             ].map(item => (
               <button key={item.label} onClick={() => item.label === 'My travelers' ? router.push('/profile?tab=travelers') : router.push(item.path)}
-                style={{ textAlign: 'left', padding: '14px 0', fontSize: '13px', letterSpacing: '0.1em', color: '#1a1a1a', background: 'none', border: 'none', borderBottom: '1px solid #e4e4d8', cursor: 'pointer', ...s }}>
+                style={{ textAlign: 'left', padding: '14px 0', fontSize: '13px', letterSpacing: '0.1em', color: 'var(--foreground)', background: 'none', border: 'none', borderBottom: '1px solid var(--border)', cursor: 'pointer', ...s }}>
                 {item.label}
               </button>
             ))}
             <button onClick={handleSignOut}
-              style={{ textAlign: 'left', padding: '14px 0', fontSize: '13px', letterSpacing: '0.1em', color: '#9a9a8a', background: 'none', border: 'none', cursor: 'pointer', marginTop: '16px', ...s }}>
+              style={{ textAlign: 'left', padding: '14px 0', fontSize: '13px', letterSpacing: '0.1em', color: 'var(--muted-foreground)', background: 'none', border: 'none', cursor: 'pointer', marginTop: '16px', ...s }}>
               Sign out
             </button>
           </div>
@@ -354,12 +357,12 @@ export default function Dashboard() {
 
       {showModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: '24px' }}>
-          <div style={{ background: '#fafaf8', width: '100%', maxWidth: '560px', maxHeight: '90vh', overflowY: 'auto', padding: '40px', position: 'relative', ...s }}>
+          <div style={{ background: 'var(--cream)', width: '100%', maxWidth: '560px', maxHeight: '90vh', overflowY: 'auto', padding: '40px', position: 'relative', ...s }}>
             <button onClick={closeModal}
-              style={{ position: 'absolute', top: '20px', right: '20px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '18px', color: '#9a9a8a' }}>×</button>
+              style={{ position: 'absolute', top: '20px', right: '20px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '18px', color: 'var(--muted-foreground)' }}>×</button>
 
-            <p style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#9a9a8a', marginBottom: '8px' }}>New trip</p>
-            <h2 style={{ fontSize: '28px', fontWeight: 300, color: '#1a1a1a', margin: '0 0 32px' }}>Where are we going?</h2>
+            <p style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--muted-foreground)', marginBottom: '8px' }}>New trip</p>
+            <h2 style={{ fontSize: '28px', fontWeight: 300, color: 'var(--foreground)', margin: '0 0 32px' }}>Where are we going?</h2>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
 
@@ -367,15 +370,15 @@ export default function Dashboard() {
                 <label style={labelStyle}>Trip name</label>
                 <input style={inputStyle} value={form.name} onChange={e => setFormAndDraft({...form, name: e.target.value})} placeholder="Mama Mia Summer" autoFocus />
                 {showErrors && !form.name.trim() && <p style={{ fontSize: '11px', color: '#c0392b', margin: '4px 0 0' }}>Please enter a trip name</p>}
-                <button onClick={() => setShowNameHelper(!showNameHelper)} style={{ fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#9a9a8a', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 0', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+                <button onClick={() => setShowNameHelper(!showNameHelper)} style={{ fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--muted-foreground)', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 0', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
                   ✦ Need help naming it?
                 </button>
                 {showNameHelper && (
                   <div style={{ background: '#f5f5f0', padding: '16px', marginTop: '4px' }}>
-                    <p style={{ fontSize: '11px', color: '#9a9a8a', margin: '0 0 8px' }}>Describe your trip in a few words</p>
+                    <p style={{ fontSize: '11px', color: 'var(--muted-foreground)', margin: '0 0 8px' }}>Describe your trip in a few words</p>
                     <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
-                      <input value={nameHelperInput} onChange={e => setNameHelperInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && getNameSuggestions()} placeholder="e.g. girls trip to greece in july" style={{ flex: 1, borderBottom: '1px solid #d4d4c8', background: 'transparent', padding: '8px 0', fontSize: '13px', color: '#1a1a1a', outline: 'none', fontFamily: 'var(--font-cormorant), Georgia, serif' }} />
-                      <button onClick={getNameSuggestions} disabled={loadingNames} style={{ padding: '6px 12px', border: '1px solid #1a1a1a', background: '#1a1a1a', color: '#fafaf8', cursor: 'pointer', fontSize: '11px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+                      <input value={nameHelperInput} onChange={e => setNameHelperInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && getNameSuggestions()} placeholder="e.g. girls trip to greece in july" style={{ flex: 1, borderBottom: '1px solid var(--border)', background: 'transparent', padding: '8px 0', fontSize: '13px', color: 'var(--foreground)', outline: 'none', fontFamily: 'var(--font-cormorant), Georgia, serif' }} />
+                      <button onClick={getNameSuggestions} disabled={loadingNames} style={{ padding: '6px 12px', border: '1px solid var(--foreground)', background: 'var(--foreground)', color: 'var(--cream)', cursor: 'pointer', fontSize: '11px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
                         {loadingNames ? '...' : 'Go'}
                       </button>
                     </div>
@@ -383,7 +386,7 @@ export default function Dashboard() {
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                         {nameSuggestions.map((name, i) => (
                           <button key={i} onClick={() => { setFormAndDraft(f => ({...f, name})); setShowNameHelper(false); setNameSuggestions([]) }}
-                            style={{ textAlign: 'left', padding: '8px 12px', border: '1px solid #d4d4c8', background: '#fff', cursor: 'pointer', fontSize: '13px', color: '#1a1a1a', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+                            style={{ textAlign: 'left', padding: '8px 12px', border: '1px solid var(--border)', background: '#fff', cursor: 'pointer', fontSize: '13px', color: 'var(--foreground)', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
                             {name}
                           </button>
                         ))}
@@ -398,7 +401,7 @@ export default function Dashboard() {
                 <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
                   {[{ value: 'exact', label: 'Exact dates' }, { value: 'range', label: 'Flexible range' }].map(opt => (
                     <button key={opt.value} onClick={() => setFormAndDraft({...form, date_type: opt.value})}
-                      style={{ flex: 1, padding: '8px', fontSize: '11px', letterSpacing: '0.08em', border: `1px solid ${form.date_type === opt.value ? '#1a1a1a' : '#d4d4c8'}`, background: form.date_type === opt.value ? '#1a1a1a' : 'transparent', color: form.date_type === opt.value ? '#fafaf8' : '#6a6a6a', cursor: 'pointer', ...s }}>
+                      style={{ flex: 1, padding: '8px', fontSize: '11px', letterSpacing: '0.08em', border: `1px solid ${form.date_type === opt.value ? 'var(--foreground)' : 'var(--border)'}`, background: form.date_type === opt.value ? 'var(--foreground)' : 'transparent', color: form.date_type === opt.value ? 'var(--cream)' : 'var(--muted-foreground)', cursor: 'pointer', ...s }}>
                       {opt.label}
                     </button>
                   ))}
@@ -430,7 +433,7 @@ export default function Dashboard() {
                     </div>
                     {form.date_type === 'range' && (
                       <div style={{ marginTop: '12px' }}>
-                        <label style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#9a9a8a', display: 'block', marginBottom: '6px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>Roughly how many nights?</label>
+                        <label style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--muted-foreground)', display: 'block', marginBottom: '6px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>Roughly how many nights?</label>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                           <input
                             type="number"
@@ -442,9 +445,9 @@ export default function Dashboard() {
                               setFormAndDraft({ ...form, date_flexibility_nights: Number.isNaN(val) ? 5 : val })
                             }}
                             placeholder="7"
-                            style={{ width: '70px', border: 'none', borderBottom: '1px solid #d4d4c8', background: 'transparent', padding: '6px 0', fontSize: '16px', color: '#1a1a1a', outline: 'none', textAlign: 'center', fontFamily: 'var(--font-cormorant), Georgia, serif' }}
+                            style={{ width: '70px', border: 'none', borderBottom: '1px solid var(--border)', background: 'transparent', padding: '6px 0', fontSize: '16px', color: 'var(--foreground)', outline: 'none', textAlign: 'center', fontFamily: 'var(--font-cormorant), Georgia, serif' }}
                           />
-                          <span style={{ fontSize: '12px', color: '#9a9a8a', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>nights — roughly, not set in stone</span>
+                          <span style={{ fontSize: '12px', color: 'var(--muted-foreground)', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>nights — roughly, not set in stone</span>
                         </div>
                       </div>
                     )}
@@ -453,14 +456,14 @@ export default function Dashboard() {
               </div>
 
               <div style={{ marginBottom: '16px' }}>
-                <label style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#9a9a8a', display: 'block', marginBottom: '8px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>Destination</label>
+                <label style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--muted-foreground)', display: 'block', marginBottom: '8px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>Destination</label>
                 <div style={{ display: 'flex', gap: '8px' }}>
                   {[
                     { key: 'know', label: 'I know where I\'m going' },
                     { key: 'deciding', label: 'Still deciding' }
                   ].map(opt => (
                     <button key={opt.key} onClick={() => setDestinationMode(opt.key as 'know' | 'deciding')}
-                      style={{ flex: 1, padding: '10px', border: `1.5px solid ${destinationMode === opt.key ? '#1a3a2a' : '#d4d4c8'}`, background: destinationMode === opt.key ? '#e8f5ee' : 'transparent', color: destinationMode === opt.key ? '#1a3a2a' : '#9a9a8a', fontSize: '12px', cursor: 'pointer', borderRadius: '8px', fontFamily: 'var(--font-cormorant), Georgia, serif', transition: 'all 0.2s' }}>
+                      style={{ flex: 1, padding: '10px', border: `1.5px solid ${destinationMode === opt.key ? 'var(--forest-deep)' : 'var(--border)'}`, background: destinationMode === opt.key ? 'var(--accent-light)' : 'transparent', color: destinationMode === opt.key ? 'var(--forest-deep)' : 'var(--muted-foreground)', fontSize: '12px', cursor: 'pointer', borderRadius: '8px', fontFamily: 'var(--font-cormorant), Georgia, serif', transition: 'all 0.2s' }}>
                       {opt.label}
                     </button>
                   ))}
@@ -484,7 +487,7 @@ export default function Dashboard() {
                 <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                   {COLORS.map(c => (
                     <button key={c.value} onClick={() => setFormAndDraft({...form, cover_color: c.value})} title={c.name}
-                      style={{ width: '32px', height: '32px', borderRadius: '50%', background: c.value, border: form.cover_color === c.value ? '3px solid #1a1a1a' : '3px solid transparent', cursor: 'pointer', outline: form.cover_color === c.value ? '2px solid #fafaf8' : 'none', outlineOffset: '-4px' }} />
+                      style={{ width: '32px', height: '32px', borderRadius: '50%', background: c.value, border: form.cover_color === c.value ? '3px solid var(--foreground)' : '3px solid transparent', cursor: 'pointer', outline: form.cover_color === c.value ? '2px solid var(--cream)' : 'none', outlineOffset: '-4px' }} />
                   ))}
                 </div>
               </div>
@@ -493,7 +496,7 @@ export default function Dashboard() {
                 <label style={labelStyle}>Trip cover image <span style={{ textTransform: 'none', letterSpacing: 0, fontSize: '11px' }}>(optional)</span></label>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   <div style={{ display: 'flex', gap: '8px' }}>
-                    <label style={{ flex: 1, border: '1px solid #d4d4c8', padding: '10px 14px', fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#6a6a6a', cursor: 'pointer', textAlign: 'center', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+                    <label style={{ flex: 1, border: '1px solid var(--border)', padding: '10px 14px', fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--muted-foreground)', cursor: 'pointer', textAlign: 'center', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
                       Upload from device
                       <input type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={e => {
                         const file = e.target.files?.[0]
@@ -503,7 +506,7 @@ export default function Dashboard() {
                         reader.readAsDataURL(file)
                       }} />
                     </label>
-                    <label style={{ flex: 1, border: '1px solid #d4d4c8', padding: '10px 14px', fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#6a6a6a', cursor: 'pointer', textAlign: 'center', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+                    <label style={{ flex: 1, border: '1px solid var(--border)', padding: '10px 14px', fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--muted-foreground)', cursor: 'pointer', textAlign: 'center', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
                       Take photo
                       <input type="file" accept="image/*" capture="user" style={{ display: 'none' }} onChange={e => {
                         const file = e.target.files?.[0]
@@ -525,7 +528,7 @@ export default function Dashboard() {
               </div>
 
               <button onClick={() => { if (!canCreate()) { setShowErrors(true); return } handleCreate() }} disabled={creating}
-                style={{ width: '100%', border: '1px solid #1a1a1a', padding: '16px', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', color: '#1a1a1a', background: 'transparent', cursor: creating ? 'default' : 'pointer', opacity: creating ? 0.4 : 1, ...s }}>
+                style={{ width: '100%', border: '1px solid var(--foreground)', padding: '16px', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', color: 'var(--foreground)', background: 'transparent', cursor: creating ? 'default' : 'pointer', opacity: creating ? 0.4 : 1, ...s }}>
                 {creating ? 'Creating...' : 'Create trip →'}
               </button>
             </div>

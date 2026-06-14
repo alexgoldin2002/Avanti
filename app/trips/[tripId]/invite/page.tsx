@@ -249,8 +249,8 @@ export default function InviteGuests() {
   }
 
   const s = { fontFamily: 'var(--font-cormorant), Georgia, serif' }
-  const inputStyle = { width: '100%', borderBottom: '1px solid #d4d4c8', background: 'transparent', padding: '8px 0', fontSize: '14px', color: '#1a1a1a', outline: 'none', ...s }
-  const labelStyle = { fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase' as const, color: '#9a9a8a', display: 'block', marginBottom: '6px' }
+  const inputStyle = { width: '100%', borderBottom: '1px solid var(--border)', background: 'transparent', padding: '8px 0', fontSize: '14px', color: 'var(--foreground)', outline: 'none', ...s }
+  const labelStyle = { fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase' as const, color: 'var(--muted-foreground)', display: 'block', marginBottom: '6px' }
 
   if (!trip) return null
 
@@ -258,28 +258,28 @@ export default function InviteGuests() {
   const guests = attendees.filter(a => a.role !== 'organizer' && (a.status === 'approved' || a.status === null))
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: '100%', background: '#fafaf8', ...s }}>
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: '100%', background: 'var(--cream)', ...s }}>
       <div style={{ flex: 1, maxWidth: '560px', margin: '0 auto', padding: '40px 24px 80px', width: '100%' }}>
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '36px' }}>
           <AvantiLogo size="sm" />
-          <button onClick={() => router.push(`/trips/${tripId}`)} style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#9a9a8a', background: 'none', border: 'none', cursor: 'pointer', ...s }}>← Back to trip</button>
+          <button onClick={() => router.push(`/trips/${tripId}`)} style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--muted-foreground)', background: 'none', border: 'none', cursor: 'pointer', ...s }}>← Back to trip</button>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '6px' }}>
-          <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#e8f0e4', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', color: '#2d5a18', fontWeight: 300, flexShrink: 0, ...s }}>1</div>
-          <h1 style={{ fontSize: '32px', fontWeight: 300, color: '#1a1a1a', margin: 0, ...s }}>Invite guests</h1>
+          <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--accent-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', color: 'var(--forest)', fontWeight: 300, flexShrink: 0, ...s }}>1</div>
+          <h1 style={{ fontSize: '32px', fontWeight: 300, color: 'var(--foreground)', margin: 0, ...s }}>Invite guests</h1>
         </div>
-        <p style={{ fontSize: '14px', color: '#9a9a8a', marginBottom: '32px', marginLeft: '44px', lineHeight: 1.6 }}>Let's get the gang together!</p>
+        <p style={{ fontSize: '14px', color: 'var(--muted-foreground)', marginBottom: '32px', marginLeft: '44px', lineHeight: 1.6 }}>Let's get the gang together!</p>
 
         {!invitesClosed && (
-        <div style={{ background: '#fff', border: '0.5px solid #e4e4d8', borderRadius: '14px', padding: '20px', marginBottom: '20px' }}>
-          <p style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#9a9a8a', margin: '0 0 14px' }}>Share invite link</p>
+        <div style={{ background: '#fff', border: '0.5px solid var(--border)', borderRadius: '14px', padding: '20px', marginBottom: '20px' }}>
+          <p style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--muted-foreground)', margin: '0 0 14px' }}>Share invite link</p>
           <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', flexWrap: 'wrap' }}>
             {shareButtons.map(btn => (
               <button key={btn.label} onClick={btn.action}
                 style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', background: 'none', border: 'none', cursor: 'pointer', ...s }}>
-                <div style={{ width: '52px', height: '52px', borderRadius: '14px', background: btn.label === 'Copy' && copied ? '#182D09' : btn.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', transition: 'all 0.2s' }}>
+                <div style={{ width: '52px', height: '52px', borderRadius: '14px', background: btn.label === 'Copy' && copied ? 'var(--forest-deep)' : btn.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', transition: 'all 0.2s' }}>
                   {btn.icon}
                 </div>
                 <span style={{ fontSize: '10px', color: '#6e6e73', letterSpacing: '0.03em' }}>{btn.label === 'Copy' && copied ? 'Copied!' : btn.label}</span>
@@ -290,9 +290,9 @@ export default function InviteGuests() {
         )}
 
         {!invitesClosed && (
-        <div style={{ background: '#fff', border: '0.5px solid #e4e4d8', borderRadius: '14px', padding: '20px', marginBottom: '20px' }}>
-          <p style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#9a9a8a', margin: '0 0 14px' }}>Send invite directly</p>
-          <p style={{ fontSize: '12px', color: '#9a9a8a', marginBottom: '12px', lineHeight: 1.6 }}>Enter their email or phone and we'll send the link for you.</p>
+        <div style={{ background: '#fff', border: '0.5px solid var(--border)', borderRadius: '14px', padding: '20px', marginBottom: '20px' }}>
+          <p style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--muted-foreground)', margin: '0 0 14px' }}>Send invite directly</p>
+          <p style={{ fontSize: '12px', color: 'var(--muted-foreground)', marginBottom: '12px', lineHeight: 1.6 }}>Enter their email or phone and we'll send the link for you.</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             <div style={{ display: 'flex', gap: '8px' }}>
               <input
@@ -301,7 +301,7 @@ export default function InviteGuests() {
                 onChange={e => setSendInviteEmail(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') handleSendInvite() }}
                 placeholder="Email address"
-                style={{ flex: 1, borderBottom: '1px solid #d4d4c8', background: 'transparent', padding: '8px 0', fontSize: '13px', color: '#1a1a1a', outline: 'none', fontFamily: 'var(--font-cormorant), Georgia, serif' }}
+                style={{ flex: 1, borderBottom: '1px solid var(--border)', background: 'transparent', padding: '8px 0', fontSize: '13px', color: 'var(--foreground)', outline: 'none', fontFamily: 'var(--font-cormorant), Georgia, serif' }}
               />
             </div>
             <div style={{ display: 'flex', gap: '8px' }}>
@@ -311,12 +311,12 @@ export default function InviteGuests() {
                 onChange={e => setSendInvitePhone(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') handleSendInvite() }}
                 placeholder="Phone number"
-                style={{ flex: 1, borderBottom: '1px solid #d4d4c8', background: 'transparent', padding: '8px 0', fontSize: '13px', color: '#1a1a1a', outline: 'none', fontFamily: 'var(--font-cormorant), Georgia, serif' }}
+                style={{ flex: 1, borderBottom: '1px solid var(--border)', background: 'transparent', padding: '8px 0', fontSize: '13px', color: 'var(--foreground)', outline: 'none', fontFamily: 'var(--font-cormorant), Georgia, serif' }}
               />
               <button
                 onClick={handleSendInvite}
                 disabled={sendingInvite || (!sendInviteEmail && !sendInvitePhone)}
-                style={{ padding: '8px 16px', border: '1.5px solid #2d5a18', background: '#2d5a18', color: '#fff', fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '8px', opacity: (!sendInviteEmail && !sendInvitePhone) ? 0.4 : 1, fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+                style={{ padding: '8px 16px', border: '1.5px solid var(--forest)', background: 'var(--forest)', color: '#fff', fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '8px', opacity: (!sendInviteEmail && !sendInvitePhone) ? 0.4 : 1, fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
                 Send
               </button>
             </div>
@@ -327,7 +327,7 @@ export default function InviteGuests() {
         {isOrganizer && pendingApprovals.length > 0 && (
           <div style={{ background: '#fff', border: '1.5px solid #854f0b', borderRadius: '14px', padding: '20px', marginBottom: '20px' }}>
             <p style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#854f0b', margin: '0 0 4px' }}>Pending approvals</p>
-            <p style={{ fontSize: '12px', color: '#9a9a8a', margin: '0 0 16px', lineHeight: 1.6 }}>{pendingApprovals.length} {pendingApprovals.length === 1 ? 'person wants' : 'people want'} to join this trip.</p>
+            <p style={{ fontSize: '12px', color: 'var(--muted-foreground)', margin: '0 0 16px', lineHeight: 1.6 }}>{pendingApprovals.length} {pendingApprovals.length === 1 ? 'person wants' : 'people want'} to join this trip.</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {pendingApprovals.map(person => (
                 <div key={person.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: '#faeeda', border: '0.5px solid #e4c88a', borderRadius: '10px' }}>
@@ -336,13 +336,13 @@ export default function InviteGuests() {
                       {person.nickname?.charAt(0).toUpperCase() || person.full_name?.charAt(0).toUpperCase()}
                     </div>
                     <div>
-                      <p style={{ fontSize: '14px', color: '#1a1a1a', margin: 0 }}>{person.nickname || person.full_name}</p>
-                      <p style={{ fontSize: '11px', color: '#9a9a8a', margin: 0 }}>{person.email || 'Awaiting approval'}</p>
+                      <p style={{ fontSize: '14px', color: 'var(--foreground)', margin: 0 }}>{person.nickname || person.full_name}</p>
+                      <p style={{ fontSize: '11px', color: 'var(--muted-foreground)', margin: 0 }}>{person.email || 'Awaiting approval'}</p>
                     </div>
                   </div>
                   <button
                     onClick={() => handleApprove(person.id)}
-                    style={{ padding: '8px 16px', border: '1.5px solid #2d5a18', background: '#2d5a18', color: '#fff', fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '8px', flexShrink: 0, ...s }}>
+                    style={{ padding: '8px 16px', border: '1.5px solid var(--forest)', background: 'var(--forest)', color: '#fff', fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '8px', flexShrink: 0, ...s }}>
                     Accept
                   </button>
                 </div>
@@ -351,23 +351,23 @@ export default function InviteGuests() {
           </div>
         )}
 
-        <div style={{ background: '#fff', border: '0.5px solid #e4e4d8', borderRadius: '14px', padding: '20px', marginBottom: '24px' }}>
+        <div style={{ background: '#fff', border: '0.5px solid var(--border)', borderRadius: '14px', padding: '20px', marginBottom: '24px' }}>
           {invitesClosed && (
-            <div style={{ background: '#f5f5f0', border: '0.5px solid #d4d4c8', borderRadius: '8px', padding: '12px 16px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ background: '#f5f5f0', border: '0.5px solid var(--border)', borderRadius: '8px', padding: '12px 16px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
               <span style={{ fontSize: '14px' }}>🔒</span>
               <div>
                 <p style={{ fontSize: '12px', color: '#3a3a3a', margin: '0 0 2px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>This group is now locked</p>
-                <p style={{ fontSize: '11px', color: '#9a9a8a', margin: 0 }}>No new members can be added to this trip.</p>
+                <p style={{ fontSize: '11px', color: 'var(--muted-foreground)', margin: 0 }}>No new members can be added to this trip.</p>
               </div>
             </div>
           )}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-            <p style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#9a9a8a', margin: 0 }}>
+            <p style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--muted-foreground)', margin: 0 }}>
               Attendees ({attendees.length})
             </p>
             {!invitesClosed && (
               <button onClick={() => setShowAddForm(!showAddForm)}
-                style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#2d5a18', background: 'none', border: '1.5px solid #2d5a18', padding: '6px 12px', cursor: 'pointer', borderRadius: '20px', ...s }}>
+                style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--forest)', background: 'none', border: '1.5px solid var(--forest)', padding: '6px 12px', cursor: 'pointer', borderRadius: '20px', ...s }}>
                 + Add person
               </button>
             )}
@@ -377,15 +377,15 @@ export default function InviteGuests() {
             {organizer && (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: '#f5f5f0', borderRadius: '10px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#182D09', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', color: '#fff', fontWeight: 300, ...s }}>
+                  <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--forest-deep)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', color: '#fff', fontWeight: 300, ...s }}>
                     {organizer.nickname?.charAt(0).toUpperCase() || organizer.full_name?.charAt(0).toUpperCase()}
                   </div>
                   <div>
-                    <p style={{ fontSize: '14px', color: '#1a1a1a', margin: 0 }}>{organizer.nickname || organizer.full_name}</p>
-                    <p style={{ fontSize: '11px', color: '#9a9a8a', margin: 0 }}>organizer</p>
+                    <p style={{ fontSize: '14px', color: 'var(--foreground)', margin: 0 }}>{organizer.nickname || organizer.full_name}</p>
+                    <p style={{ fontSize: '11px', color: 'var(--muted-foreground)', margin: 0 }}>organizer</p>
                   </div>
                 </div>
-                <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: '#2d5a18', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'var(--forest)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <span style={{ color: '#fff', fontSize: '12px' }}>✓</span>
                 </div>
               </div>
@@ -393,14 +393,14 @@ export default function InviteGuests() {
 
             {guests.map(att => (
               <div key={att.id}
-                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', background: '#fff', border: '0.5px solid #e4e4d8', borderRadius: '10px' }}>
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', background: '#fff', border: '0.5px solid var(--border)', borderRadius: '10px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#182D09', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', color: '#fff', fontWeight: 300, flexShrink: 0, fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+                  <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'var(--forest-deep)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', color: '#fff', fontWeight: 300, flexShrink: 0, fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
                     {att.nickname?.charAt(0).toUpperCase() || att.full_name?.charAt(0).toUpperCase()}
                   </div>
                   <div>
-                    <p style={{ fontSize: '15px', color: '#1a1a1a', margin: '0 0 2px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>{att.nickname || att.full_name}</p>
-                    <p style={{ fontSize: '11px', color: '#9a9a8a', margin: 0, letterSpacing: '0.03em' }}>
+                    <p style={{ fontSize: '15px', color: 'var(--foreground)', margin: '0 0 2px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>{att.nickname || att.full_name}</p>
+                    <p style={{ fontSize: '11px', color: 'var(--muted-foreground)', margin: 0, letterSpacing: '0.03em' }}>
                       {att.role === 'dependent' ? 'managed by you' : att.profile_complete ? 'ready ✓' : 'profile pending'}
                     </p>
                   </div>
@@ -411,28 +411,28 @@ export default function InviteGuests() {
                     onMouseEnter={() => !att.profile_complete && setHoveredAttendee(att.id)}
                     onMouseLeave={() => setHoveredAttendee(null)}>
                     {att.profile_complete ? (
-                      <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#182D09', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'var(--forest-deep)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <span style={{ color: '#fff', fontSize: '13px' }}>✓</span>
                       </div>
                     ) : (
                       <div
                         onClick={() => handleNudge(att)}
-                        style={{ width: '28px', height: '28px', borderRadius: '50%', border: `1.5px solid ${nudgedAttendees.has(att.id) ? '#2d5a18' : '#d4d4c8'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: isOrganizer ? 'pointer' : 'default', background: nudgedAttendees.has(att.id) ? '#e8f0e4' : 'transparent' }}>
-                        <span style={{ color: nudgedAttendees.has(att.id) ? '#2d5a18' : '#d4d4c8', fontSize: '13px' }}>
+                        style={{ width: '28px', height: '28px', borderRadius: '50%', border: `1.5px solid ${nudgedAttendees.has(att.id) ? 'var(--forest)' : 'var(--border)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: isOrganizer ? 'pointer' : 'default', background: nudgedAttendees.has(att.id) ? 'var(--accent-light)' : 'transparent' }}>
+                        <span style={{ color: nudgedAttendees.has(att.id) ? 'var(--forest)' : 'var(--border)', fontSize: '13px' }}>
                           {nudgedAttendees.has(att.id) ? '✓' : '○'}
                         </span>
                       </div>
                     )}
                     {hoveredAttendee === att.id && isOrganizer && !att.profile_complete && (
-                      <div style={{ position: 'absolute', bottom: '36px', left: '50%', transform: 'translateX(-50%)', background: '#1a1a1a', color: '#fff', padding: '5px 10px', borderRadius: '6px', fontSize: '11px', whiteSpace: 'nowrap', zIndex: 10, fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+                      <div style={{ position: 'absolute', bottom: '36px', left: '50%', transform: 'translateX(-50%)', background: 'var(--foreground)', color: '#fff', padding: '5px 10px', borderRadius: '6px', fontSize: '11px', whiteSpace: 'nowrap', zIndex: 10, fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
                         {nudgedAttendees.has(att.id) ? 'Nudge sent ✓' : 'Send nudge'}
-                        <div style={{ position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)', width: 0, height: 0, borderLeft: '4px solid transparent', borderRight: '4px solid transparent', borderTop: '4px solid #1a1a1a' }} />
+                        <div style={{ position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)', width: 0, height: 0, borderLeft: '4px solid transparent', borderRight: '4px solid transparent', borderTop: '4px solid var(--foreground)' }} />
                       </div>
                     )}
                   </div>
                   <button
                     onClick={() => setShowRemoveModal(att.id)}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#d4d4c8', fontSize: '18px', padding: '0 4px', lineHeight: 1, fontWeight: 300 }}>
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--border)', fontSize: '18px', padding: '0 4px', lineHeight: 1, fontWeight: 300 }}>
                     ×
                   </button>
                 </div>
@@ -440,7 +440,7 @@ export default function InviteGuests() {
             ))}
 
             {guests.length === 0 && !showAddForm && (
-              <p style={{ fontSize: '13px', color: '#b4b4a8', textAlign: 'center', padding: '20px 0', fontStyle: 'italic' }}>No guests added yet. Share the link above or add people manually.</p>
+              <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', textAlign: 'center', padding: '20px 0', fontStyle: 'italic' }}>No guests added yet. Share the link above or add people manually.</p>
             )}
           </div>
 
@@ -449,7 +449,7 @@ export default function InviteGuests() {
               <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
                 {[{ key: 'new', label: 'New person' }, { key: 'saved', label: 'From my travelers' }].map(m => (
                   <button key={m.key} onClick={() => setAddMode(m.key as any)}
-                    style={{ flex: 1, padding: '7px', fontSize: '11px', letterSpacing: '0.08em', border: `1px solid ${addMode === m.key ? '#2d5a18' : '#d4d4c8'}`, background: addMode === m.key ? '#e8f0e4' : 'transparent', color: addMode === m.key ? '#2d5a18' : '#6a6a6a', cursor: 'pointer', borderRadius: '6px', ...s }}>
+                    style={{ flex: 1, padding: '7px', fontSize: '11px', letterSpacing: '0.08em', border: `1px solid ${addMode === m.key ? 'var(--forest)' : 'var(--border)'}`, background: addMode === m.key ? 'var(--accent-light)' : 'transparent', color: addMode === m.key ? 'var(--forest)' : 'var(--muted-foreground)', cursor: 'pointer', borderRadius: '6px', ...s }}>
                     {m.label}
                   </button>
                 ))}
@@ -457,16 +457,16 @@ export default function InviteGuests() {
 
               {addMode === 'saved' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {savedTravelers.length === 0 && <p style={{ fontSize: '13px', color: '#9a9a8a', textAlign: 'center', padding: '12px 0' }}>No saved travelers. Add them to your profile first.</p>}
+                  {savedTravelers.length === 0 && <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', textAlign: 'center', padding: '12px 0' }}>No saved travelers. Add them to your profile first.</p>}
                   {savedTravelers.map(saved => (
                     <button key={saved.id} onClick={() => addFromSaved(saved)}
-                      style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', border: '0.5px solid #e4e4d8', background: '#fff', cursor: 'pointer', borderRadius: '8px', textAlign: 'left', ...s }}>
-                      <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: '#e8f0e4', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', color: '#2d5a18', flexShrink: 0 }}>
+                      style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', border: '0.5px solid var(--border)', background: '#fff', cursor: 'pointer', borderRadius: '8px', textAlign: 'left', ...s }}>
+                      <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: 'var(--accent-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', color: 'var(--forest)', flexShrink: 0 }}>
                         {saved.nickname?.charAt(0) || saved.full_name?.charAt(0)}
                       </div>
                       <div>
-                        <p style={{ fontSize: '13px', color: '#1a1a1a', margin: '0 0 1px' }}>{saved.full_name}</p>
-                        <p style={{ fontSize: '11px', color: '#9a9a8a', margin: 0 }}>{saved.relationship}{saved.passport_number ? ' · Passport on file' : ''}</p>
+                        <p style={{ fontSize: '13px', color: 'var(--foreground)', margin: '0 0 1px' }}>{saved.full_name}</p>
+                        <p style={{ fontSize: '11px', color: 'var(--muted-foreground)', margin: 0 }}>{saved.relationship}{saved.passport_number ? ' · Passport on file' : ''}</p>
                       </div>
                     </button>
                   ))}
@@ -490,7 +490,7 @@ export default function InviteGuests() {
                     <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
                       {[{ v: true, l: 'Yes — send them the link' }, { v: false, l: 'No — I manage their info' }].map(opt => (
                         <button key={String(opt.v)} onClick={() => setNewAttendee({...newAttendee, fills_own_preferences: opt.v})}
-                          style={{ flex: 1, padding: '8px', fontSize: '11px', border: `1px solid ${newAttendee.fills_own_preferences === opt.v ? '#2d5a18' : '#d4d4c8'}`, background: newAttendee.fills_own_preferences === opt.v ? '#e8f0e4' : 'transparent', color: newAttendee.fills_own_preferences === opt.v ? '#2d5a18' : '#6a6a6a', cursor: 'pointer', borderRadius: '6px', ...s }}>
+                          style={{ flex: 1, padding: '8px', fontSize: '11px', border: `1px solid ${newAttendee.fills_own_preferences === opt.v ? 'var(--forest)' : 'var(--border)'}`, background: newAttendee.fills_own_preferences === opt.v ? 'var(--accent-light)' : 'transparent', color: newAttendee.fills_own_preferences === opt.v ? 'var(--forest)' : 'var(--muted-foreground)', cursor: 'pointer', borderRadius: '6px', ...s }}>
                           {opt.l}
                         </button>
                       ))}
@@ -515,8 +515,8 @@ export default function InviteGuests() {
                     </div>
                   )}
                   <div style={{ display: 'flex', gap: '8px' }}>
-                    <button onClick={() => setShowAddForm(false)} style={{ flex: 1, border: '1px solid #d4d4c8', padding: '10px', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#9a9a8a', background: 'transparent', cursor: 'pointer', borderRadius: '6px', ...s }}>Cancel</button>
-                    <button onClick={addNewAttendee} disabled={saving || !newAttendee.nickname.trim()} style={{ flex: 1, border: '1px solid #2d5a18', padding: '10px', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#2d5a18', background: 'transparent', cursor: 'pointer', opacity: saving || !newAttendee.nickname.trim() ? 0.4 : 1, borderRadius: '6px', ...s }}>
+                    <button onClick={() => setShowAddForm(false)} style={{ flex: 1, border: '1px solid var(--border)', padding: '10px', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--muted-foreground)', background: 'transparent', cursor: 'pointer', borderRadius: '6px', ...s }}>Cancel</button>
+                    <button onClick={addNewAttendee} disabled={saving || !newAttendee.nickname.trim()} style={{ flex: 1, border: '1px solid var(--forest)', padding: '10px', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--forest)', background: 'transparent', cursor: 'pointer', opacity: saving || !newAttendee.nickname.trim() ? 0.4 : 1, borderRadius: '6px', ...s }}>
                       {saving ? 'Adding...' : 'Add →'}
                     </button>
                   </div>
@@ -529,7 +529,7 @@ export default function InviteGuests() {
         <div style={{ textAlign: 'center', marginBottom: '12px' }}>
           <button
             onClick={() => setShowLeaveConfirm(true)}
-            style={{ fontSize: '11px', color: '#b4b4a8', background: 'none', border: 'none', cursor: 'pointer', letterSpacing: '0.1em', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+            style={{ fontSize: '11px', color: 'var(--muted-foreground)', background: 'none', border: 'none', cursor: 'pointer', letterSpacing: '0.1em', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
             Leave this trip
           </button>
         </div>
@@ -538,18 +538,18 @@ export default function InviteGuests() {
           <div style={{ textAlign: 'center', marginBottom: '12px' }}>
             <button
               onClick={() => setShowTransferHost(true)}
-              style={{ fontSize: '11px', color: '#b4b4a8', background: 'none', border: 'none', cursor: 'pointer', letterSpacing: '0.1em', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+              style={{ fontSize: '11px', color: 'var(--muted-foreground)', background: 'none', border: 'none', cursor: 'pointer', letterSpacing: '0.1em', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
               Transfer host role
             </button>
           </div>
         )}
 
         {isOrganizer && (
-          <div style={{ background: '#fff', border: '0.5px solid #e4e4d8', borderRadius: '14px', padding: '18px 20px', marginBottom: '16px' }}>
+          <div style={{ background: '#fff', border: '0.5px solid var(--border)', borderRadius: '14px', padding: '18px 20px', marginBottom: '16px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
-                <p style={{ fontSize: '13px', color: '#1a1a1a', margin: '0 0 4px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>Show member conversations</p>
-                <p style={{ fontSize: '11px', color: '#9a9a8a', margin: 0, lineHeight: 1.5 }}>Allow everyone to read each other's Avanti conversations</p>
+                <p style={{ fontSize: '13px', color: 'var(--foreground)', margin: '0 0 4px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>Show member conversations</p>
+                <p style={{ fontSize: '11px', color: 'var(--muted-foreground)', margin: 0, lineHeight: 1.5 }}>Allow everyone to read each other's Avanti conversations</p>
               </div>
               <button
                 onClick={async () => {
@@ -557,7 +557,7 @@ export default function InviteGuests() {
                   setShowMemberConvos(newVal)
                   await supabase.from('trips').update({ show_member_conversations: newVal }).eq('id', tripId)
                 }}
-                style={{ width: '44px', height: '24px', borderRadius: '12px', background: showMemberConvos ? '#2d5a18' : '#d4d4c8', border: 'none', cursor: 'pointer', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
+                style={{ width: '44px', height: '24px', borderRadius: '12px', background: showMemberConvos ? 'var(--forest)' : 'var(--border)', border: 'none', cursor: 'pointer', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
                 <div style={{ width: '18px', height: '18px', borderRadius: '50%', background: '#fff', position: 'absolute', top: '3px', left: showMemberConvos ? '23px' : '3px', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
               </button>
             </div>
@@ -568,20 +568,20 @@ export default function InviteGuests() {
           {isOrganizer && !invitesClosed && (
             <button
               onClick={() => setShowCloseConfirm(true)}
-              style={{ width: '100%', border: '1px solid #182D09', background: '#182D09', color: '#fff', padding: '16px', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '10px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+              style={{ width: '100%', border: '1px solid var(--forest-deep)', background: 'var(--forest-deep)', color: '#fff', padding: '16px', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '10px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
               Done adding guests — close invite link →
             </button>
           )}
 
           {isOrganizer && invitesClosed && (
-            <div style={{ padding: '16px', background: '#e8f0e4', border: '0.5px solid #8aad7a', borderRadius: '10px', textAlign: 'center' }}>
-              <p style={{ fontSize: '12px', color: '#2d5a18', margin: '0 0 4px' }}>✓ Invite link closed</p>
-              <p style={{ fontSize: '11px', color: '#9a9a8a', margin: 0, lineHeight: 1.6 }}>No new guests can join. Step 2 is now unlocked.</p>
+            <div style={{ padding: '16px', background: 'var(--accent-light)', border: '0.5px solid #8aad7a', borderRadius: '10px', textAlign: 'center' }}>
+              <p style={{ fontSize: '12px', color: 'var(--forest)', margin: '0 0 4px' }}>✓ Invite link closed</p>
+              <p style={{ fontSize: '11px', color: 'var(--muted-foreground)', margin: 0, lineHeight: 1.6 }}>No new guests can join. Step 2 is now unlocked.</p>
             </div>
           )}
           <button
             onClick={() => router.push(`/trips/${tripId}`)}
-            style={{ width: '100%', border: '0.5px solid #d4d4c8', background: 'transparent', color: '#9a9a8a', padding: '14px', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '10px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+            style={{ width: '100%', border: '0.5px solid var(--border)', background: 'transparent', color: 'var(--muted-foreground)', padding: '14px', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '10px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
             ← Back to trip
           </button>
         </div>
@@ -589,26 +589,26 @@ export default function InviteGuests() {
       </div>
 
       {toast && (
-        <div style={{ position: 'fixed', bottom: '24px', left: '50%', transform: 'translateX(-50%)', background: '#182D09', color: '#ffffff', padding: '10px 20px', borderRadius: '24px', fontSize: '12px', letterSpacing: '0.1em', zIndex: 100, ...s }}>
+        <div style={{ position: 'fixed', bottom: '24px', left: '50%', transform: 'translateX(-50%)', background: 'var(--forest-deep)', color: '#ffffff', padding: '10px 20px', borderRadius: '24px', fontSize: '12px', letterSpacing: '0.1em', zIndex: 100, ...s }}>
           {toast}
         </div>
       )}
 
       {showLeaveConfirm && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: '24px' }}>
-          <div style={{ background: '#fafaf8', borderRadius: '16px', padding: '28px', width: '100%', maxWidth: '360px', textAlign: 'center', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
-            <p style={{ fontSize: '18px', fontWeight: 300, color: '#1a1a1a', margin: '0 0 8px' }}>Leave this trip?</p>
+          <div style={{ background: 'var(--cream)', borderRadius: '16px', padding: '28px', width: '100%', maxWidth: '360px', textAlign: 'center', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+            <p style={{ fontSize: '18px', fontWeight: 300, color: 'var(--foreground)', margin: '0 0 8px' }}>Leave this trip?</p>
             {isOrganizer && attendees.filter(a => a.role === 'member').length > 0 && (
-              <p style={{ fontSize: '13px', color: '#9a9a8a', margin: '0 0 20px', lineHeight: 1.6 }}>You're the organizer. A new host will be randomly assigned from your group.</p>
+              <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', margin: '0 0 20px', lineHeight: 1.6 }}>You're the organizer. A new host will be randomly assigned from your group.</p>
             )}
             {isOrganizer && attendees.filter(a => a.role === 'member').length === 0 && (
-              <p style={{ fontSize: '13px', color: '#9a9a8a', margin: '0 0 20px', lineHeight: 1.6 }}>You're the only person on this trip. The trip will remain but have no organizer.</p>
+              <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', margin: '0 0 20px', lineHeight: 1.6 }}>You're the only person on this trip. The trip will remain but have no organizer.</p>
             )}
             {!isOrganizer && (
-              <p style={{ fontSize: '13px', color: '#9a9a8a', margin: '0 0 20px', lineHeight: 1.6 }}>You'll be removed from the trip and will need a new invite link to rejoin.</p>
+              <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', margin: '0 0 20px', lineHeight: 1.6 }}>You'll be removed from the trip and will need a new invite link to rejoin.</p>
             )}
             <div style={{ display: 'flex', gap: '10px' }}>
-              <button onClick={() => setShowLeaveConfirm(false)} style={{ flex: 1, border: '1px solid #d4d4c8', padding: '12px', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#9a9a8a', background: 'transparent', cursor: 'pointer', borderRadius: '8px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>Cancel</button>
+              <button onClick={() => setShowLeaveConfirm(false)} style={{ flex: 1, border: '1px solid var(--border)', padding: '12px', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--muted-foreground)', background: 'transparent', cursor: 'pointer', borderRadius: '8px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>Cancel</button>
               <button onClick={handleLeaveGroup} style={{ flex: 1, border: '1px solid #a32d2d', padding: '12px', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#a32d2d', background: 'transparent', cursor: 'pointer', borderRadius: '8px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>Leave trip</button>
             </div>
           </div>
@@ -617,24 +617,24 @@ export default function InviteGuests() {
 
       {showTransferHost && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: '24px' }}>
-          <div style={{ background: '#fafaf8', borderRadius: '16px', padding: '28px', width: '100%', maxWidth: '400px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
-            <p style={{ fontSize: '18px', fontWeight: 300, color: '#1a1a1a', margin: '0 0 6px' }}>Transfer host role</p>
-            <p style={{ fontSize: '13px', color: '#9a9a8a', margin: '0 0 20px', lineHeight: 1.6 }}>Choose who becomes the new organizer. They'll take over immediately.</p>
+          <div style={{ background: 'var(--cream)', borderRadius: '16px', padding: '28px', width: '100%', maxWidth: '400px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+            <p style={{ fontSize: '18px', fontWeight: 300, color: 'var(--foreground)', margin: '0 0 6px' }}>Transfer host role</p>
+            <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', margin: '0 0 20px', lineHeight: 1.6 }}>Choose who becomes the new organizer. They'll take over immediately.</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
               {attendees.filter(a => a.role === 'member').map(member => (
                 <button key={member.id} onClick={() => handleTransferHost(member.id)}
-                  style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', border: '0.5px solid #e4e4d8', background: '#fff', cursor: 'pointer', borderRadius: '10px', textAlign: 'left', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
-                  <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#e8f0e4', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', color: '#2d5a18', flexShrink: 0 }}>
+                  style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', border: '0.5px solid var(--border)', background: '#fff', cursor: 'pointer', borderRadius: '10px', textAlign: 'left', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+                  <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--accent-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', color: 'var(--forest)', flexShrink: 0 }}>
                     {member.nickname?.charAt(0).toUpperCase() || member.full_name?.charAt(0).toUpperCase()}
                   </div>
                   <div>
-                    <p style={{ fontSize: '14px', color: '#1a1a1a', margin: 0 }}>{member.nickname || member.full_name}</p>
-                    <p style={{ fontSize: '11px', color: '#9a9a8a', margin: 0 }}>Make organizer →</p>
+                    <p style={{ fontSize: '14px', color: 'var(--foreground)', margin: 0 }}>{member.nickname || member.full_name}</p>
+                    <p style={{ fontSize: '11px', color: 'var(--muted-foreground)', margin: 0 }}>Make organizer →</p>
                   </div>
                 </button>
               ))}
             </div>
-            <button onClick={() => setShowTransferHost(false)} style={{ width: '100%', border: '1px solid #d4d4c8', padding: '12px', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#9a9a8a', background: 'transparent', cursor: 'pointer', borderRadius: '8px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>Cancel</button>
+            <button onClick={() => setShowTransferHost(false)} style={{ width: '100%', border: '1px solid var(--border)', padding: '12px', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--muted-foreground)', background: 'transparent', cursor: 'pointer', borderRadius: '8px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>Cancel</button>
           </div>
         </div>
       )}
@@ -642,14 +642,14 @@ export default function InviteGuests() {
       {showRemoveModal && (() => {
         const person = attendees.find(a => a.id === showRemoveModal)
         return (
-          <div style={{ position: 'fixed', inset: 0, background: '#fafaf8', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '32px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+          <div style={{ position: 'fixed', inset: 0, background: 'var(--cream)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '32px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
             <div style={{ width: '100%', maxWidth: '380px', textAlign: 'center' }}>
-              <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: '#f5f5f0', border: '0.5px solid #e4e4d8', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', fontSize: '26px', color: '#182D09', fontWeight: 300 }}>
+              <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: '#f5f5f0', border: '0.5px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', fontSize: '26px', color: 'var(--forest-deep)', fontWeight: 300 }}>
                 {person?.nickname?.charAt(0).toUpperCase() || person?.full_name?.charAt(0).toUpperCase()}
               </div>
-              <p style={{ fontSize: '11px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#9a9a8a', margin: '0 0 8px' }}>Remove from trip</p>
-              <h2 style={{ fontSize: '28px', fontWeight: 300, color: '#1a1a1a', margin: '0 0 12px' }}>{person?.nickname || person?.full_name}</h2>
-              <p style={{ fontSize: '13px', color: '#9a9a8a', margin: '0 0 40px', lineHeight: 1.7 }}>
+              <p style={{ fontSize: '11px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--muted-foreground)', margin: '0 0 8px' }}>Remove from trip</p>
+              <h2 style={{ fontSize: '28px', fontWeight: 300, color: 'var(--foreground)', margin: '0 0 12px' }}>{person?.nickname || person?.full_name}</h2>
+              <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', margin: '0 0 40px', lineHeight: 1.7 }}>
                 They'll be removed from {trip?.name}.<br/>
                 This can be undone — just send them a new invite link.
               </p>
@@ -661,7 +661,7 @@ export default function InviteGuests() {
                 </button>
                 <button
                   onClick={() => setShowRemoveModal(null)}
-                  style={{ width: '100%', border: '1px solid #d4d4c8', padding: '14px', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', color: '#9a9a8a', background: 'transparent', cursor: 'pointer', borderRadius: '8px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+                  style={{ width: '100%', border: '1px solid var(--border)', padding: '14px', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', color: 'var(--muted-foreground)', background: 'transparent', cursor: 'pointer', borderRadius: '8px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
                   ← Take me back
                 </button>
               </div>
@@ -671,15 +671,15 @@ export default function InviteGuests() {
       })()}
 
       {showCloseConfirm && (
-        <div style={{ position: 'fixed', inset: 0, background: '#fafaf8', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '32px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'var(--cream)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '32px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
           <div style={{ width: '100%', maxWidth: '400px' }}>
             <div style={{ textAlign: 'center', marginBottom: '32px' }}>
               <div style={{ fontSize: '40px', marginBottom: '16px' }}>🔒</div>
-              <p style={{ fontSize: '11px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#9a9a8a', margin: '0 0 10px' }}>Close invite link</p>
-              <h2 style={{ fontSize: '28px', fontWeight: 300, color: '#1a1a1a', margin: '0 0 16px' }}>Ready to lock the group?</h2>
-              <p style={{ fontSize: '13px', color: '#9a9a8a', lineHeight: 1.8, margin: 0 }}>
+              <p style={{ fontSize: '11px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--muted-foreground)', margin: '0 0 10px' }}>Close invite link</p>
+              <h2 style={{ fontSize: '28px', fontWeight: 300, color: 'var(--foreground)', margin: '0 0 16px' }}>Ready to lock the group?</h2>
+              <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', lineHeight: 1.8, margin: 0 }}>
                 Once you close the invite link, no new guests can join.<br/>
-                <strong style={{ color: '#1a1a1a', fontWeight: 400 }}>This cannot be undone.</strong>
+                <strong style={{ color: 'var(--foreground)', fontWeight: 400 }}>This cannot be undone.</strong>
               </p>
             </div>
 
@@ -690,12 +690,12 @@ export default function InviteGuests() {
               </p>
             </div>
 
-            <div style={{ background: '#fff', border: '0.5px solid #e4e4d8', borderRadius: '10px', padding: '14px 16px', marginBottom: '28px' }}>
-              <p style={{ fontSize: '11px', color: '#9a9a8a', margin: '0 0 8px', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Current group — {attendees.filter(a => a.status === 'approved' || a.role === 'organizer').length} confirmed</p>
+            <div style={{ background: '#fff', border: '0.5px solid var(--border)', borderRadius: '10px', padding: '14px 16px', marginBottom: '28px' }}>
+              <p style={{ fontSize: '11px', color: 'var(--muted-foreground)', margin: '0 0 8px', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Current group — {attendees.filter(a => a.status === 'approved' || a.role === 'organizer').length} confirmed</p>
               <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                 {attendees.filter(a => a.status === 'approved' || a.role === 'organizer').map(att => (
                   <div key={att.id} style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#f5f5f0', padding: '4px 10px', borderRadius: '20px' }}>
-                    <div style={{ width: '18px', height: '18px', borderRadius: '50%', background: '#182D09', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', color: '#fff' }}>
+                    <div style={{ width: '18px', height: '18px', borderRadius: '50%', background: 'var(--forest-deep)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', color: '#fff' }}>
                       {att.nickname?.charAt(0).toUpperCase() || att.full_name?.charAt(0).toUpperCase()}
                     </div>
                     <span style={{ fontSize: '11px', color: '#3a3a3a' }}>{att.nickname || att.full_name?.split(' ')[0]}</span>
@@ -707,12 +707,12 @@ export default function InviteGuests() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <button
                 onClick={handleCloseInvites}
-                style={{ width: '100%', border: '1px solid #182D09', background: '#182D09', color: '#fff', padding: '15px', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '8px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+                style={{ width: '100%', border: '1px solid var(--forest-deep)', background: 'var(--forest-deep)', color: '#fff', padding: '15px', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '8px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
                 Lock the group →
               </button>
               <button
                 onClick={() => setShowCloseConfirm(false)}
-                style={{ width: '100%', border: '0.5px solid #d4d4c8', padding: '15px', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', color: '#9a9a8a', background: 'transparent', cursor: 'pointer', borderRadius: '8px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+                style={{ width: '100%', border: '0.5px solid var(--border)', padding: '15px', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', color: 'var(--muted-foreground)', background: 'transparent', cursor: 'pointer', borderRadius: '8px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
                 ← Not yet, go back
               </button>
             </div>

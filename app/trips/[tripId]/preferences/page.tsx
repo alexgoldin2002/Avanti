@@ -93,8 +93,8 @@ export default function TripPreferences() {
   })
 
   const s = { fontFamily: 'var(--font-cormorant), Georgia, serif' }
-  const inputStyle = { width: '100%', borderBottom: '1px solid #d4d4c8', background: 'transparent', padding: '8px 0', fontSize: '15px', color: '#1a1a1a', outline: 'none', ...s }
-  const labelStyle = { fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase' as const, color: '#9a9a8a', display: 'block', marginBottom: '6px' }
+  const inputStyle = { width: '100%', borderBottom: '1px solid var(--border)', background: 'transparent', padding: '8px 0', fontSize: '15px', color: 'var(--foreground)', outline: 'none', ...s }
+  const labelStyle = { fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase' as const, color: 'var(--muted-foreground)', display: 'block', marginBottom: '6px' }
 
   const nightlifeSelected = activities['festivals'] === 'yes'
   const adventureSelected = activities['hiking'] === 'yes' || activities['adrenaline'] === 'yes' || activities['watersports'] === 'yes'
@@ -153,9 +153,9 @@ export default function TripPreferences() {
   }
 
   const getActivityStyle = (state: ActivityState) => {
-    if (state === 'yes') return { background: '#e8f5ee', border: '1px solid #2d6a4f', color: '#1a3a2a' }
+    if (state === 'yes') return { background: 'var(--accent-light)', border: '1px solid var(--forest)', color: 'var(--forest-deep)' }
     if (state === 'skip') return { background: '#fef0f0', border: '1px solid #ffb4b4', color: '#9a3a3a' }
-    return { background: '#fff', border: '0.5px solid #e4e4d8', color: '#6a6a6a' }
+    return { background: '#fff', border: '0.5px solid var(--border)', color: 'var(--muted-foreground)' }
   }
 
   const getActivityIcon = (state: ActivityState) => {
@@ -211,29 +211,29 @@ export default function TripPreferences() {
   ]
 
   return (
-    <main style={{ minHeight: '100vh', background: '#fafaf8', ...s }}>
+    <main style={{ minHeight: '100vh', background: 'var(--cream)', ...s }}>
       <div style={{ maxWidth: '560px', margin: '0 auto', padding: '48px 24px 100px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '32px' }}>
           <AvantiLogo size="sm" />
-          <button onClick={() => router.push(`/trips/${tripId}`)} style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#9a9a8a', background: 'none', border: 'none', cursor: 'pointer', ...s }}>← Back</button>
+          <button onClick={() => router.push(`/trips/${tripId}`)} style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--muted-foreground)', background: 'none', border: 'none', cursor: 'pointer', ...s }}>← Back</button>
         </div>
 
-        <p style={{ fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', color: '#9a9a8a', margin: '0 0 6px' }}>Step 2</p>
-        <h1 style={{ fontSize: '36px', fontWeight: 300, color: '#1a1a1a', margin: '0 0 6px' }}>{trip?.name}</h1>
-        <p style={{ fontSize: '14px', color: '#9a9a8a', margin: '0 0 32px', lineHeight: 1.6 }}>Tell us what matters to you. This shapes the whole trip.</p>
+        <p style={{ fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', color: 'var(--muted-foreground)', margin: '0 0 6px' }}>Step 2</p>
+        <h1 style={{ fontSize: '36px', fontWeight: 300, color: 'var(--foreground)', margin: '0 0 6px' }}>{trip?.name}</h1>
+        <p style={{ fontSize: '14px', color: 'var(--muted-foreground)', margin: '0 0 32px', lineHeight: 1.6 }}>Tell us what matters to you. This shapes the whole trip.</p>
 
         <div style={{ display: 'flex', gap: '6px', marginBottom: '40px' }}>
           {sections.map((sec, i) => (
-            <button key={i} onClick={() => setSection(i)} style={{ flex: 1, height: '3px', background: i <= section ? '#1a3a2a' : '#e4e4d8', border: 'none', cursor: 'pointer', borderRadius: '2px', transition: 'background 0.2s' }} />
+            <button key={i} onClick={() => setSection(i)} style={{ flex: 1, height: '3px', background: i <= section ? 'var(--forest-deep)' : 'var(--border)', border: 'none', cursor: 'pointer', borderRadius: '2px', transition: 'background 0.2s' }} />
           ))}
         </div>
 
-        <p style={{ fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', color: '#9a9a8a', margin: '0 0 6px' }}>{section + 1} of {sections.length}</p>
-        <h2 style={{ fontSize: '28px', fontWeight: 300, color: '#1a1a1a', margin: '0 0 28px' }}>{sections[section]}</h2>
+        <p style={{ fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', color: 'var(--muted-foreground)', margin: '0 0 6px' }}>{section + 1} of {sections.length}</p>
+        <h2 style={{ fontSize: '28px', fontWeight: 300, color: 'var(--foreground)', margin: '0 0 28px' }}>{sections[section]}</h2>
 
         {section === 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <p style={{ fontSize: '13px', color: '#9a9a8a', margin: '0 0 8px', lineHeight: 1.6 }}>Drag to rank what matters most for this trip. #1 is your top priority.</p>
+            <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', margin: '0 0 8px', lineHeight: 1.6 }}>Drag to rank what matters most for this trip. #1 is your top priority.</p>
             {priorities.map((item, index) => (
               <div
                 key={item.id}
@@ -245,22 +245,22 @@ export default function TripPreferences() {
                 style={{
                   display: 'flex', alignItems: 'center', gap: '14px',
                   padding: '16px 18px',
-                  background: dragging === item.id ? '#f0f5f0' : dragOver === item.id ? '#e8f5ee' : '#fff',
-                  border: `0.5px solid ${dragOver === item.id ? '#2d6a4f' : '#e4e4d8'}`,
+                  background: dragging === item.id ? '#f0f5f0' : dragOver === item.id ? 'var(--accent-light)' : '#fff',
+                  border: `0.5px solid ${dragOver === item.id ? 'var(--forest)' : 'var(--border)'}`,
                   borderRadius: '12px', cursor: 'grab',
                   opacity: dragging === item.id ? 0.5 : 1,
                   transition: 'all 0.1s',
                   userSelect: 'none',
                 }}
               >
-                <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: index < 3 ? '#1a3a2a' : '#f5f5f0', display: 'flex', alignItems: 'center', justifyContent: 'center', color: index < 3 ? '#fff' : '#9a9a8a', fontSize: '13px', fontWeight: 500, flexShrink: 0 }}>
+                <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: index < 3 ? 'var(--forest-deep)' : '#f5f5f0', display: 'flex', alignItems: 'center', justifyContent: 'center', color: index < 3 ? '#fff' : 'var(--muted-foreground)', fontSize: '13px', fontWeight: 500, flexShrink: 0 }}>
                   {index + 1}
                 </div>
                 <div style={{ flex: 1 }}>
-                  <p style={{ fontSize: '14px', color: '#1a1a1a', margin: '0 0 2px', fontWeight: 400, ...s }}>{item.label}</p>
-                  <p style={{ fontSize: '11px', color: '#9a9a8a', margin: 0 }}>{item.description}</p>
+                  <p style={{ fontSize: '14px', color: 'var(--foreground)', margin: '0 0 2px', fontWeight: 400, ...s }}>{item.label}</p>
+                  <p style={{ fontSize: '11px', color: 'var(--muted-foreground)', margin: 0 }}>{item.description}</p>
                 </div>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d4d4c8" strokeWidth="2" style={{ flexShrink: 0 }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--border)" strokeWidth="2" style={{ flexShrink: 0 }}>
                   <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/>
                   <line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
                 </svg>
@@ -271,20 +271,20 @@ export default function TripPreferences() {
 
         {section === 1 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <p style={{ fontSize: '13px', color: '#9a9a8a', margin: '0 0 8px', lineHeight: 1.6 }}>How do you want your days to feel on this trip?</p>
+            <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', margin: '0 0 8px', lineHeight: 1.6 }}>How do you want your days to feel on this trip?</p>
             {[
               { value: 'packed', label: 'Packed', desc: 'Something planned every day — I want to make the most of every hour' },
               { value: 'balanced', label: 'Balanced', desc: 'Mix of activity and downtime, roughly half and half' },
               { value: 'relaxed', label: 'Relaxed', desc: 'Happy doing one thing and then nothing — I\'m here to recharge' },
               { value: 'flexible', label: 'Flexible', desc: 'I\'ll decide when I\'m there — don\'t over-plan for me' },
             ].map(opt => (
-              <button key={opt.value} onClick={() => setDayStructure(opt.value)} style={{ display: 'flex', alignItems: 'flex-start', gap: '14px', padding: '18px 20px', background: dayStructure === opt.value ? '#e8f5ee' : '#fff', border: `1px solid ${dayStructure === opt.value ? '#2d6a4f' : '#e4e4d8'}`, borderRadius: '12px', cursor: 'pointer', textAlign: 'left', ...s }}>
-                <div style={{ width: '20px', height: '20px', borderRadius: '50%', border: `2px solid ${dayStructure === opt.value ? '#2d6a4f' : '#d4d4c8'}`, background: dayStructure === opt.value ? '#2d6a4f' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: '2px' }}>
+              <button key={opt.value} onClick={() => setDayStructure(opt.value)} style={{ display: 'flex', alignItems: 'flex-start', gap: '14px', padding: '18px 20px', background: dayStructure === opt.value ? 'var(--accent-light)' : '#fff', border: `1px solid ${dayStructure === opt.value ? 'var(--forest)' : 'var(--border)'}`, borderRadius: '12px', cursor: 'pointer', textAlign: 'left', ...s }}>
+                <div style={{ width: '20px', height: '20px', borderRadius: '50%', border: `2px solid ${dayStructure === opt.value ? 'var(--forest)' : 'var(--border)'}`, background: dayStructure === opt.value ? 'var(--forest)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: '2px' }}>
                   {dayStructure === opt.value && <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#fff' }} />}
                 </div>
                 <div>
-                  <p style={{ fontSize: '15px', color: '#1a1a1a', margin: '0 0 4px', fontWeight: 400, ...s }}>{opt.label}</p>
-                  <p style={{ fontSize: '12px', color: '#9a9a8a', margin: 0, lineHeight: 1.5 }}>{opt.desc}</p>
+                  <p style={{ fontSize: '15px', color: 'var(--foreground)', margin: '0 0 4px', fontWeight: 400, ...s }}>{opt.label}</p>
+                  <p style={{ fontSize: '12px', color: 'var(--muted-foreground)', margin: 0, lineHeight: 1.5 }}>{opt.desc}</p>
                 </div>
               </button>
             ))}
@@ -293,21 +293,21 @@ export default function TripPreferences() {
 
         {section === 2 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-            <p style={{ fontSize: '13px', color: '#9a9a8a', margin: '0 0 8px', lineHeight: 1.6 }}>How do you picture the group dynamic on this trip?</p>
+            <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', margin: '0 0 8px', lineHeight: 1.6 }}>How do you picture the group dynamic on this trip?</p>
             <div style={{ padding: '8px 0' }}>
               <input
                 type="range" min={0} max={3} step={1} value={groupTime}
                 onChange={e => setGroupTime(parseInt(e.target.value))}
-                style={{ width: '100%', accentColor: '#1a3a2a', cursor: 'pointer' }}
+                style={{ width: '100%', accentColor: 'var(--forest-deep)', cursor: 'pointer' }}
               />
               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px' }}>
-                <span style={{ fontSize: '10px', color: '#9a9a8a' }}>Together</span>
-                <span style={{ fontSize: '10px', color: '#9a9a8a' }}>Independent</span>
+                <span style={{ fontSize: '10px', color: 'var(--muted-foreground)' }}>Together</span>
+                <span style={{ fontSize: '10px', color: 'var(--muted-foreground)' }}>Independent</span>
               </div>
             </div>
-            <div style={{ background: '#e8f5ee', border: '0.5px solid #a8d4b8', borderRadius: '12px', padding: '20px' }}>
-              <p style={{ fontSize: '16px', color: '#1a3a2a', margin: '0 0 6px', ...s }}>{groupTimeLabels[groupTime]}</p>
-              <p style={{ fontSize: '12px', color: '#2d6a4f', margin: 0, lineHeight: 1.6 }}>
+            <div style={{ background: 'var(--accent-light)', border: '0.5px solid #a8d4b8', borderRadius: '12px', padding: '20px' }}>
+              <p style={{ fontSize: '16px', color: 'var(--forest-deep)', margin: '0 0 6px', ...s }}>{groupTimeLabels[groupTime]}</p>
+              <p style={{ fontSize: '12px', color: 'var(--forest)', margin: 0, lineHeight: 1.6 }}>
                 {groupTime === 0 && 'We move as one — same activities, same meals, always together.'}
                 {groupTime === 1 && 'We share the anchors — meals, key experiences — and split off in between.'}
                 {groupTime === 2 && 'We share a home base and meet for mornings and evenings. Days are your own.'}
@@ -319,17 +319,17 @@ export default function TripPreferences() {
 
         {section === 3 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
-            <p style={{ fontSize: '13px', color: '#9a9a8a', margin: '0 0 4px', lineHeight: 1.6 }}>
+            <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', margin: '0 0 4px', lineHeight: 1.6 }}>
               Tap once to mark something you want. Tap again to say you&apos;d rather skip it. Leave it blank if you&apos;re indifferent.
             </p>
-            <div style={{ display: 'flex', gap: '12px', fontSize: '11px', color: '#9a9a8a', margin: '0 0 8px' }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><span style={{ width: '16px', height: '16px', borderRadius: '4px', background: '#e8f5ee', border: '1px solid #2d6a4f', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', color: '#1a3a2a' }}>✓</span> Want it</span>
+            <div style={{ display: 'flex', gap: '12px', fontSize: '11px', color: 'var(--muted-foreground)', margin: '0 0 8px' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><span style={{ width: '16px', height: '16px', borderRadius: '4px', background: 'var(--accent-light)', border: '1px solid var(--forest)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', color: 'var(--forest-deep)' }}>✓</span> Want it</span>
               <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><span style={{ width: '16px', height: '16px', borderRadius: '4px', background: '#fef0f0', border: '1px solid #ffb4b4', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', color: '#9a3a3a' }}>✕</span> Skip it</span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><span style={{ width: '16px', height: '16px', borderRadius: '4px', background: '#fff', border: '0.5px solid #e4e4d8', display: 'inline-flex' }}></span> Either way</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><span style={{ width: '16px', height: '16px', borderRadius: '4px', background: '#fff', border: '0.5px solid var(--border)', display: 'inline-flex' }}></span> Either way</span>
             </div>
             {ACTIVITY_CATEGORIES.map(cat => (
               <div key={cat.label}>
-                <p style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#9a9a8a', margin: '0 0 10px' }}>{cat.label}</p>
+                <p style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--muted-foreground)', margin: '0 0 10px' }}>{cat.label}</p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   {cat.items.map(item => {
                     const state = activities[item.id]
@@ -341,7 +341,7 @@ export default function TripPreferences() {
                         style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 16px', borderRadius: '10px', cursor: 'pointer', transition: 'all 0.15s', ...style, ...s }}
                       >
                         <span style={{ fontSize: '13px' }}>{item.label}</span>
-                        <div style={{ width: '22px', height: '22px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 600, background: state === 'yes' ? '#2d6a4f' : state === 'skip' ? '#ffb4b4' : '#f5f5f0', color: state === 'yes' ? '#fff' : state === 'skip' ? '#9a3a3a' : '#d4d4c8', flexShrink: 0 }}>
+                        <div style={{ width: '22px', height: '22px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 600, background: state === 'yes' ? 'var(--forest)' : state === 'skip' ? '#ffb4b4' : '#f5f5f0', color: state === 'yes' ? '#fff' : state === 'skip' ? '#9a3a3a' : 'var(--border)', flexShrink: 0 }}>
                           {getActivityIcon(state)}
                         </div>
                       </button>
@@ -352,7 +352,7 @@ export default function TripPreferences() {
             ))}
             {nightlifeSelected && (
               <div style={{ background: '#f5f5f0', borderRadius: '12px', padding: '20px' }}>
-                <p style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#9a9a8a', margin: '0 0 12px' }}>What does a great night out look like?</p>
+                <p style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--muted-foreground)', margin: '0 0 12px' }}>What does a great night out look like?</p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   {[
                     { value: 'going_hard', label: 'Going hard', desc: 'Clubs, bar crawls, late nights — the night is the point' },
@@ -360,13 +360,13 @@ export default function TripPreferences() {
                     { value: 'cultural', label: 'Cultural nights', desc: 'Night markets, live music, evening experiences' },
                     { value: 'mix', label: 'Mix of all three', desc: 'Some nights one way, some nights another' },
                   ].map(opt => (
-                    <button key={opt.value} onClick={() => setNightlifeClarifier(opt.value)} style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', padding: '14px 16px', background: nightlifeClarifier === opt.value ? '#e8f5ee' : '#fff', border: `1px solid ${nightlifeClarifier === opt.value ? '#2d6a4f' : '#e4e4d8'}`, borderRadius: '10px', cursor: 'pointer', textAlign: 'left', ...s }}>
-                      <div style={{ width: '18px', height: '18px', borderRadius: '50%', border: `2px solid ${nightlifeClarifier === opt.value ? '#2d6a4f' : '#d4d4c8'}`, background: nightlifeClarifier === opt.value ? '#2d6a4f' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: '2px' }}>
+                    <button key={opt.value} onClick={() => setNightlifeClarifier(opt.value)} style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', padding: '14px 16px', background: nightlifeClarifier === opt.value ? 'var(--accent-light)' : '#fff', border: `1px solid ${nightlifeClarifier === opt.value ? 'var(--forest)' : 'var(--border)'}`, borderRadius: '10px', cursor: 'pointer', textAlign: 'left', ...s }}>
+                      <div style={{ width: '18px', height: '18px', borderRadius: '50%', border: `2px solid ${nightlifeClarifier === opt.value ? 'var(--forest)' : 'var(--border)'}`, background: nightlifeClarifier === opt.value ? 'var(--forest)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: '2px' }}>
                         {nightlifeClarifier === opt.value && <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#fff' }} />}
                       </div>
                       <div>
-                        <p style={{ fontSize: '13px', color: '#1a1a1a', margin: '0 0 2px', ...s }}>{opt.label}</p>
-                        <p style={{ fontSize: '11px', color: '#9a9a8a', margin: 0 }}>{opt.desc}</p>
+                        <p style={{ fontSize: '13px', color: 'var(--foreground)', margin: '0 0 2px', ...s }}>{opt.label}</p>
+                        <p style={{ fontSize: '11px', color: 'var(--muted-foreground)', margin: 0 }}>{opt.desc}</p>
                       </div>
                     </button>
                   ))}
@@ -375,7 +375,7 @@ export default function TripPreferences() {
             )}
             {adventureSelected && (
               <div style={{ background: '#f5f5f0', borderRadius: '12px', padding: '20px' }}>
-                <p style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#9a9a8a', margin: '0 0 12px' }}>What kind of adventure?</p>
+                <p style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--muted-foreground)', margin: '0 0 12px' }}>What kind of adventure?</p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   {[
                     { value: 'water', label: 'Water-based', desc: 'Surfing, diving, kayaking, sailing' },
@@ -383,13 +383,13 @@ export default function TripPreferences() {
                     { value: 'adrenaline', label: 'Adrenaline', desc: 'Zip-lining, cliff jumping, skydiving, motorsports' },
                     { value: 'whatever', label: 'Whatever\'s available', desc: 'I\'m up for anything — surprise me' },
                   ].map(opt => (
-                    <button key={opt.value} onClick={() => setAdventureClarifier(opt.value)} style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', padding: '14px 16px', background: adventureClarifier === opt.value ? '#e8f5ee' : '#fff', border: `1px solid ${adventureClarifier === opt.value ? '#2d6a4f' : '#e4e4d8'}`, borderRadius: '10px', cursor: 'pointer', textAlign: 'left', ...s }}>
-                      <div style={{ width: '18px', height: '18px', borderRadius: '50%', border: `2px solid ${adventureClarifier === opt.value ? '#2d6a4f' : '#d4d4c8'}`, background: adventureClarifier === opt.value ? '#2d6a4f' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: '2px' }}>
+                    <button key={opt.value} onClick={() => setAdventureClarifier(opt.value)} style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', padding: '14px 16px', background: adventureClarifier === opt.value ? 'var(--accent-light)' : '#fff', border: `1px solid ${adventureClarifier === opt.value ? 'var(--forest)' : 'var(--border)'}`, borderRadius: '10px', cursor: 'pointer', textAlign: 'left', ...s }}>
+                      <div style={{ width: '18px', height: '18px', borderRadius: '50%', border: `2px solid ${adventureClarifier === opt.value ? 'var(--forest)' : 'var(--border)'}`, background: adventureClarifier === opt.value ? 'var(--forest)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: '2px' }}>
                         {adventureClarifier === opt.value && <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#fff' }} />}
                       </div>
                       <div>
-                        <p style={{ fontSize: '13px', color: '#1a1a1a', margin: '0 0 2px', ...s }}>{opt.label}</p>
-                        <p style={{ fontSize: '11px', color: '#9a9a8a', margin: 0 }}>{opt.desc}</p>
+                        <p style={{ fontSize: '13px', color: 'var(--foreground)', margin: '0 0 2px', ...s }}>{opt.label}</p>
+                        <p style={{ fontSize: '11px', color: 'var(--muted-foreground)', margin: 0 }}>{opt.desc}</p>
                       </div>
                     </button>
                   ))}
@@ -403,20 +403,20 @@ export default function TripPreferences() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
             <div>
               <label style={labelStyle}>One thing you&apos;d love this trip to include</label>
-              <p style={{ fontSize: '12px', color: '#b4b4a8', margin: '0 0 10px', lineHeight: 1.5, fontStyle: 'italic' }}>Optional. Something specific — an experience, a type of place, something you&apos;ve always wanted to do.</p>
+              <p style={{ fontSize: '12px', color: 'var(--muted-foreground)', margin: '0 0 10px', lineHeight: 1.5, fontStyle: 'italic' }}>Optional. Something specific — an experience, a type of place, something you&apos;ve always wanted to do.</p>
               <textarea
                 value={anchorRequest}
                 onChange={e => setAnchorRequest(e.target.value)}
                 placeholder="e.g. A meal I'll be talking about for years. Somewhere I can learn to surf. A night under the stars."
                 maxLength={200}
                 rows={3}
-                style={{ width: '100%', border: 'none', borderBottom: '1px solid #d4d4c8', background: 'transparent', padding: '8px 0', fontSize: '14px', color: '#1a1a1a', outline: 'none', resize: 'none', lineHeight: 1.6, ...s }}
+                style={{ width: '100%', border: 'none', borderBottom: '1px solid var(--border)', background: 'transparent', padding: '8px 0', fontSize: '14px', color: 'var(--foreground)', outline: 'none', resize: 'none', lineHeight: 1.6, ...s }}
               />
-              <p style={{ fontSize: '10px', color: '#b4b4a8', margin: '4px 0 0', textAlign: 'right' }}>{anchorRequest.length}/200</p>
+              <p style={{ fontSize: '10px', color: 'var(--muted-foreground)', margin: '4px 0 0', textAlign: 'right' }}>{anchorRequest.length}/200</p>
             </div>
             <div>
-              <p style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#9a9a8a', margin: '0 0 12px' }}>Anything the group should know about you?</p>
-              <p style={{ fontSize: '12px', color: '#b4b4a8', margin: '0 0 16px', lineHeight: 1.5, fontStyle: 'italic' }}>All optional. Only shared with the AI to improve your recommendations — never shown to other travelers individually.</p>
+              <p style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--muted-foreground)', margin: '0 0 12px' }}>Anything the group should know about you?</p>
+              <p style={{ fontSize: '12px', color: 'var(--muted-foreground)', margin: '0 0 16px', lineHeight: 1.5, fontStyle: 'italic' }}>All optional. Only shared with the AI to improve your recommendations — never shown to other travelers individually.</p>
               {[
                 { key: 'accessibility', label: 'Accessibility or mobility needs', placeholder: 'e.g. Bad knee, can\'t do long stairs, wheelchair accessible required' },
                 { key: 'dietary', label: 'Dietary requirements', placeholder: 'e.g. Vegan, severe nut allergy, kosher, halal' },
@@ -440,16 +440,16 @@ export default function TripPreferences() {
 
         <div style={{ display: 'flex', gap: '10px', marginTop: '40px' }}>
           {section > 0 && (
-            <button onClick={() => setSection(s => s - 1)} style={{ flex: 1, border: '0.5px solid #d4d4c8', padding: '14px', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#9a9a8a', background: 'transparent', cursor: 'pointer', ...s }}>
+            <button onClick={() => setSection(s => s - 1)} style={{ flex: 1, border: '0.5px solid var(--border)', padding: '14px', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--muted-foreground)', background: 'transparent', cursor: 'pointer', ...s }}>
               ← Back
             </button>
           )}
           {section < sections.length - 1 ? (
-            <button onClick={() => setSection(s => s + 1)} style={{ flex: 1, border: '1px solid #1a1a1a', padding: '14px', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#1a1a1a', background: 'transparent', cursor: 'pointer', ...s }}>
+            <button onClick={() => setSection(s => s + 1)} style={{ flex: 1, border: '1px solid var(--foreground)', padding: '14px', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--foreground)', background: 'transparent', cursor: 'pointer', ...s }}>
               Next →
             </button>
           ) : (
-            <button onClick={save} disabled={saving} style={{ flex: 1, border: '1px solid #1a3a2a', padding: '14px', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#fafaf8', background: saved ? '#2d6a4f' : '#1a3a2a', cursor: 'pointer', opacity: saving ? 0.6 : 1, transition: 'background 0.3s', ...s }}>
+            <button onClick={save} disabled={saving} style={{ flex: 1, border: '1px solid var(--forest-deep)', padding: '14px', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--cream)', background: saved ? 'var(--forest)' : 'var(--forest-deep)', cursor: 'pointer', opacity: saving ? 0.6 : 1, transition: 'background 0.3s', ...s }}>
               {saving ? 'Saving...' : saved ? 'Saved ✓' : 'Save my preferences →'}
             </button>
           )}

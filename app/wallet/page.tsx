@@ -66,18 +66,18 @@ export default function Wallet() {
     setNewAccount({ platform: 'venmo', handle: '' })
   }
 
-  const inputStyle = { width: '100%', borderBottom: '1px solid #d4d4c8', background: 'transparent', padding: '10px 0', fontSize: '15px', color: '#1a1a1a', outline: 'none', fontFamily: 'var(--font-cormorant), Georgia, serif' }
-  const labelStyle = { fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase' as const, color: '#9a9a8a', display: 'block', marginBottom: '6px' }
+  const inputStyle = { width: '100%', borderBottom: '1px solid var(--border)', background: 'transparent', padding: '10px 0', fontSize: '15px', color: 'var(--foreground)', outline: 'none', fontFamily: 'var(--font-cormorant), Georgia, serif' }
+  const labelStyle = { fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase' as const, color: 'var(--muted-foreground)', display: 'block', marginBottom: '6px' }
 
   if (loading) return <SuitcaseLoader message="Opening your wallet" />
 
   if (!pinSet || !pinEntered) return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: '100%', background: '#fafaf8', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: '100%', background: 'var(--cream)', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
       <div style={{ width: '100%', maxWidth: '320px', textAlign: 'center' }}>
         <AvantiLogo size="sm" />
-        <p style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#9a9a8a', margin: '20px 0 8px' }}>Wallet</p>
-        <p style={{ fontSize: '13px', color: '#9a9a8a', marginBottom: '40px', lineHeight: 1.7 }}>{pinSet ? 'Enter your wallet PIN to continue' : 'Set a PIN to secure your wallet'}</p>
+        <p style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--muted-foreground)', margin: '20px 0 8px' }}>Wallet</p>
+        <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', marginBottom: '40px', lineHeight: 1.7 }}>{pinSet ? 'Enter your wallet PIN to continue' : 'Set a PIN to secure your wallet'}</p>
         {pinError && <p style={{ fontSize: '12px', color: '#c0392b', marginBottom: '16px' }}>{pinError}</p>}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '24px' }}>
           <div>
@@ -94,11 +94,11 @@ export default function Wallet() {
           )}
         </div>
         <button onClick={pinSet ? handleEnterPin : handleSetPin}
-          style={{ width: '100%', border: '1px solid #1a1a1a', padding: '14px', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', color: '#1a1a1a', background: 'transparent', cursor: 'pointer', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+          style={{ width: '100%', border: '1px solid var(--foreground)', padding: '14px', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', color: 'var(--foreground)', background: 'transparent', cursor: 'pointer', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
           {pinSet ? 'Unlock wallet →' : 'Set PIN & continue →'}
         </button>
         <button onClick={() => router.push('/dashboard')}
-          style={{ width: '100%', marginTop: '12px', fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#9a9a8a', background: 'none', border: 'none', cursor: 'pointer' }}>
+          style={{ width: '100%', marginTop: '12px', fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--muted-foreground)', background: 'none', border: 'none', cursor: 'pointer' }}>
           ← Back to dashboard
         </button>
       </div>
@@ -108,29 +108,29 @@ export default function Wallet() {
   )
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: '100%', background: '#fafaf8', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: '100%', background: 'var(--cream)', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
       <div style={{ maxWidth: '560px', margin: '0 auto', padding: '48px 24px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '48px' }}>
           <AvantiLogo size="sm" />
-          <button onClick={() => router.push('/dashboard')} style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#9a9a8a', background: 'none', border: 'none', cursor: 'pointer' }}>← Dashboard</button>
+          <button onClick={() => router.push('/dashboard')} style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--muted-foreground)', background: 'none', border: 'none', cursor: 'pointer' }}>← Dashboard</button>
         </div>
-        <h2 style={{ fontSize: '32px', fontWeight: 300, color: '#1a1a1a', marginBottom: '8px' }}>Wallet</h2>
-        <p style={{ fontSize: '12px', color: '#9a9a8a', marginBottom: '48px' }}>Payment methods and linked accounts. PIN required for any transaction.</p>
+        <h2 style={{ fontSize: '32px', fontWeight: 300, color: 'var(--foreground)', marginBottom: '8px' }}>Wallet</h2>
+        <p style={{ fontSize: '12px', color: 'var(--muted-foreground)', marginBottom: '48px' }}>Payment methods and linked accounts. PIN required for any transaction.</p>
 
         <div style={{ marginBottom: '40px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <p style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#9a9a8a' }}>Payment cards</p>
-            <button onClick={() => setShowAddCard(true)} style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#1a1a1a', background: 'none', border: '1px solid #1a1a1a', padding: '6px 12px', cursor: 'pointer', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>+ Add</button>
+            <p style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--muted-foreground)' }}>Payment cards</p>
+            <button onClick={() => setShowAddCard(true)} style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--foreground)', background: 'none', border: '1px solid var(--foreground)', padding: '6px 12px', cursor: 'pointer', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>+ Add</button>
           </div>
           {(wallet?.payment_methods || []).length === 0 ? (
-            <p style={{ fontSize: '13px', color: '#b4b4a8', padding: '20px 0' }}>No cards added yet.</p>
+            <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', padding: '20px 0' }}>No cards added yet.</p>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {(wallet?.payment_methods || []).map((card: any) => (
-                <div key={card.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', border: '1px solid #e4e4d8', background: '#fff' }}>
+                <div key={card.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', border: '1px solid var(--border)', background: '#fff' }}>
                   <div>
-                    <p style={{ fontSize: '14px', color: '#1a1a1a', margin: '0 0 2px' }}>{card.nickname}</p>
-                    <p style={{ fontSize: '11px', color: '#9a9a8a', margin: 0, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{card.type} •••• {card.last_four}</p>
+                    <p style={{ fontSize: '14px', color: 'var(--foreground)', margin: '0 0 2px' }}>{card.nickname}</p>
+                    <p style={{ fontSize: '11px', color: 'var(--muted-foreground)', margin: 0, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{card.type} •••• {card.last_four}</p>
                   </div>
                   <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#4ade80' }}></div>
                 </div>
@@ -141,19 +141,19 @@ export default function Wallet() {
 
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <p style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#9a9a8a' }}>Linked accounts</p>
-            <button onClick={() => setShowAddAccount(true)} style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#1a1a1a', background: 'none', border: '1px solid #1a1a1a', padding: '6px 12px', cursor: 'pointer', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>+ Add</button>
+            <p style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--muted-foreground)' }}>Linked accounts</p>
+            <button onClick={() => setShowAddAccount(true)} style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--foreground)', background: 'none', border: '1px solid var(--foreground)', padding: '6px 12px', cursor: 'pointer', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>+ Add</button>
           </div>
-          <p style={{ fontSize: '12px', color: '#9a9a8a', marginBottom: '16px' }}>Link Venmo, PayPal, or Zelle for bill splitting and group payments.</p>
+          <p style={{ fontSize: '12px', color: 'var(--muted-foreground)', marginBottom: '16px' }}>Link Venmo, PayPal, or Zelle for bill splitting and group payments.</p>
           {(wallet?.linked_accounts || []).length === 0 ? (
-            <p style={{ fontSize: '13px', color: '#b4b4a8', padding: '20px 0' }}>No accounts linked yet.</p>
+            <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', padding: '20px 0' }}>No accounts linked yet.</p>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {(wallet?.linked_accounts || []).map((acc: any) => (
-                <div key={acc.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', border: '1px solid #e4e4d8', background: '#fff' }}>
+                <div key={acc.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', border: '1px solid var(--border)', background: '#fff' }}>
                   <div>
-                    <p style={{ fontSize: '14px', color: '#1a1a1a', margin: '0 0 2px', textTransform: 'capitalize' }}>{acc.platform}</p>
-                    <p style={{ fontSize: '11px', color: '#9a9a8a', margin: 0 }}>{acc.handle}</p>
+                    <p style={{ fontSize: '14px', color: 'var(--foreground)', margin: '0 0 2px', textTransform: 'capitalize' }}>{acc.platform}</p>
+                    <p style={{ fontSize: '11px', color: 'var(--muted-foreground)', margin: 0 }}>{acc.handle}</p>
                   </div>
                   <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#4ade80' }}></div>
                 </div>
@@ -165,8 +165,8 @@ export default function Wallet() {
 
       {showAddCard && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
-          <div style={{ background: '#fafaf8', padding: '40px', width: '100%', maxWidth: '400px', margin: '24px' }}>
-            <p style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#9a9a8a', marginBottom: '24px' }}>Add payment card</p>
+          <div style={{ background: 'var(--cream)', padding: '40px', width: '100%', maxWidth: '400px', margin: '24px' }}>
+            <p style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--muted-foreground)', marginBottom: '24px' }}>Add payment card</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '24px' }}>
               <div><label style={labelStyle}>Card nickname</label><input style={inputStyle} value={newCard.nickname} onChange={e => setNewCard({...newCard, nickname: e.target.value})} placeholder="Chase Sapphire Reserve" /></div>
               <div><label style={labelStyle}>Last 4 digits</label><input style={inputStyle} value={newCard.last_four} onChange={e => setNewCard({...newCard, last_four: e.target.value})} placeholder="4242" maxLength={4} /></div>
@@ -177,8 +177,8 @@ export default function Wallet() {
               </div>
             </div>
             <div style={{ display: 'flex', gap: '12px' }}>
-              <button onClick={() => setShowAddCard(false)} style={{ flex: 1, border: '1px solid #d4d4c8', padding: '14px', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#9a9a8a', background: 'transparent', cursor: 'pointer', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>Cancel</button>
-              <button onClick={handleAddCard} style={{ flex: 1, border: '1px solid #1a1a1a', padding: '14px', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#1a1a1a', background: 'transparent', cursor: 'pointer', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>Add card</button>
+              <button onClick={() => setShowAddCard(false)} style={{ flex: 1, border: '1px solid var(--border)', padding: '14px', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--muted-foreground)', background: 'transparent', cursor: 'pointer', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>Cancel</button>
+              <button onClick={handleAddCard} style={{ flex: 1, border: '1px solid var(--foreground)', padding: '14px', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--foreground)', background: 'transparent', cursor: 'pointer', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>Add card</button>
             </div>
           </div>
         </div>
@@ -186,8 +186,8 @@ export default function Wallet() {
 
       {showAddAccount && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
-          <div style={{ background: '#fafaf8', padding: '40px', width: '100%', maxWidth: '400px', margin: '24px' }}>
-            <p style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#9a9a8a', marginBottom: '24px' }}>Link payment account</p>
+          <div style={{ background: 'var(--cream)', padding: '40px', width: '100%', maxWidth: '400px', margin: '24px' }}>
+            <p style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--muted-foreground)', marginBottom: '24px' }}>Link payment account</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '24px' }}>
               <div><label style={labelStyle}>Platform</label>
                 <select value={newAccount.platform} onChange={e => setNewAccount({...newAccount, platform: e.target.value})} style={{ ...inputStyle, cursor: 'pointer' }}>
@@ -197,8 +197,8 @@ export default function Wallet() {
               <div><label style={labelStyle}>Username / handle / email</label><input style={inputStyle} value={newAccount.handle} onChange={e => setNewAccount({...newAccount, handle: e.target.value})} placeholder="@alexgoldin" /></div>
             </div>
             <div style={{ display: 'flex', gap: '12px' }}>
-              <button onClick={() => setShowAddAccount(false)} style={{ flex: 1, border: '1px solid #d4d4c8', padding: '14px', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#9a9a8a', background: 'transparent', cursor: 'pointer', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>Cancel</button>
-              <button onClick={handleAddAccount} style={{ flex: 1, border: '1px solid #1a1a1a', padding: '14px', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#1a1a1a', background: 'transparent', cursor: 'pointer', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>Link account</button>
+              <button onClick={() => setShowAddAccount(false)} style={{ flex: 1, border: '1px solid var(--border)', padding: '14px', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--muted-foreground)', background: 'transparent', cursor: 'pointer', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>Cancel</button>
+              <button onClick={handleAddAccount} style={{ flex: 1, border: '1px solid var(--foreground)', padding: '14px', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--foreground)', background: 'transparent', cursor: 'pointer', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>Link account</button>
             </div>
           </div>
         </div>

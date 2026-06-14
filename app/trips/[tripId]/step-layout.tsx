@@ -14,7 +14,7 @@ interface StepLayoutProps {
 }
 
 const DEFAULT_COLORS = [
-  { bg: '#e8f0e4', border: '#8aad7a', numBg: '#1a4a0e', numText: '#e8f0e4', titleColor: '#0a2a06', subColor: '#1a5a32' },
+  { bg: 'var(--accent-light)', border: '#8aad7a', numBg: '#1a4a0e', numText: 'var(--accent-light)', titleColor: '#0a2a06', subColor: '#1a5a32' },
   { bg: '#eaf5e8', border: '#a8d49a', numBg: '#2a7a1e', numText: '#eaf5e8', titleColor: '#143a0a', subColor: '#235a14' },
   { bg: '#eef5e4', border: '#b8d492', numBg: '#3a7a14', numText: '#eef5e4', titleColor: '#1e3a08', subColor: '#2e5a10' },
   { bg: '#f0f5e0', border: '#c8d880', numBg: '#5a7a0a', numText: '#f0f5e0', titleColor: '#2a3a04', subColor: '#3a5a08' },
@@ -44,7 +44,7 @@ export default function StepLayout({ tripId, stepNumber, stepTitle, stepDescript
   const s = { fontFamily: 'var(--font-cormorant), Georgia, serif' }
 
   return (
-    <main style={{ minHeight: '100vh', background: '#fafaf8', position: 'relative', overflow: 'hidden', ...s }}>
+    <main style={{ minHeight: '100vh', background: 'var(--cream)', position: 'relative', overflow: 'hidden', ...s }}>
 
       <div style={{
         position: 'fixed',
@@ -93,12 +93,12 @@ export default function StepLayout({ tripId, stepNumber, stepTitle, stepDescript
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
             {autoSaved && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#2d5a18' }} />
-                <span style={{ fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#2d5a18' }}>Saved</span>
+                <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--forest)' }} />
+                <span style={{ fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--forest)' }}>Saved</span>
               </div>
             )}
             <button onClick={() => router.push(`/trips/${tripId}`)}
-              style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#9a9a8a', background: 'none', border: 'none', cursor: 'pointer', ...s }}>
+              style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--muted-foreground)', background: 'none', border: 'none', cursor: 'pointer', ...s }}>
               ← Back to trip
             </button>
           </div>

@@ -1,22 +1,36 @@
 import Link from 'next/link'
-export default function AvantiLogo({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }) {
-  const sizes = { sm: { text: '24px', px: '24px', py: '8px' }, md: { text: '40px', px: '40px', py: '12px' }, lg: { text: '64px', px: '60px', py: '18px' } }
-  const s = sizes[size]
+
+type LogoVariant = 'light' | 'dark'
+
+export default function AvantiLogo({
+  size = 'md',
+  variant = 'light',
+  href = '/dashboard',
+}: {
+  size?: 'sm' | 'md' | 'lg'
+  variant?: LogoVariant
+  href?: string
+}) {
+  const sizes = { sm: '0.35em', md: '0.42em', lg: '0.45em' }
+  const fontSizes = { sm: '14px', md: '18px', lg: '22px' }
+  const color = variant === 'dark' ? 'var(--cream)' : 'var(--forest-deep)'
+
   return (
-    <Link href="/dashboard" style={{ textDecoration: 'none', cursor: 'pointer' }}>
-      <div style={{ display: 'inline-block', position: 'relative' }}>
-        <div style={{ clipPath: 'polygon(4% 0%, 100% 0%, 96% 100%, 0% 100%)', border: '1px solid #083807', padding: `${s.py} ${s.px}` }}>
-          <span style={{
-            fontSize: s.text,
-            fontWeight: 300,
-            letterSpacing: '0.3em',
-            color: '#083807',
-            fontFamily: 'var(--font-cormorant), Georgia, serif',
-            textTransform: 'uppercase',
-            fontStyle: 'oblique 8deg'
-          }}>AVANTI</span>
-        </div>
-      </div>
+    <Link
+      href={href}
+      style={{
+        textDecoration: 'none',
+        cursor: 'pointer',
+        fontFamily: 'var(--font-cormorant), Georgia, serif',
+        fontSize: fontSizes[size],
+        letterSpacing: sizes[size],
+        color,
+        fontWeight: 400,
+        lineHeight: 1,
+      }}
+      aria-label="Avanti home"
+    >
+      AVANTI
     </Link>
   )
 }

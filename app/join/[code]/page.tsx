@@ -105,29 +105,29 @@ export default function JoinTrip() {
   }
 
   const s = { fontFamily: 'var(--font-cormorant), Georgia, serif' }
-  const inputStyle = { width: '100%', borderBottom: '1px solid #d4d4c8', background: 'transparent', padding: '10px 0', fontSize: '15px', color: '#1a1a1a', outline: 'none', ...s }
-  const labelStyle = { fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase' as const, color: '#9a9a8a', display: 'block', marginBottom: '6px' }
+  const inputStyle = { width: '100%', borderBottom: '1px solid var(--border)', background: 'transparent', padding: '10px 0', fontSize: '15px', color: 'var(--foreground)', outline: 'none', ...s }
+  const labelStyle = { fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase' as const, color: 'var(--muted-foreground)', display: 'block', marginBottom: '6px' }
 
   if (loading) return <SuitcaseLoader message="Loading invitation" />
   if (linkClosed) return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: '100%', background: '#fafaf8', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: '100%', background: 'var(--cream)', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ textAlign: 'center', padding: '24px', maxWidth: '360px' }}>
         <div style={{ marginBottom: '24px' }}><AvantiLogo size="sm" /></div>
         <div style={{ fontSize: '32px', marginBottom: '16px' }}>🔒</div>
-        <h2 style={{ fontSize: '24px', fontWeight: 300, color: '#1a1a1a', margin: '0 0 10px' }}>Invite link closed</h2>
-        <p style={{ fontSize: '13px', color: '#9a9a8a', lineHeight: 1.7 }}>The organizer has closed this trip to new guests. If you think this is a mistake, reach out to the trip organizer directly.</p>
+        <h2 style={{ fontSize: '24px', fontWeight: 300, color: 'var(--foreground)', margin: '0 0 10px' }}>Invite link closed</h2>
+        <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', lineHeight: 1.7 }}>The organizer has closed this trip to new guests. If you think this is a mistake, reach out to the trip organizer directly.</p>
       </div>
       </div>
       <Footer />
     </div>
   )
   if (!trip) return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: '100%', background: '#fafaf8', ...s }}>
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: '100%', background: 'var(--cream)', ...s }}>
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ textAlign: 'center', padding: '24px' }}>
         <AvantiLogo size="sm" />
-        <p style={{ fontSize: '14px', color: '#9a9a8a', marginTop: '24px' }}>This invite link is invalid or has expired.</p>
+        <p style={{ fontSize: '14px', color: 'var(--muted-foreground)', marginTop: '24px' }}>This invite link is invalid or has expired.</p>
       </div>
       </div>
       <Footer />
@@ -137,7 +137,7 @@ export default function JoinTrip() {
   const organizerName = organizer?.nickname || organizer?.full_name?.split(' ')[0] || 'Someone'
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: '100%', background: '#fafaf8', ...s }}>
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: '100%', background: 'var(--cream)', ...s }}>
       <div style={{ position: 'relative', flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
 
         <div style={{ width: '100%', maxWidth: '420px', filter: showAuthModal ? 'blur(2px)' : 'none', transition: 'filter 0.2s' }}>
@@ -147,7 +147,7 @@ export default function JoinTrip() {
 
           {step === 'landing' && (
             <>
-              <div style={{ background: trip.cover_color || '#182D09', borderRadius: '12px', padding: '28px 24px', marginBottom: '24px', position: 'relative', overflow: 'hidden' }}>
+              <div style={{ background: trip.cover_color || 'var(--forest-deep)', borderRadius: '12px', padding: '28px 24px', marginBottom: '24px', position: 'relative', overflow: 'hidden' }}>
                 {trip.cover_image && <img src={trip.cover_image} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: 0.4 }} />}
                 <div style={{ position: 'relative', zIndex: 1, textAlign: 'center' }}>
                   <p style={{ fontSize: '11px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.6)', margin: '0 0 10px' }}>{organizerName} has invited you to join</p>
@@ -160,17 +160,17 @@ export default function JoinTrip() {
               </div>
 
               {user ? (
-                <p style={{ fontSize: '13px', color: '#9a9a8a', marginBottom: '20px', textAlign: 'center', lineHeight: 1.6 }}>
+                <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', marginBottom: '20px', textAlign: 'center', lineHeight: 1.6 }}>
                   Signed in as {user.email}
                 </p>
               ) : (
-                <p style={{ fontSize: '13px', color: '#9a9a8a', marginBottom: '20px', textAlign: 'center', lineHeight: 1.6 }}>
+                <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', marginBottom: '20px', textAlign: 'center', lineHeight: 1.6 }}>
                   Create an account or sign in to accept this invitation.
                 </p>
               )}
 
               <button onClick={handleAccept}
-                style={{ width: '100%', border: '1px solid #182D09', background: '#182D09', color: '#fff', padding: '16px', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '8px', ...s }}>
+                style={{ width: '100%', border: '1px solid var(--forest-deep)', background: 'var(--forest-deep)', color: '#fff', padding: '16px', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '8px', ...s }}>
                 Accept invitation →
               </button>
             </>
@@ -178,13 +178,13 @@ export default function JoinTrip() {
 
           {step === 'nickname' && (
             <div style={{ textAlign: 'center' }}>
-              <h2 style={{ fontSize: '28px', fontWeight: 300, color: '#1a1a1a', margin: '0 0 8px', ...s }}>One last thing</h2>
-              <p style={{ fontSize: '13px', color: '#9a9a8a', marginBottom: '8px', lineHeight: 1.7 }}>What should the group call you on this trip?</p>
-              <p style={{ fontSize: '11px', color: '#b4b4a8', marginBottom: '28px', fontStyle: 'italic' }}>Your legal name is used for reservations. This is just your nickname for the group.</p>
+              <h2 style={{ fontSize: '28px', fontWeight: 300, color: 'var(--foreground)', margin: '0 0 8px', ...s }}>One last thing</h2>
+              <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', marginBottom: '8px', lineHeight: 1.7 }}>What should the group call you on this trip?</p>
+              <p style={{ fontSize: '11px', color: 'var(--muted-foreground)', marginBottom: '28px', fontStyle: 'italic' }}>Your legal name is used for reservations. This is just your nickname for the group.</p>
               <input value={nickname} onChange={e => setNickname(e.target.value)} placeholder="M, Em, Alex..."
                 style={{ ...inputStyle, fontSize: '20px', textAlign: 'center', letterSpacing: '0.1em', marginBottom: '24px' }} />
               <button onClick={handleJoin} disabled={joining}
-                style={{ width: '100%', border: '1px solid #182D09', background: '#182D09', color: '#fff', padding: '16px', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '8px', opacity: joining ? 0.5 : 1, ...s }}>
+                style={{ width: '100%', border: '1px solid var(--forest-deep)', background: 'var(--forest-deep)', color: '#fff', padding: '16px', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '8px', opacity: joining ? 0.5 : 1, ...s }}>
                 {joining ? 'Joining...' : `Join ${trip.name} →`}
               </button>
             </div>
@@ -193,11 +193,11 @@ export default function JoinTrip() {
 
         {showAuthModal && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: '24px' }}>
-            <div style={{ background: '#fafaf8', borderRadius: '16px', padding: '32px', width: '100%', maxWidth: '380px', ...s }}>
-              <p style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#9a9a8a', margin: '0 0 6px' }}>
+            <div style={{ background: 'var(--cream)', borderRadius: '16px', padding: '32px', width: '100%', maxWidth: '380px', ...s }}>
+              <p style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--muted-foreground)', margin: '0 0 6px' }}>
                 {authMode === 'signup' ? 'Create your account' : 'Welcome back'}
               </p>
-              <h3 style={{ fontSize: '24px', fontWeight: 300, color: '#1a1a1a', margin: '0 0 24px', ...s }}>
+              <h3 style={{ fontSize: '24px', fontWeight: 300, color: 'var(--foreground)', margin: '0 0 24px', ...s }}>
                 {authMode === 'signup' ? 'Join Avanti to accept' : 'Sign in to continue'}
               </h3>
               {authError && <p style={{ fontSize: '12px', color: '#c0392b', marginBottom: '16px' }}>{authError}</p>}
@@ -211,16 +211,16 @@ export default function JoinTrip() {
                   <input type="password" required value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" style={inputStyle} />
                 </div>
                 <button type="submit" disabled={authLoading}
-                  style={{ width: '100%', border: '1px solid #182D09', background: '#182D09', color: '#fff', padding: '14px', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '8px', opacity: authLoading ? 0.6 : 1, marginTop: '8px', ...s }}>
+                  style={{ width: '100%', border: '1px solid var(--forest-deep)', background: 'var(--forest-deep)', color: '#fff', padding: '14px', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '8px', opacity: authLoading ? 0.6 : 1, marginTop: '8px', ...s }}>
                   {authLoading ? 'Please wait...' : authMode === 'signup' ? 'Create account →' : 'Sign in →'}
                 </button>
               </form>
               <button onClick={() => setAuthMode(authMode === 'signup' ? 'signin' : 'signup')}
-                style={{ width: '100%', textAlign: 'center', fontSize: '11px', color: '#9a9a8a', background: 'none', border: 'none', cursor: 'pointer', marginTop: '14px', ...s }}>
+                style={{ width: '100%', textAlign: 'center', fontSize: '11px', color: 'var(--muted-foreground)', background: 'none', border: 'none', cursor: 'pointer', marginTop: '14px', ...s }}>
                 {authMode === 'signup' ? 'Already have an account? Sign in' : "Don't have an account? Create one"}
               </button>
               <button onClick={() => setShowAuthModal(false)}
-                style={{ width: '100%', textAlign: 'center', fontSize: '11px', color: '#b4b4a8', background: 'none', border: 'none', cursor: 'pointer', marginTop: '6px', ...s }}>
+                style={{ width: '100%', textAlign: 'center', fontSize: '11px', color: 'var(--muted-foreground)', background: 'none', border: 'none', cursor: 'pointer', marginTop: '6px', ...s }}>
                 Cancel
               </button>
             </div>

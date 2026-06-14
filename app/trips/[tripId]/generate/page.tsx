@@ -129,7 +129,7 @@ export default function GenerateOptions() {
             </p>
 
             <div style={{ background: 'rgba(255,255,255,0.08)', borderRadius: '4px', height: '2px', marginBottom: '32px', overflow: 'hidden' }}>
-              <div style={{ height: '100%', background: 'linear-gradient(to right, #2d5a18, #97c459)', width: `${progress}%`, transition: 'width 0.8s ease', borderRadius: '4px' }} />
+              <div style={{ height: '100%', background: 'linear-gradient(to right, var(--forest), #97c459)', width: `${progress}%`, transition: 'width 0.8s ease', borderRadius: '4px' }} />
             </div>
 
             <div style={{ minHeight: '60px' }}>
@@ -140,7 +140,7 @@ export default function GenerateOptions() {
 
             <div style={{ display: 'flex', justifyContent: 'center', gap: '6px', marginTop: '32px' }}>
               {PROCESSING_STEPS.map((_, i) => (
-                <div key={i} style={{ width: i === currentStep ? '20px' : '6px', height: '6px', borderRadius: '3px', background: i <= currentStep ? '#2d5a18' : 'rgba(255,255,255,0.15)', transition: 'all 0.4s' }} />
+                <div key={i} style={{ width: i === currentStep ? '20px' : '6px', height: '6px', borderRadius: '3px', background: i <= currentStep ? 'var(--forest)' : 'rgba(255,255,255,0.15)', transition: 'all 0.4s' }} />
               ))}
             </div>
 

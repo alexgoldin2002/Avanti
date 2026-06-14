@@ -164,13 +164,13 @@ export default function VotePage() {
   if (loading) return <SuitcaseLoader message="Loading vote" />
 
   if (!loading && !vote) return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: '100%', background: '#fafaf8', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: '100%', background: 'var(--cream)', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ textAlign: 'center', padding: '24px' }}>
-        <p style={{ fontSize: '20px', fontWeight: 300, color: '#1a1a1a', marginBottom: '8px' }}>Vote not found</p>
-        <p style={{ fontSize: '13px', color: '#9a9a8a', marginBottom: '24px' }}>This vote may have been deleted or the link is invalid.</p>
+        <p style={{ fontSize: '20px', fontWeight: 300, color: 'var(--foreground)', marginBottom: '8px' }}>Vote not found</p>
+        <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', marginBottom: '24px' }}>This vote may have been deleted or the link is invalid.</p>
         <button onClick={() => router.push(`/trips/${tripId}`)}
-          style={{ border: '1px solid #1a3a2a', background: '#1a3a2a', color: '#fff', padding: '12px 24px', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '8px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+          style={{ border: '1px solid var(--forest-deep)', background: 'var(--forest-deep)', color: '#fff', padding: '12px 24px', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '8px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
           ← Back to trip
         </button>
       </div>
@@ -188,18 +188,18 @@ export default function VotePage() {
 
   const statusColors: Record<string, { bg: string, text: string, label: string }> = {
     submission_open: { bg: '#faeeda', text: '#854f0b', label: 'Accepting options' },
-    voting_open: { bg: '#e8f5ee', text: '#2d6a4f', label: 'Voting open' },
-    closed: { bg: '#f5f5f0', text: '#6a6a6a', label: 'Vote closed' },
+    voting_open: { bg: 'var(--accent-light)', text: 'var(--forest)', label: 'Voting open' },
+    closed: { bg: '#f5f5f0', text: 'var(--muted-foreground)', label: 'Vote closed' },
   }
   const statusInfo = statusColors[voteStatus] || statusColors.closed
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: '100%', background: '#fafaf8', ...s }}>
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: '100%', background: 'var(--cream)', ...s }}>
       <div style={{ flex: 1, maxWidth: '600px', margin: '0 auto', padding: '40px 24px', width: '100%' }}>
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '32px' }}>
           <AvantiLogo size="sm" />
-          <button onClick={() => router.push(`/trips/${tripId}`)} style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#9a9a8a', background: 'none', border: 'none', cursor: 'pointer', ...s }}>← Back to trip</button>
+          <button onClick={() => router.push(`/trips/${tripId}`)} style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--muted-foreground)', background: 'none', border: 'none', cursor: 'pointer', ...s }}>← Back to trip</button>
         </div>
 
         <div style={{ marginBottom: '24px' }}>
@@ -213,8 +213,8 @@ export default function VotePage() {
               </div>
             )}
           </div>
-          <h1 style={{ fontSize: '32px', fontWeight: 300, color: '#1a1a1a', margin: '0 0 6px', ...s }}>{vote.vote_type}</h1>
-          <p style={{ fontSize: '12px', color: '#9a9a8a', margin: 0 }}>{trip.name} · {totalVoters} vote{totalVoters !== 1 ? 's' : ''} so far</p>
+          <h1 style={{ fontSize: '32px', fontWeight: 300, color: 'var(--foreground)', margin: '0 0 6px', ...s }}>{vote.vote_type}</h1>
+          <p style={{ fontSize: '12px', color: 'var(--muted-foreground)', margin: 0 }}>{trip.name} · {totalVoters} vote{totalVoters !== 1 ? 's' : ''} so far</p>
         </div>
 
         {isOrganizer && !vote.submission_deadline && (
@@ -228,26 +228,26 @@ export default function VotePage() {
         )}
 
         {voteStatus === 'submission_open' && vote.submission_deadline && (
-          <div style={{ background: '#fff', border: '0.5px solid #e4e4d8', borderRadius: '10px', padding: '14px 18px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ background: '#fff', border: '0.5px solid var(--border)', borderRadius: '10px', padding: '14px 18px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
-              <p style={{ fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#9a9a8a', margin: '0 0 2px' }}>Options close</p>
+              <p style={{ fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--muted-foreground)', margin: '0 0 2px' }}>Options close</p>
               <p style={{ fontSize: '13px', color: '#854f0b', margin: 0, ...s }}>{getTimeLeft(vote.submission_deadline)}</p>
             </div>
             <div style={{ textAlign: 'right' }}>
-              <p style={{ fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#9a9a8a', margin: '0 0 2px' }}>Voting opens after</p>
-              <p style={{ fontSize: '13px', color: '#2d6a4f', margin: 0, ...s }}>{getTimeLeft(vote.voting_deadline)}</p>
+              <p style={{ fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--muted-foreground)', margin: '0 0 2px' }}>Voting opens after</p>
+              <p style={{ fontSize: '13px', color: 'var(--forest)', margin: 0, ...s }}>{getTimeLeft(vote.voting_deadline)}</p>
             </div>
           </div>
         )}
 
         {voteStatus === 'voting_open' && vote.voting_deadline && (
-          <div style={{ background: '#e8f5ee', border: '0.5px solid #9fd4b8', borderRadius: '10px', padding: '14px 18px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ background: 'var(--accent-light)', border: '0.5px solid #9fd4b8', borderRadius: '10px', padding: '14px 18px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
-              <p style={{ fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#2d6a4f', margin: '0 0 2px' }}>Vote closes</p>
-              <p style={{ fontSize: '13px', color: '#1a3a2a', margin: 0, ...s }}>{getTimeLeft(vote.voting_deadline)}</p>
+              <p style={{ fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--forest)', margin: '0 0 2px' }}>Vote closes</p>
+              <p style={{ fontSize: '13px', color: 'var(--forest-deep)', margin: 0, ...s }}>{getTimeLeft(vote.voting_deadline)}</p>
             </div>
             {options.length > 1 && (
-              <p style={{ fontSize: '12px', color: '#2d6a4f', margin: 0, ...s }}>Pick {maxSelections === 1 ? 'your favorite' : `your top ${maxSelections}`}</p>
+              <p style={{ fontSize: '12px', color: 'var(--forest)', margin: 0, ...s }}>Pick {maxSelections === 1 ? 'your favorite' : `your top ${maxSelections}`}</p>
             )}
           </div>
         )}
@@ -255,7 +255,7 @@ export default function VotePage() {
         {(vote?.round_results?.length ?? 0) > 0 && (
           <div style={{ marginBottom: '20px' }}>
             {vote.round_results.map((r: any, i: number) => (
-              <p key={i} style={{ fontSize: '11px', color: '#9a9a8a', margin: '0 0 4px' }}>
+              <p key={i} style={{ fontSize: '11px', color: 'var(--muted-foreground)', margin: '0 0 4px' }}>
                 Round {r.round} eliminated: {r.eliminated.join(', ')}
               </p>
             ))}
@@ -270,20 +270,20 @@ export default function VotePage() {
             const pct = totalVoters > 0 ? Math.round((voteCount / totalVoters) * 100) : 0
 
             return (
-              <div key={i} style={{ border: isSelected ? '2px solid #2d6a4f' : '0.5px solid #e4e4d8', borderRadius: '12px', background: '#fff', overflow: 'hidden', transition: 'border-color 0.2s' }}>
+              <div key={i} style={{ border: isSelected ? '2px solid var(--forest)' : '0.5px solid var(--border)', borderRadius: '12px', background: '#fff', overflow: 'hidden', transition: 'border-color 0.2s' }}>
                 <div style={{ padding: '16px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
                     <div style={{ flex: 1 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
-                        <p style={{ fontSize: '16px', color: '#1a1a1a', margin: 0, ...s }}>{option.title}</p>
-                        {option.is_manual && <span style={{ fontSize: '9px', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#9a9a8a', background: '#f5f5f0', padding: '2px 8px', borderRadius: '10px' }}>Added by group</span>}
+                        <p style={{ fontSize: '16px', color: 'var(--foreground)', margin: 0, ...s }}>{option.title}</p>
+                        {option.is_manual && <span style={{ fontSize: '9px', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--muted-foreground)', background: '#f5f5f0', padding: '2px 8px', borderRadius: '10px' }}>Added by group</span>}
                       </div>
-                      {option.tagline && <p style={{ fontSize: '12px', color: '#6a6a6a', margin: 0, lineHeight: 1.4 }}>{option.tagline}</p>}
+                      {option.tagline && <p style={{ fontSize: '12px', color: 'var(--muted-foreground)', margin: 0, lineHeight: 1.4 }}>{option.tagline}</p>}
                     </div>
                     {option.price && (
                       <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: '12px' }}>
-                        <p style={{ fontSize: '15px', color: '#2d6a4f', fontWeight: 500, margin: '0 0 1px', ...s }}>~${option.price?.toLocaleString()}</p>
-                        {option.priceNote && <p style={{ fontSize: '10px', color: '#9a9a8a', margin: 0 }}>{option.priceNote}</p>}
+                        <p style={{ fontSize: '15px', color: 'var(--forest)', fontWeight: 500, margin: '0 0 1px', ...s }}>~${option.price?.toLocaleString()}</p>
+                        {option.priceNote && <p style={{ fontSize: '10px', color: 'var(--muted-foreground)', margin: 0 }}>{option.priceNote}</p>}
                       </div>
                     )}
                   </div>
@@ -292,7 +292,7 @@ export default function VotePage() {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', margin: '8px 0' }}>
                       {option.bullets.slice(0, 3).map((b: any, j: number) => (
                         <div key={j} style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
-                          <div style={{ width: '4px', height: '4px', borderRadius: '50%', background: b.type === 'warning' ? '#854f0b' : '#2d6a4f', flexShrink: 0, marginTop: '6px' }} />
+                          <div style={{ width: '4px', height: '4px', borderRadius: '50%', background: b.type === 'warning' ? '#854f0b' : 'var(--forest)', flexShrink: 0, marginTop: '6px' }} />
                           <p style={{ fontSize: '12px', color: b.type === 'warning' ? '#854f0b' : '#3a3a3a', margin: 0, lineHeight: 1.5 }}>{b.text}</p>
                         </div>
                       ))}
@@ -302,39 +302,39 @@ export default function VotePage() {
                   {submitted && totalVoters > 0 && (
                     <div style={{ margin: '10px 0' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                        <span style={{ fontSize: '10px', color: '#9a9a8a' }}>{voteCount} vote{voteCount !== 1 ? 's' : ''}</span>
-                        <span style={{ fontSize: '10px', color: '#2d6a4f', fontWeight: 500 }}>{pct}%</span>
+                        <span style={{ fontSize: '10px', color: 'var(--muted-foreground)' }}>{voteCount} vote{voteCount !== 1 ? 's' : ''}</span>
+                        <span style={{ fontSize: '10px', color: 'var(--forest)', fontWeight: 500 }}>{pct}%</span>
                       </div>
                       <div style={{ height: '3px', background: '#e8e8e0', borderRadius: '2px', overflow: 'hidden' }}>
-                        <div style={{ height: '100%', background: '#2d6a4f', width: `${pct}%`, transition: 'width 0.5s', borderRadius: '2px' }} />
+                        <div style={{ height: '100%', background: 'var(--forest)', width: `${pct}%`, transition: 'width 0.5s', borderRadius: '2px' }} />
                       </div>
                     </div>
                   )}
 
                   <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
                     <button onClick={() => setExpandedCard(isExpanded ? null : i)}
-                      style={{ padding: '7px 14px', border: '1px solid #d4d4c8', background: '#fff', color: '#6a6a6a', fontSize: '11px', letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '20px', ...s }}>
+                      style={{ padding: '7px 14px', border: '1px solid var(--border)', background: '#fff', color: 'var(--muted-foreground)', fontSize: '11px', letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '20px', ...s }}>
                       {isExpanded ? 'Hide ↑' : 'Details'}
                     </button>
                     {voteStatus === 'voting_open' && !submitted && (
                       <button onClick={() => toggleSelectOption(i)}
-                        style={{ flex: 1, padding: '7px 14px', border: `2px solid ${isSelected ? '#1a3a2a' : '#1a3a2a'}`, background: isSelected ? '#1a3a2a' : '#fff', color: isSelected ? '#fff' : '#1a3a2a', fontSize: '11px', letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '20px', fontWeight: 500, ...s }}>
+                        style={{ flex: 1, padding: '7px 14px', border: `2px solid ${isSelected ? 'var(--forest-deep)' : 'var(--forest-deep)'}`, background: isSelected ? 'var(--forest-deep)' : '#fff', color: isSelected ? '#fff' : 'var(--forest-deep)', fontSize: '11px', letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '20px', fontWeight: 500, ...s }}>
                         {isSelected ? '✓ Selected' : 'Select'}
                       </button>
                     )}
                     {submitted && isSelected && (
                       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <span style={{ fontSize: '11px', color: '#2d6a4f' }}>✓ Your vote</span>
+                        <span style={{ fontSize: '11px', color: 'var(--forest)' }}>✓ Your vote</span>
                       </div>
                     )}
                   </div>
                 </div>
 
                 {isExpanded && (
-                  <div style={{ borderTop: '0.5px solid #f0f0e8', padding: '16px', background: '#fafaf8', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <div style={{ borderTop: '0.5px solid #f0f0e8', padding: '16px', background: 'var(--cream)', display: 'flex', flexDirection: 'column', gap: '14px' }}>
                     {option.details?.avanti_take && (
-                      <div style={{ padding: '12px 14px', background: '#e8f5ee', borderRadius: '8px' }}>
-                        <p style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#2d6a4f', margin: '0 0 6px', ...s }}>Why Avanti picks this</p>
+                      <div style={{ padding: '12px 14px', background: 'var(--accent-light)', borderRadius: '8px' }}>
+                        <p style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--forest)', margin: '0 0 6px', ...s }}>Why Avanti picks this</p>
                         <p style={{ fontSize: '12px', color: '#0a3a1e', margin: 0, lineHeight: 1.7, ...s }}>{option.details.avanti_take}</p>
                       </div>
                     )}
@@ -342,10 +342,10 @@ export default function VotePage() {
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                         {(option.details?.pros?.length ?? 0) > 0 && (
                           <div>
-                            <p style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#2d6a4f', margin: '0 0 8px', ...s }}>Pros</p>
+                            <p style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--forest)', margin: '0 0 8px', ...s }}>Pros</p>
                             {option.details.pros.map((pro: string, j: number) => (
                               <div key={j} style={{ display: 'flex', gap: '6px', marginBottom: '5px' }}>
-                                <span style={{ color: '#2d6a4f', fontSize: '10px', marginTop: '3px' }}>✓</span>
+                                <span style={{ color: 'var(--forest)', fontSize: '10px', marginTop: '3px' }}>✓</span>
                                 <p style={{ fontSize: '12px', color: '#3a3a3a', margin: 0, lineHeight: 1.5, ...s }}>{pro}</p>
                               </div>
                             ))}
@@ -366,50 +366,50 @@ export default function VotePage() {
                     )}
                     {(option.details?.things_to_do?.length ?? 0) > 0 && (
                       <div>
-                        <p style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#9a9a8a', margin: '0 0 8px', ...s }}>Top things to do</p>
+                        <p style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--muted-foreground)', margin: '0 0 8px', ...s }}>Top things to do</p>
                         {option.details.things_to_do.map((item: any, j: number) => (
                           <div key={j} style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: '0.5px solid #f0f0e8' }}>
-                            <p style={{ fontSize: '12px', color: '#1a1a1a', margin: 0, ...s }}>{item.activity}</p>
-                            <p style={{ fontSize: '11px', color: '#9a9a8a', margin: 0, marginLeft: '12px', ...s }}>{item.cost}</p>
+                            <p style={{ fontSize: '12px', color: 'var(--foreground)', margin: 0, ...s }}>{item.activity}</p>
+                            <p style={{ fontSize: '11px', color: 'var(--muted-foreground)', margin: 0, marginLeft: '12px', ...s }}>{item.cost}</p>
                           </div>
                         ))}
                       </div>
                     )}
                     {option.details?.food && (
                       <div>
-                        <p style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#9a9a8a', margin: '0 0 6px', ...s }}>Food & drink</p>
+                        <p style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--muted-foreground)', margin: '0 0 6px', ...s }}>Food & drink</p>
                         <p style={{ fontSize: '12px', color: '#3a3a3a', margin: 0, lineHeight: 1.7, ...s }}>{option.details.food}</p>
                       </div>
                     )}
                     {option.details?.weather && (
                       <div>
-                        <p style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#9a9a8a', margin: '0 0 6px', ...s }}>Weather</p>
+                        <p style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--muted-foreground)', margin: '0 0 6px', ...s }}>Weather</p>
                         <p style={{ fontSize: '12px', color: '#3a3a3a', margin: 0, lineHeight: 1.7, ...s }}>{option.details.weather}</p>
                       </div>
                     )}
                     {option.details?.getting_there && (
                       <div>
-                        <p style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#9a9a8a', margin: '0 0 6px', ...s }}>Getting there</p>
+                        <p style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--muted-foreground)', margin: '0 0 6px', ...s }}>Getting there</p>
                         <p style={{ fontSize: '12px', color: '#3a3a3a', margin: 0, lineHeight: 1.7, ...s }}>{option.details.getting_there}</p>
                       </div>
                     )}
                     {(option.details?.tiktok_searches?.length ?? 0) > 0 && (
                       <div>
-                        <p style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#9a9a8a', margin: '0 0 8px', ...s }}>See it for yourself</p>
+                        <p style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--muted-foreground)', margin: '0 0 8px', ...s }}>See it for yourself</p>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                           {option.details.tiktok_searches.map((term: string, j: number) => (
                             <a key={j} href={`https://www.tiktok.com/search?q=${encodeURIComponent(term)}`} target="_blank" rel="noopener noreferrer"
-                              style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: '#fff', border: '0.5px solid #e4e4d8', borderRadius: '8px', textDecoration: 'none' }}>
+                              style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: '#fff', border: '0.5px solid var(--border)', borderRadius: '8px', textDecoration: 'none' }}>
                               <span style={{ fontSize: '14px' }}>🎵</span>
-                              <p style={{ fontSize: '12px', color: '#1a1a1a', margin: 0, ...s }}>{term}</p>
-                              <span style={{ fontSize: '10px', color: '#9a9a8a', marginLeft: 'auto' }}>Search TikTok →</span>
+                              <p style={{ fontSize: '12px', color: 'var(--foreground)', margin: 0, ...s }}>{term}</p>
+                              <span style={{ fontSize: '10px', color: 'var(--muted-foreground)', marginLeft: 'auto' }}>Search TikTok →</span>
                             </a>
                           ))}
                         </div>
                       </div>
                     )}
                     {option.bottomLine && (
-                      <div style={{ padding: '12px 14px', background: '#1a3a2a', borderRadius: '8px' }}>
+                      <div style={{ padding: '12px 14px', background: 'var(--forest-deep)', borderRadius: '8px' }}>
                         <p style={{ fontSize: '12px', color: '#ffffff', margin: 0, lineHeight: 1.7, ...s }}>{option.bottomLine}</p>
                       </div>
                     )}
@@ -424,27 +424,27 @@ export default function VotePage() {
           <div style={{ marginBottom: '20px' }}>
             {!showAddOption ? (
               <button onClick={() => setShowAddOption(true)}
-                style={{ width: '100%', border: '1.5px solid #2d6a4f', background: 'transparent', color: '#2d6a4f', padding: '14px', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '10px', ...s }}>
+                style={{ width: '100%', border: '1.5px solid var(--forest)', background: 'transparent', color: 'var(--forest)', padding: '14px', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '10px', ...s }}>
                 + Add an option to vote on
               </button>
             ) : (
-              <div style={{ background: '#fff', border: '0.5px solid #e4e4d8', borderRadius: '12px', padding: '18px' }}>
-                <p style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#9a9a8a', margin: '0 0 14px', ...s }}>Add your option</p>
+              <div style={{ background: '#fff', border: '0.5px solid var(--border)', borderRadius: '12px', padding: '18px' }}>
+                <p style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--muted-foreground)', margin: '0 0 14px', ...s }}>Add your option</p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   <div>
-                    <label style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#9a9a8a', display: 'block', marginBottom: '6px', ...s }}>Destination or option *</label>
+                    <label style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--muted-foreground)', display: 'block', marginBottom: '6px', ...s }}>Destination or option *</label>
                     <input value={newOptionTitle} onChange={e => setNewOptionTitle(e.target.value)} placeholder="e.g. Mykonos + Santorini"
-                      style={{ width: '100%', borderBottom: '1px solid #d4d4c8', background: 'transparent', padding: '8px 0', fontSize: '14px', color: '#1a1a1a', outline: 'none', ...s }} />
+                      style={{ width: '100%', borderBottom: '1px solid var(--border)', background: 'transparent', padding: '8px 0', fontSize: '14px', color: 'var(--foreground)', outline: 'none', ...s }} />
                   </div>
                   <div>
-                    <label style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#9a9a8a', display: 'block', marginBottom: '6px', ...s }}>Why you think this is a good idea</label>
+                    <label style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--muted-foreground)', display: 'block', marginBottom: '6px', ...s }}>Why you think this is a good idea</label>
                     <textarea value={newOptionNote} onChange={e => setNewOptionNote(e.target.value)} placeholder="Add a note for the group..." rows={2}
-                      style={{ width: '100%', border: '0.5px solid #d4d4c8', background: 'transparent', padding: '8px 10px', fontSize: '13px', color: '#1a1a1a', outline: 'none', resize: 'none', borderRadius: '6px', ...s }} />
+                      style={{ width: '100%', border: '0.5px solid var(--border)', background: 'transparent', padding: '8px 10px', fontSize: '13px', color: 'var(--foreground)', outline: 'none', resize: 'none', borderRadius: '6px', ...s }} />
                   </div>
                   <div style={{ display: 'flex', gap: '8px' }}>
-                    <button onClick={() => setShowAddOption(false)} style={{ flex: 1, border: '0.5px solid #d4d4c8', padding: '10px', fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#9a9a8a', background: 'transparent', cursor: 'pointer', borderRadius: '6px', ...s }}>Cancel</button>
+                    <button onClick={() => setShowAddOption(false)} style={{ flex: 1, border: '0.5px solid var(--border)', padding: '10px', fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--muted-foreground)', background: 'transparent', cursor: 'pointer', borderRadius: '6px', ...s }}>Cancel</button>
                     <button onClick={handleAddOption} disabled={addingOption || !newOptionTitle.trim()}
-                      style={{ flex: 2, border: '1px solid #2d6a4f', padding: '10px', fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#2d6a4f', background: 'transparent', cursor: 'pointer', opacity: !newOptionTitle.trim() ? 0.4 : 1, borderRadius: '6px', ...s }}>
+                      style={{ flex: 2, border: '1px solid var(--forest)', padding: '10px', fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--forest)', background: 'transparent', cursor: 'pointer', opacity: !newOptionTitle.trim() ? 0.4 : 1, borderRadius: '6px', ...s }}>
                       {addingOption ? 'Adding...' : 'Add to vote →'}
                     </button>
                   </div>
@@ -457,23 +457,23 @@ export default function VotePage() {
         {voteStatus === 'voting_open' && !submitted && selectedOptions.length > 0 && (
           <div style={{ marginBottom: '16px' }}>
             <textarea value={myComment} onChange={e => setMyComment(e.target.value)} placeholder="Add a comment (optional)..." rows={2}
-              style={{ width: '100%', border: '0.5px solid #d4d4c8', background: '#fff', padding: '10px 14px', fontSize: '13px', color: '#1a1a1a', outline: 'none', resize: 'none', borderRadius: '8px', marginBottom: '10px', ...s }} />
+              style={{ width: '100%', border: '0.5px solid var(--border)', background: '#fff', padding: '10px 14px', fontSize: '13px', color: 'var(--foreground)', outline: 'none', resize: 'none', borderRadius: '8px', marginBottom: '10px', ...s }} />
             <button onClick={handleSubmitVote} disabled={submitting}
-              style={{ width: '100%', border: '1px solid #1a3a2a', background: '#1a3a2a', color: '#fff', padding: '14px', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '8px', opacity: submitting ? 0.6 : 1, ...s }}>
+              style={{ width: '100%', border: '1px solid var(--forest-deep)', background: 'var(--forest-deep)', color: '#fff', padding: '14px', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '8px', opacity: submitting ? 0.6 : 1, ...s }}>
               {submitting ? 'Submitting...' : `Submit vote${selectedOptions.length > 1 ? 's' : ''} →`}
             </button>
           </div>
         )}
 
         {submitted && voteStatus === 'voting_open' && (
-          <div style={{ padding: '14px 18px', background: '#e8f5ee', borderRadius: '8px', textAlign: 'center', marginBottom: '16px' }}>
-            <p style={{ fontSize: '13px', color: '#2d6a4f', margin: 0, ...s }}>✓ Your vote is in. Results update in real time.</p>
+          <div style={{ padding: '14px 18px', background: 'var(--accent-light)', borderRadius: '8px', textAlign: 'center', marginBottom: '16px' }}>
+            <p style={{ fontSize: '13px', color: 'var(--forest)', margin: 0, ...s }}>✓ Your vote is in. Results update in real time.</p>
           </div>
         )}
 
         {isOrganizer && voteStatus === 'voting_open' && submitted && options.length > 1 && (
-          <div style={{ borderTop: '0.5px solid #e4e4d8', paddingTop: '20px', marginTop: '8px' }}>
-            <p style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#9a9a8a', margin: '0 0 6px' }}>Organizer controls</p>
+          <div style={{ borderTop: '0.5px solid var(--border)', paddingTop: '20px', marginTop: '8px' }}>
+            <p style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--muted-foreground)', margin: '0 0 6px' }}>Organizer controls</p>
             {options.length > 2 ? (
               <button onClick={handleAdvanceRound}
                 style={{ width: '100%', border: '1px solid #534ab7', background: 'transparent', color: '#534ab7', padding: '13px', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '8px', marginBottom: '10px', ...s }}>
@@ -481,7 +481,7 @@ export default function VotePage() {
               </button>
             ) : null}
             <button onClick={handleLockWinner} disabled={locking}
-              style={{ width: '100%', background: '#1a3a2a', border: 'none', padding: '14px', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', color: '#fff', cursor: 'pointer', borderRadius: '8px', opacity: locking ? 0.6 : 1, ...s }}>
+              style={{ width: '100%', background: 'var(--forest-deep)', border: 'none', padding: '14px', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', color: '#fff', cursor: 'pointer', borderRadius: '8px', opacity: locking ? 0.6 : 1, ...s }}>
               {locking ? 'Locking...' : 'Lock in winner →'}
             </button>
           </div>
@@ -491,34 +491,34 @@ export default function VotePage() {
 
       {showTimingModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: '24px' }}>
-          <div style={{ background: '#fafaf8', borderRadius: '16px', padding: '32px', width: '100%', maxWidth: '400px', ...s }}>
-            <h3 style={{ fontSize: '22px', fontWeight: 300, color: '#1a1a1a', margin: '0 0 6px', ...s }}>Set voting timeline</h3>
-            <p style={{ fontSize: '12px', color: '#9a9a8a', margin: '0 0 24px', lineHeight: 1.6 }}>How long should each phase last?</p>
+          <div style={{ background: 'var(--cream)', borderRadius: '16px', padding: '32px', width: '100%', maxWidth: '400px', ...s }}>
+            <h3 style={{ fontSize: '22px', fontWeight: 300, color: 'var(--foreground)', margin: '0 0 6px', ...s }}>Set voting timeline</h3>
+            <p style={{ fontSize: '12px', color: 'var(--muted-foreground)', margin: '0 0 24px', lineHeight: 1.6 }}>How long should each phase last?</p>
             <div style={{ marginBottom: '20px' }}>
-              <p style={{ fontSize: '11px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#9a9a8a', margin: '0 0 10px' }}>Submission window — how long can people add options?</p>
+              <p style={{ fontSize: '11px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--muted-foreground)', margin: '0 0 10px' }}>Submission window — how long can people add options?</p>
               <div style={{ display: 'flex', gap: '8px' }}>
                 {[12, 24, 48, 72].map(h => (
                   <button key={h} onClick={() => setSubmissionHours(h)}
-                    style={{ flex: 1, padding: '10px 6px', border: `1.5px solid ${submissionHours === h ? '#1a3a2a' : '#d4d4c8'}`, background: submissionHours === h ? '#e8f5ee' : 'transparent', color: submissionHours === h ? '#1a3a2a' : '#9a9a8a', fontSize: '12px', cursor: 'pointer', borderRadius: '8px', ...s }}>
+                    style={{ flex: 1, padding: '10px 6px', border: `1.5px solid ${submissionHours === h ? 'var(--forest-deep)' : 'var(--border)'}`, background: submissionHours === h ? 'var(--accent-light)' : 'transparent', color: submissionHours === h ? 'var(--forest-deep)' : 'var(--muted-foreground)', fontSize: '12px', cursor: 'pointer', borderRadius: '8px', ...s }}>
                     {h < 24 ? `${h}h` : `${h/24}d`}
                   </button>
                 ))}
               </div>
             </div>
             <div style={{ marginBottom: '28px' }}>
-              <p style={{ fontSize: '11px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#9a9a8a', margin: '0 0 10px' }}>Voting window — how long can people vote?</p>
+              <p style={{ fontSize: '11px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--muted-foreground)', margin: '0 0 10px' }}>Voting window — how long can people vote?</p>
               <div style={{ display: 'flex', gap: '8px' }}>
                 {[12, 24, 48, 72].map(h => (
                   <button key={h} onClick={() => setVotingHours(h)}
-                    style={{ flex: 1, padding: '10px 6px', border: `1.5px solid ${votingHours === h ? '#1a3a2a' : '#d4d4c8'}`, background: votingHours === h ? '#e8f5ee' : 'transparent', color: votingHours === h ? '#1a3a2a' : '#9a9a8a', fontSize: '12px', cursor: 'pointer', borderRadius: '8px', ...s }}>
+                    style={{ flex: 1, padding: '10px 6px', border: `1.5px solid ${votingHours === h ? 'var(--forest-deep)' : 'var(--border)'}`, background: votingHours === h ? 'var(--accent-light)' : 'transparent', color: votingHours === h ? 'var(--forest-deep)' : 'var(--muted-foreground)', fontSize: '12px', cursor: 'pointer', borderRadius: '8px', ...s }}>
                     {h < 24 ? `${h}h` : `${h/24}d`}
                   </button>
                 ))}
               </div>
             </div>
             <div style={{ display: 'flex', gap: '10px' }}>
-              <button onClick={() => setShowTimingModal(false)} style={{ flex: 1, border: '0.5px solid #d4d4c8', padding: '12px', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#9a9a8a', background: 'transparent', cursor: 'pointer', borderRadius: '8px', ...s }}>Cancel</button>
-              <button onClick={handleSetTiming} style={{ flex: 2, border: '1px solid #1a3a2a', background: '#1a3a2a', color: '#fff', padding: '12px', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '8px', ...s }}>Open vote →</button>
+              <button onClick={() => setShowTimingModal(false)} style={{ flex: 1, border: '0.5px solid var(--border)', padding: '12px', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--muted-foreground)', background: 'transparent', cursor: 'pointer', borderRadius: '8px', ...s }}>Cancel</button>
+              <button onClick={handleSetTiming} style={{ flex: 2, border: '1px solid var(--forest-deep)', background: 'var(--forest-deep)', color: '#fff', padding: '12px', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '8px', ...s }}>Open vote →</button>
             </div>
           </div>
         </div>

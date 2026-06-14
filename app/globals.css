@@ -1,30 +1,111 @@
 @import "tailwindcss";
 
+* {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-  --avanti-accent: #2d5a18;
-  --avanti-accent-light: #e8f0e4;
-  --avanti-accent-dark: #182D09;
-  --avanti-border: #8aad7a;
+  --radius: 0.25rem;
+
+  /* Avanti brand — Cenee polish palette */
+  --forest: #3d5244;
+  --forest-deep: #1f2e24;
+  --cream: #faf9f5;
+  --ivory: #f3f0e8;
+  --accent-light: #e8efe4;
+
+  --background: var(--cream);
+  --foreground: var(--forest-deep);
+  --card: var(--cream);
+  --card-foreground: var(--forest-deep);
+  --primary: var(--forest-deep);
+  --primary-foreground: var(--cream);
+  --secondary: var(--ivory);
+  --secondary-foreground: var(--forest-deep);
+  --muted: var(--ivory);
+  --muted-foreground: #6b7568;
+  --accent: var(--forest);
+  --accent-foreground: var(--cream);
+  --destructive: #b42318;
+  --destructive-foreground: var(--cream);
+  --border: #ddd8ce;
+  --input: #ddd8ce;
+  --ring: var(--forest);
+
+  /* Legacy aliases used across inline styles */
+  --avanti-accent: var(--forest);
+  --avanti-accent-light: var(--accent-light);
+  --avanti-accent-dark: var(--forest-deep);
+  --avanti-border: #9aad8a;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-forest: var(--forest);
+  --color-forest-deep: var(--forest-deep);
+  --color-cream: var(--cream);
+  --color-ivory: var(--ivory);
+  --font-serif: var(--font-cormorant), Georgia, serif;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  html,
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-serif);
+    font-weight: 400;
+    letter-spacing: -0.01em;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@utility eyebrow {
+  font-family: var(--font-sans);
+  font-size: 0.7rem;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  font-weight: 400;
+}
+
+@keyframes slide-in-left {
+  0% {
+    opacity: 0;
+    transform: translateX(-60px);
+    filter: blur(4px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+    filter: blur(0px);
+  }
+}
+
+.animate-letter {
+  display: inline-block;
+  animation: slide-in-left 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  opacity: 0;
 }

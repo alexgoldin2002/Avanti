@@ -23,6 +23,7 @@
 # misc
 .DS_Store
 public/.chrome-tmp/
+public/Untitled_design.mp4
 *.pem
 
 # debug

@@ -47,10 +47,10 @@ export default function DecisionsPage() {
   }
 
   const statusConfig: Record<string, { label: string, bg: string, color: string, dot: string }> = {
-    pending_setup: { label: 'Not started', bg: '#f5f5f0', color: '#9a9a8a', dot: '#d4d4c8' },
+    pending_setup: { label: 'Not started', bg: '#f5f5f0', color: 'var(--muted-foreground)', dot: 'var(--border)' },
     submission_open: { label: 'Accepting options', bg: '#faeeda', color: '#854f0b', dot: '#ef9f27' },
-    voting_open: { label: 'Voting open', bg: '#e8f5ee', color: '#2d6a4f', dot: '#2d6a4f' },
-    closed: { label: 'Decided', bg: '#f5f5f0', color: '#6a6a6a', dot: '#b4b4a8' },
+    voting_open: { label: 'Voting open', bg: 'var(--accent-light)', color: 'var(--forest)', dot: 'var(--forest)' },
+    closed: { label: 'Decided', bg: '#f5f5f0', color: 'var(--muted-foreground)', dot: 'var(--muted-foreground)' },
   }
 
   const currentVotes = votes.filter(v => getVoteStatus(v) !== 'closed')
@@ -63,21 +63,21 @@ export default function DecisionsPage() {
   if (!trip) return null
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: '100%', background: '#fafaf8', ...s }}>
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: '100%', background: 'var(--cream)', ...s }}>
       <div style={{ flex: 1, maxWidth: '560px', margin: '0 auto', padding: '40px 24px', width: '100%' }}>
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '32px' }}>
           <AvantiLogo size="sm" />
-          <button onClick={() => router.push(`/trips/${tripId}`)} style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#9a9a8a', background: 'none', border: 'none', cursor: 'pointer', ...s }}>← Back to trip</button>
+          <button onClick={() => router.push(`/trips/${tripId}`)} style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--muted-foreground)', background: 'none', border: 'none', cursor: 'pointer', ...s }}>← Back to trip</button>
         </div>
 
-        <h1 style={{ fontSize: '36px', fontWeight: 300, color: '#1a1a1a', margin: '0 0 6px', ...s }}>Decisions</h1>
-        <p style={{ fontSize: '13px', color: '#9a9a8a', margin: '0 0 24px' }}>{trip.name}</p>
+        <h1 style={{ fontSize: '36px', fontWeight: 300, color: 'var(--foreground)', margin: '0 0 6px', ...s }}>Decisions</h1>
+        <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', margin: '0 0 24px' }}>{trip.name}</p>
 
         <div style={{ display: 'flex', borderBottom: '1px solid #e8e8e0', marginBottom: '24px' }}>
           {[{ key: 'current', label: `Current (${currentVotes.length})` }, { key: 'past', label: `Past (${pastVotes.length})` }].map(tab => (
             <button key={tab.key} onClick={() => setActiveTab(tab.key as any)}
-              style={{ flex: 1, padding: '10px 0', fontSize: '11px', letterSpacing: '0.15em', textTransform: 'uppercase', color: activeTab === tab.key ? '#1a1a1a' : '#9a9a8a', background: 'none', border: 'none', borderBottom: `2px solid ${activeTab === tab.key ? '#2d6a4f' : 'transparent'}`, cursor: 'pointer', ...s }}>
+              style={{ flex: 1, padding: '10px 0', fontSize: '11px', letterSpacing: '0.15em', textTransform: 'uppercase', color: activeTab === tab.key ? 'var(--foreground)' : 'var(--muted-foreground)', background: 'none', border: 'none', borderBottom: `2px solid ${activeTab === tab.key ? 'var(--forest)' : 'transparent'}`, cursor: 'pointer', ...s }}>
               {tab.label}
             </button>
           ))}
@@ -85,10 +85,10 @@ export default function DecisionsPage() {
 
         {displayVotes.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '60px 0' }}>
-            <p style={{ fontSize: '18px', fontWeight: 300, color: '#1a1a1a', margin: '0 0 8px', ...s }}>
+            <p style={{ fontSize: '18px', fontWeight: 300, color: 'var(--foreground)', margin: '0 0 8px', ...s }}>
               {activeTab === 'current' ? 'No active votes' : 'No past votes yet'}
             </p>
-            <p style={{ fontSize: '13px', color: '#9a9a8a' }}>
+            <p style={{ fontSize: '13px', color: 'var(--muted-foreground)' }}>
               {activeTab === 'current' ? 'Votes will appear here when options are sent to the group.' : 'Completed votes will show up here.'}
             </p>
           </div>
@@ -103,16 +103,16 @@ export default function DecisionsPage() {
               return (
                 <button key={vote.id}
                   onClick={() => router.push(`/trips/${tripId}/vote/${vote.id}`)}
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', background: '#fff', border: '0.5px solid #e4e4d8', borderRadius: '12px', cursor: 'pointer', textAlign: 'left', transition: 'border-color 0.2s', width: '100%', ...s }}>
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', background: '#fff', border: '0.5px solid var(--border)', borderRadius: '12px', cursor: 'pointer', textAlign: 'left', transition: 'border-color 0.2s', width: '100%', ...s }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: config.dot, flexShrink: 0 }} />
                     <div>
-                      <p style={{ fontSize: '16px', color: '#1a1a1a', margin: '0 0 3px', ...s }}>{vote.vote_type}</p>
+                      <p style={{ fontSize: '16px', color: 'var(--foreground)', margin: '0 0 3px', ...s }}>{vote.vote_type}</p>
                       {timeLeft && (
                         <p style={{ fontSize: '11px', color: config.color, margin: 0 }}>{timeLeft}</p>
                       )}
                       {status === 'closed' && vote.winner && (
-                        <p style={{ fontSize: '11px', color: '#9a9a8a', margin: 0 }}>→ {vote.winner.title}</p>
+                        <p style={{ fontSize: '11px', color: 'var(--muted-foreground)', margin: 0 }}>→ {vote.winner.title}</p>
                       )}
                     </div>
                   </div>

@@ -7,7 +7,7 @@ import SuitcaseLoader from '../../components/SuitcaseLoader'
 import Footer from '../../components/Footer'
 
 const STEP_COLORS = [
-  { bg: '#e8f0e4', border: '#8aad7a', numBg: '#1a4a0e', titleColor: '#0a2a06', subColor: '#1a5a32' },
+  { bg: 'var(--accent-light)', border: '#8aad7a', numBg: '#1a4a0e', titleColor: '#0a2a06', subColor: '#1a5a32' },
   { bg: '#eaf5e8', border: '#a8d49a', numBg: '#2a7a1e', titleColor: '#143a0a', subColor: '#235a14' },
   { bg: '#eef5e4', border: '#b8d492', numBg: '#3a7a14', titleColor: '#1e3a08', subColor: '#2e5a10' },
   { bg: '#f0f5e0', border: '#c8d880', numBg: '#5a7a0a', titleColor: '#2a3a04', subColor: '#3a5a08' },
@@ -209,15 +209,15 @@ export default function TripDashboard() {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: '100%', background: '#fafaf8', ...s }}>
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: '100%', background: 'var(--cream)', ...s }}>
       <div style={{ flex: 1, maxWidth: '720px', margin: '0 auto', padding: '32px 24px', width: '100%' }}>
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
           <AvantiLogo size="sm" />
-          <button onClick={() => router.push('/dashboard')} style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#9a9a8a', background: 'none', border: 'none', cursor: 'pointer', ...s }}>← All trips</button>
+          <button onClick={() => router.push('/dashboard')} style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--muted-foreground)', background: 'none', border: 'none', cursor: 'pointer', ...s }}>← All trips</button>
         </div>
 
-        <div style={{ background: trip.cover_color || '#182D09', borderRadius: '12px', marginBottom: '16px', position: 'relative', overflow: 'hidden', minHeight: '140px', border: 'none', outline: 'none' }}>
+        <div style={{ background: trip.cover_color || 'var(--forest-deep)', borderRadius: '12px', marginBottom: '16px', position: 'relative', overflow: 'hidden', minHeight: '140px', border: 'none', outline: 'none' }}>
           {trip.cover_image && (
             <>
               <img src={trip.cover_image} alt="" draggable={false} style={{ position: 'absolute', top: '50%', left: '50%', transform: `translate(-50%, -50%) translate(${(50 - imagePosition.x) * 2}px, ${(50 - imagePosition.y) * 2}px) scale(${imagePosition.scale})`, width: '100%', height: '100%', objectFit: 'cover', transformOrigin: 'center center', pointerEvents: 'none' }} />
@@ -265,23 +265,23 @@ export default function TripDashboard() {
         </div>
 
         {showEditCover && (
-          <div style={{ background: '#fff', border: '0.5px solid #e4e4d8', borderRadius: '12px', padding: '18px', marginBottom: '16px' }}>
-            <p style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#9a9a8a', margin: '0 0 12px' }}>Change cover image</p>
+          <div style={{ background: '#fff', border: '0.5px solid var(--border)', borderRadius: '12px', padding: '18px', marginBottom: '16px' }}>
+            <p style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--muted-foreground)', margin: '0 0 12px' }}>Change cover image</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', border: '0.5px solid #e4e4d8', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', color: '#1a1a1a', ...s }}>
-                <i className="ti ti-photo" style={{ fontSize: '16px', color: '#9a9a8a' }} aria-hidden="true" />
+              <label style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', border: '0.5px solid var(--border)', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', color: 'var(--foreground)', ...s }}>
+                <i className="ti ti-photo" style={{ fontSize: '16px', color: 'var(--muted-foreground)' }} aria-hidden="true" />
                 Choose from photo library
                 <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFileUpload} />
               </label>
               {trip.cover_image && (
-                <button onClick={() => { setTempPosition({...imagePosition}); setShowCropModal(true); setShowEditCover(false) }} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', border: '0.5px solid #e4e4d8', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', color: '#1a1a1a', background: 'transparent', ...s }}>
-                  <i className="ti ti-arrows-move" style={{ fontSize: '16px', color: '#9a9a8a' }} aria-hidden="true" />
+                <button onClick={() => { setTempPosition({...imagePosition}); setShowCropModal(true); setShowEditCover(false) }} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', border: '0.5px solid var(--border)', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', color: 'var(--foreground)', background: 'transparent', ...s }}>
+                  <i className="ti ti-arrows-move" style={{ fontSize: '16px', color: 'var(--muted-foreground)' }} aria-hidden="true" />
                   Adjust image position
                 </button>
               )}
               <div style={{ display: 'flex', gap: '8px' }}>
-                <input type="url" placeholder="Paste an image URL..." value={urlInput} onChange={e => setUrlInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleUrlImage()} style={{ flex: 1, borderBottom: '1px solid #d4d4c8', background: 'transparent', padding: '8px 0', fontSize: '13px', color: '#1a1a1a', outline: 'none', ...s }} />
-                <button onClick={handleUrlImage} style={{ padding: '6px 12px', border: '1px solid #1a1a1a', background: '#1a1a1a', color: '#fafaf8', cursor: 'pointer', fontSize: '11px', borderRadius: '6px', ...s }}>Use</button>
+                <input type="url" placeholder="Paste an image URL..." value={urlInput} onChange={e => setUrlInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleUrlImage()} style={{ flex: 1, borderBottom: '1px solid var(--border)', background: 'transparent', padding: '8px 0', fontSize: '13px', color: 'var(--foreground)', outline: 'none', ...s }} />
+                <button onClick={handleUrlImage} style={{ padding: '6px 12px', border: '1px solid var(--foreground)', background: 'var(--foreground)', color: 'var(--cream)', cursor: 'pointer', fontSize: '11px', borderRadius: '6px', ...s }}>Use</button>
               </div>
               {trip.cover_image && (
                 <button onClick={handleRemoveImage} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', border: '0.5px solid #f0d4d4', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', color: '#a32d2d', background: 'transparent', ...s }}>
@@ -296,7 +296,7 @@ export default function TripDashboard() {
         <div style={{ display: 'flex', gap: '0', marginBottom: '20px', borderBottom: '1px solid #e8e8e0' }}>
           {[{ key: 'prep', label: 'Prep' }, { key: 'gametime', label: 'Game time' }].map(tab => (
             <button key={tab.key} onClick={() => setActiveTab(tab.key as any)}
-              style={{ flex: 1, padding: '10px 0', fontSize: '11px', letterSpacing: '0.15em', textTransform: 'uppercase', color: activeTab === tab.key ? '#1a1a1a' : '#9a9a8a', background: 'none', border: 'none', borderBottom: `2px solid ${activeTab === tab.key ? '#2d5a18' : 'transparent'}`, cursor: 'pointer', ...s }}>
+              style={{ flex: 1, padding: '10px 0', fontSize: '11px', letterSpacing: '0.15em', textTransform: 'uppercase', color: activeTab === tab.key ? 'var(--foreground)' : 'var(--muted-foreground)', background: 'none', border: 'none', borderBottom: `2px solid ${activeTab === tab.key ? 'var(--forest)' : 'transparent'}`, cursor: 'pointer', ...s }}>
               {tab.label}
             </button>
           ))}
@@ -305,25 +305,25 @@ export default function TripDashboard() {
         {activeTab === 'prep' && (
           <>
             <div style={{ marginBottom: '20px' }}>
-              <p style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#9a9a8a', margin: '0 0 10px' }}>To do</p>
+              <p style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--muted-foreground)', margin: '0 0 10px' }}>To do</p>
               {votes.length === 0 ? (
-                <div style={{ padding: '14px 18px', background: '#fff', border: '0.5px solid #e4e4d8', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#d4d4c8', flexShrink: 0 }} />
-                  <p style={{ fontSize: '13px', color: '#b4b4a8', margin: 0, fontStyle: 'italic', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>No actions at this time</p>
+                <div style={{ padding: '14px 18px', background: '#fff', border: '0.5px solid var(--border)', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--border)', flexShrink: 0 }} />
+                  <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', margin: 0, fontStyle: 'italic', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>No actions at this time</p>
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   {votes.filter(vote => vote.id).map(vote => (
                     <button key={vote.id} onClick={() => router.push(`/trips/${tripId}/vote/${vote.id}`)}
-                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', background: '#fff', border: '1.5px solid #2d5a18', borderRadius: '10px', cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', background: '#fff', border: '1.5px solid var(--forest)', borderRadius: '10px', cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#2d5a18' }} />
+                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--forest)' }} />
                         <div>
-                          <p style={{ fontSize: '13px', color: '#1a1a1a', margin: '0 0 2px' }}>Vote — {vote.vote_type}</p>
-                          <p style={{ fontSize: '11px', color: '#9a9a8a', margin: 0 }}>{vote.voting_deadline ? getDaysLeft(vote.voting_deadline) : vote.submission_deadline ? getDaysLeft(vote.submission_deadline) : vote.deadline ? getDaysLeft(vote.deadline) : 'No deadline set'} · {(vote.options || []).length} options</p>
+                          <p style={{ fontSize: '13px', color: 'var(--foreground)', margin: '0 0 2px' }}>Vote — {vote.vote_type}</p>
+                          <p style={{ fontSize: '11px', color: 'var(--muted-foreground)', margin: 0 }}>{vote.voting_deadline ? getDaysLeft(vote.voting_deadline) : vote.submission_deadline ? getDaysLeft(vote.submission_deadline) : vote.deadline ? getDaysLeft(vote.deadline) : 'No deadline set'} · {(vote.options || []).length} options</p>
                         </div>
                       </div>
-                      <span style={{ fontSize: '18px', color: '#2d5a18' }}>›</span>
+                      <span style={{ fontSize: '18px', color: 'var(--forest)' }}>›</span>
                     </button>
                   ))}
                 </div>
@@ -332,12 +332,12 @@ export default function TripDashboard() {
 
             <button
               onClick={() => router.push(`/trips/${tripId}/decisions`)}
-              style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', background: '#fff', border: '0.5px solid #e4e4d8', borderRadius: '10px', cursor: 'pointer', marginBottom: '20px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
-              <span style={{ fontSize: '14px', color: '#1a1a1a', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>Decisions</span>
-              <span style={{ fontSize: '11px', color: '#9a9a8a', letterSpacing: '0.1em', textTransform: 'uppercase' }}>View all →</span>
+              style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', background: '#fff', border: '0.5px solid var(--border)', borderRadius: '10px', cursor: 'pointer', marginBottom: '20px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+              <span style={{ fontSize: '14px', color: 'var(--foreground)', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>Decisions</span>
+              <span style={{ fontSize: '11px', color: 'var(--muted-foreground)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>View all →</span>
             </button>
 
-            <p style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#9a9a8a', margin: '0 0 12px' }}>Planning steps</p>
+            <p style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--muted-foreground)', margin: '0 0 12px' }}>Planning steps</p>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginBottom: '10px' }}>
               {steps.slice(0, 3).map((step, i) => {
@@ -349,13 +349,13 @@ export default function TripDashboard() {
                 return (
                   <div key={step.number} onClick={() => !isLocked && router.push(step.path)}
                     style={{ background: colors.bg, border: isActive ? `2px solid ${colors.numBg}` : `0.5px solid ${colors.border}`, borderRadius: '12px', padding: '16px', position: 'relative', cursor: isLocked ? 'default' : 'pointer', opacity: isLocked ? 0.42 : 1, transition: 'all 0.2s', minHeight: '90px', boxShadow: isActive ? `0 0 0 3px ${colors.bg}` : 'none' }}>
-                    <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: isCompleted ? colors.numBg : isLocked ? '#d4d4c8' : isActive ? '#083807' : colors.numBg, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '15px', fontWeight: 300, position: 'absolute', top: '10px', right: '10px', ...s }}>
+                    <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: isCompleted ? colors.numBg : isLocked ? 'var(--border)' : isActive ? 'var(--forest-deep)' : colors.numBg, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '15px', fontWeight: 300, position: 'absolute', top: '10px', right: '10px', ...s }}>
                       {isCompleted ? '✓' : step.number}
                     </div>
-                    {isActive && <div style={{ position: 'absolute', top: '8px', left: '8px', width: '6px', height: '6px', borderRadius: '50%', background: '#083807' }} />}
+                    {isActive && <div style={{ position: 'absolute', top: '8px', left: '8px', width: '6px', height: '6px', borderRadius: '50%', background: 'var(--forest-deep)' }} />}
                     <p style={{ fontSize: '14px', fontWeight: 400, color: colors.titleColor, margin: '0 0 4px', lineHeight: 1.2, paddingRight: '38px', ...s }}>{step.title}</p>
                     <p style={{ fontSize: '11px', color: colors.subColor, margin: 0, lineHeight: 1.4, opacity: 0.85 }}>{step.description}</p>
-                    {isLocked && <i className="ti ti-lock" style={{ position: 'absolute', bottom: '10px', right: '10px', fontSize: '12px', color: '#b4b4a8', opacity: 0.5 }} aria-hidden="true" />}
+                    {isLocked && <i className="ti ti-lock" style={{ position: 'absolute', bottom: '10px', right: '10px', fontSize: '12px', color: 'var(--muted-foreground)', opacity: 0.5 }} aria-hidden="true" />}
                   </div>
                 )
               })}
@@ -370,23 +370,23 @@ export default function TripDashboard() {
                 return (
                   <div key={step.number} onClick={() => !isLocked && router.push(step.path)}
                     style={{ background: colors.bg, border: isActive ? `2px solid ${colors.numBg}` : `0.5px solid ${colors.border}`, borderRadius: '12px', padding: '16px', position: 'relative', cursor: isLocked ? 'default' : 'pointer', opacity: isLocked ? 0.42 : 1, transition: 'all 0.2s', minHeight: '90px' }}>
-                    <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: isCompleted ? colors.numBg : isLocked ? '#d4d4c8' : isActive ? '#083807' : colors.numBg, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '15px', fontWeight: 300, position: 'absolute', top: '10px', right: '10px', ...s }}>
+                    <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: isCompleted ? colors.numBg : isLocked ? 'var(--border)' : isActive ? 'var(--forest-deep)' : colors.numBg, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '15px', fontWeight: 300, position: 'absolute', top: '10px', right: '10px', ...s }}>
                       {isCompleted ? '✓' : step.number}
                     </div>
-                    {isActive && <div style={{ position: 'absolute', top: '8px', left: '8px', width: '6px', height: '6px', borderRadius: '50%', background: '#083807' }} />}
+                    {isActive && <div style={{ position: 'absolute', top: '8px', left: '8px', width: '6px', height: '6px', borderRadius: '50%', background: 'var(--forest-deep)' }} />}
                     <p style={{ fontSize: '14px', fontWeight: 400, color: colors.titleColor, margin: '0 0 4px', lineHeight: 1.2, paddingRight: '38px', ...s }}>{step.title}</p>
                     <p style={{ fontSize: '11px', color: colors.subColor, margin: 0, lineHeight: 1.4, opacity: 0.85 }}>{step.description}</p>
-                    {isLocked && <i className="ti ti-lock" style={{ position: 'absolute', bottom: '10px', right: '10px', fontSize: '12px', color: '#b4b4a8', opacity: 0.5 }} aria-hidden="true" />}
+                    {isLocked && <i className="ti ti-lock" style={{ position: 'absolute', bottom: '10px', right: '10px', fontSize: '12px', color: 'var(--muted-foreground)', opacity: 0.5 }} aria-hidden="true" />}
                   </div>
                 )
               })}
             </div>
 
-            <div style={{ borderLeft: '3px solid #2d5a18', borderRadius: '0 8px 8px 0', padding: '12px 16px', border: '0.5px solid #8aad7a', borderLeftColor: '#2d5a18', borderLeftWidth: '3px', background: '#fafaf8' }}>
-              <p style={{ fontSize: '12px', color: '#6a6a6a', margin: 0, ...s }}>
+            <div style={{ borderLeft: '3px solid var(--forest)', borderRadius: '0 8px 8px 0', padding: '12px 16px', border: '0.5px solid #8aad7a', borderLeftColor: 'var(--forest)', borderLeftWidth: '3px', background: 'var(--cream)' }}>
+              <p style={{ fontSize: '12px', color: 'var(--muted-foreground)', margin: 0, ...s }}>
                 {travelers.length} traveler{travelers.length !== 1 ? 's' : ''} ·{' '}
                 {travelers.filter(t => t.profile_complete).length} of {travelers.length} ready ·{' '}
-                <span style={{ color: '#2d5a18' }}>Step {getActiveStep()} active</span>
+                <span style={{ color: 'var(--forest)' }}>Step {getActiveStep()} active</span>
               </p>
             </div>
           </>
@@ -395,8 +395,8 @@ export default function TripDashboard() {
         {activeTab === 'gametime' && (
           <div style={{ textAlign: 'center', padding: '60px 0' }}>
             <p style={{ fontSize: '32px', margin: '0 0 12px' }}>✈️</p>
-            <p style={{ fontSize: '18px', fontWeight: 300, color: '#1a1a1a', margin: '0 0 8px', ...s }}>Game time coming soon</p>
-            <p style={{ fontSize: '13px', color: '#9a9a8a' }}>Morning briefings, live updates, and bill splitting — unlocks when your trip begins.</p>
+            <p style={{ fontSize: '18px', fontWeight: 300, color: 'var(--foreground)', margin: '0 0 8px', ...s }}>Game time coming soon</p>
+            <p style={{ fontSize: '13px', color: 'var(--muted-foreground)' }}>Morning briefings, live updates, and bill splitting — unlocks when your trip begins.</p>
           </div>
         )}
 
@@ -404,9 +404,9 @@ export default function TripDashboard() {
 
       {showCropModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: '24px' }}>
-          <div style={{ background: '#fafaf8', borderRadius: '16px', padding: '24px', width: '100%', maxWidth: '480px', ...s }}>
-            <p style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#9a9a8a', margin: '0 0 6px' }}>Adjust image</p>
-            <p style={{ fontSize: '12px', color: '#9a9a8a', margin: '0 0 12px' }}>Drag to reposition · Scroll to zoom</p>
+          <div style={{ background: 'var(--cream)', borderRadius: '16px', padding: '24px', width: '100%', maxWidth: '480px', ...s }}>
+            <p style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--muted-foreground)', margin: '0 0 6px' }}>Adjust image</p>
+            <p style={{ fontSize: '12px', color: 'var(--muted-foreground)', margin: '0 0 12px' }}>Drag to reposition · Scroll to zoom</p>
             <div style={{ position: 'relative', height: '200px', borderRadius: '10px', overflow: 'hidden', cursor: isTempDragging ? 'grabbing' : 'grab', marginBottom: '16px', userSelect: 'none', touchAction: 'none' }}
               onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); setIsTempDragging(true); setTempDragStart({ x: e.clientX, y: e.clientY, startPosX: tempPosition.x, startPosY: tempPosition.y }) }}
               onPointerMove={e => { if (!isTempDragging) return; const dx = (e.clientX - tempDragStart.x) * 0.15; const dy = (e.clientY - tempDragStart.y) * 0.15; setTempPosition(p => ({ ...p, x: Math.max(0, Math.min(100, tempDragStart.startPosX - dx)), y: Math.max(0, Math.min(100, tempDragStart.startPosY - dy)) })) }}
@@ -418,12 +418,12 @@ export default function TripDashboard() {
               <p style={{ position: 'absolute', bottom: '10px', left: '14px', color: '#fff', fontSize: '13px', fontWeight: 300, margin: 0, ...s, pointerEvents: 'none' }}>{trip.name}</p>
             </div>
             <div style={{ marginBottom: '14px' }}>
-              <p style={{ fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#9a9a8a', margin: '0 0 6px' }}>Zoom {Math.round(tempPosition.scale * 100)}%</p>
+              <p style={{ fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--muted-foreground)', margin: '0 0 6px' }}>Zoom {Math.round(tempPosition.scale * 100)}%</p>
               <input type="range" min="50" max="300" step="1" value={Math.round(tempPosition.scale * 100)} onChange={e => setTempPosition(p => ({ ...p, scale: parseInt(e.target.value) / 100 }))} style={{ width: '100%' }} />
             </div>
             <div style={{ display: 'flex', gap: '10px' }}>
-              <button onClick={() => setShowCropModal(false)} style={{ flex: 1, border: '1px solid #d4d4c8', padding: '12px', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#9a9a8a', background: 'transparent', cursor: 'pointer', borderRadius: '6px', ...s }}>Cancel</button>
-              <button onClick={async () => { setImagePosition(tempPosition); await saveImagePosition(tempPosition); setShowCropModal(false) }} style={{ flex: 1, border: '1px solid #1a1a1a', padding: '12px', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#1a1a1a', background: 'transparent', cursor: 'pointer', borderRadius: '6px', ...s }}>Apply →</button>
+              <button onClick={() => setShowCropModal(false)} style={{ flex: 1, border: '1px solid var(--border)', padding: '12px', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--muted-foreground)', background: 'transparent', cursor: 'pointer', borderRadius: '6px', ...s }}>Cancel</button>
+              <button onClick={async () => { setImagePosition(tempPosition); await saveImagePosition(tempPosition); setShowCropModal(false) }} style={{ flex: 1, border: '1px solid var(--foreground)', padding: '12px', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--foreground)', background: 'transparent', cursor: 'pointer', borderRadius: '6px', ...s }}>Apply →</button>
             </div>
           </div>
         </div>

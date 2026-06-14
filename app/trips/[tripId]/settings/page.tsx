@@ -45,15 +45,15 @@ export default function TripSettings() {
   if (!trip) return null
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: '100%', background: '#fafaf8', ...s }}>
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: '100%', background: 'var(--cream)', ...s }}>
       <div style={{ flex: 1, maxWidth: '560px', margin: '0 auto', padding: '40px 24px', width: '100%' }}>
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '36px' }}>
           <AvantiLogo size="sm" />
-          <button onClick={() => router.push(`/trips/${tripId}`)} style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#9a9a8a', background: 'none', border: 'none', cursor: 'pointer', ...s }}>← Back to trip</button>
+          <button onClick={() => router.push(`/trips/${tripId}`)} style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--muted-foreground)', background: 'none', border: 'none', cursor: 'pointer', ...s }}>← Back to trip</button>
         </div>
 
-        <h1 style={{ fontSize: '32px', fontWeight: 300, color: '#1a1a1a', margin: '0 0 32px', ...s }}>Trip settings</h1>
+        <h1 style={{ fontSize: '32px', fontWeight: 300, color: 'var(--foreground)', margin: '0 0 32px', ...s }}>Trip settings</h1>
 
         {!isOrganizer && (
           <div style={{ padding: '16px', background: '#faeeda', border: '0.5px solid #ef9f27', borderRadius: '10px', marginBottom: '24px' }}>
@@ -63,27 +63,27 @@ export default function TripSettings() {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
-          <div style={{ background: '#fff', border: '0.5px solid #e4e4d8', borderRadius: '14px', padding: '20px' }}>
-            <p style={{ fontSize: '13px', color: '#1a1a1a', margin: '0 0 4px', ...s }}>Options per person per vote</p>
-            <p style={{ fontSize: '11px', color: '#9a9a8a', margin: '0 0 14px', lineHeight: 1.6 }}>How many options can each member add to a group vote</p>
+          <div style={{ background: '#fff', border: '0.5px solid var(--border)', borderRadius: '14px', padding: '20px' }}>
+            <p style={{ fontSize: '13px', color: 'var(--foreground)', margin: '0 0 4px', ...s }}>Options per person per vote</p>
+            <p style={{ fontSize: '11px', color: 'var(--muted-foreground)', margin: '0 0 14px', lineHeight: 1.6 }}>How many options can each member add to a group vote</p>
             <div style={{ display: 'flex', gap: '8px' }}>
               {[1, 2, 3, 5, 99].map(n => (
                 <button key={n} onClick={() => isOrganizer && setSettings(s => ({ ...s, max_vote_options_per_person: n }))}
-                  style={{ flex: 1, padding: '10px 6px', border: `1.5px solid ${settings.max_vote_options_per_person === n ? '#1a3a2a' : '#d4d4c8'}`, background: settings.max_vote_options_per_person === n ? '#e8f5ee' : 'transparent', color: settings.max_vote_options_per_person === n ? '#1a3a2a' : '#9a9a8a', fontSize: '13px', cursor: isOrganizer ? 'pointer' : 'default', borderRadius: '8px', ...s }}>
+                  style={{ flex: 1, padding: '10px 6px', border: `1.5px solid ${settings.max_vote_options_per_person === n ? 'var(--forest-deep)' : 'var(--border)'}`, background: settings.max_vote_options_per_person === n ? 'var(--accent-light)' : 'transparent', color: settings.max_vote_options_per_person === n ? 'var(--forest-deep)' : 'var(--muted-foreground)', fontSize: '13px', cursor: isOrganizer ? 'pointer' : 'default', borderRadius: '8px', ...s }}>
                   {n === 99 ? '∞' : n}
                 </button>
               ))}
             </div>
           </div>
 
-          <div style={{ background: '#fff', border: '0.5px solid #e4e4d8', borderRadius: '14px', padding: '20px' }}>
+          <div style={{ background: '#fff', border: '0.5px solid var(--border)', borderRadius: '14px', padding: '20px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
-                <p style={{ fontSize: '13px', color: '#1a1a1a', margin: '0 0 4px', ...s }}>Show member conversations</p>
-                <p style={{ fontSize: '11px', color: '#9a9a8a', margin: 0, lineHeight: 1.5 }}>Allow everyone to read each other's Avanti planning conversations</p>
+                <p style={{ fontSize: '13px', color: 'var(--foreground)', margin: '0 0 4px', ...s }}>Show member conversations</p>
+                <p style={{ fontSize: '11px', color: 'var(--muted-foreground)', margin: 0, lineHeight: 1.5 }}>Allow everyone to read each other's Avanti planning conversations</p>
               </div>
               <button onClick={() => isOrganizer && setSettings(s => ({ ...s, show_member_conversations: !s.show_member_conversations }))}
-                style={{ width: '44px', height: '24px', borderRadius: '12px', background: settings.show_member_conversations ? '#2d6a4f' : '#d4d4c8', border: 'none', cursor: isOrganizer ? 'pointer' : 'default', position: 'relative', transition: 'background 0.2s', flexShrink: 0, marginLeft: '20px' }}>
+                style={{ width: '44px', height: '24px', borderRadius: '12px', background: settings.show_member_conversations ? 'var(--forest)' : 'var(--border)', border: 'none', cursor: isOrganizer ? 'pointer' : 'default', position: 'relative', transition: 'background 0.2s', flexShrink: 0, marginLeft: '20px' }}>
                 <div style={{ width: '18px', height: '18px', borderRadius: '50%', background: '#fff', position: 'absolute', top: '3px', left: settings.show_member_conversations ? '23px' : '3px', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
               </button>
             </div>
@@ -93,7 +93,7 @@ export default function TripSettings() {
 
         {isOrganizer && (
           <button onClick={handleSave} disabled={saving}
-            style={{ width: '100%', border: '1px solid #1a3a2a', background: '#1a3a2a', color: '#fff', padding: '16px', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '10px', marginTop: '24px', opacity: saving ? 0.6 : 1, ...s }}>
+            style={{ width: '100%', border: '1px solid var(--forest-deep)', background: 'var(--forest-deep)', color: '#fff', padding: '16px', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '10px', marginTop: '24px', opacity: saving ? 0.6 : 1, ...s }}>
             {saved ? 'Saved ✓' : saving ? 'Saving...' : 'Save settings'}
           </button>
         )}

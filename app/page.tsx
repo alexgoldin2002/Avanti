@@ -1,41 +1,73 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import AvantiLogo from './components/AvantiLogo'
 import Footer from './components/Footer'
+
+const panels = [
+  {
+    eyebrow: '1',
+    title: 'The People',
+    body: 'You bring the group. We bring the rhythm that keeps them together.',
+    label: 'PEOPLE',
+  },
+  {
+    eyebrow: '2',
+    title: 'The Plan',
+    body: 'Itineraries, reservations, logistics — quietly handled before you board.',
+    label: 'PLAN',
+  },
+  {
+    eyebrow: '3',
+    title: 'The Place',
+    body: 'Rooms, tables, and corners worth flying for. Booked, confirmed, yours.',
+    label: 'PLACE',
+  },
+]
 
 export default function Home() {
   const router = useRouter()
-
-  useEffect(() => {
-    const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (session) {
-        const { data: profile } = await supabase.from('user_profiles').select('profile_complete').eq('user_id', session.user.id).maybeSingle()
-        if (profile?.profile_complete) {
-          router.push('/dashboard')
-        } else {
-          router.push('/profile')
-        }
-      }
-    }
-    checkSession()
-  }, [router])
-
-  const [mode, setMode] = useState<'landing' | 'signin' | 'signup'>('landing')
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [authMode, setAuthMode] = useState<'signin' | 'signup' | null>(null)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [rememberMe, setRememberMe] = useState(true)
 
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) {
+        const { data: profile } = await supabase
+          .from('user_profiles')
+          .select('profile_complete')
+          .eq('user_id', session.user.id)
+          .maybeSingle()
+        if (profile?.profile_complete) router.push('/dashboard')
+        else router.push('/profile')
+      }
+    }
+    checkSession()
+  }, [router])
+
+  const openAuth = (mode: 'signin' | 'signup') => {
+    setAuthMode(mode)
+    setError('')
+    setMenuOpen(false)
+  }
+
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError('')
-    const { error } = await supabase.auth.signUp({ email, password })
-    if (error) { setError(error.message); setLoading(false); return }
+    const { error: signUpError } = await supabase.auth.signUp({ email, password })
+    if (signUpError) {
+      setError(signUpError.message)
+      setLoading(false)
+      return
+    }
     router.push('/profile')
   }
 
@@ -43,84 +75,253 @@ export default function Home() {
     e.preventDefault()
     setLoading(true)
     setError('')
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) { setError(error.message); setLoading(false); return }
-    const { data: profile } = await supabase.from('user_profiles').select('profile_complete').eq('user_id', data.user.id).maybeSingle()
-    if (!profile?.profile_complete) { router.push('/profile') } else { router.push('/dashboard') }
-  }
-
-  const handleSubmit = () => {
-    const e = { preventDefault: () => {} } as React.FormEvent
-    if (mode === 'signup') handleSignUp(e)
-    else handleSignIn(e)
+    const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password })
+    if (signInError) {
+      setError(signInError.message)
+      setLoading(false)
+      return
+    }
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('profile_complete')
+      .eq('user_id', data.user.id)
+      .maybeSingle()
+    if (!profile?.profile_complete) router.push('/profile')
+    else router.push('/dashboard')
   }
 
   const handleGoogle = async () => {
-    await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: `${window.location.origin}/auth/callback` } })
+    await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
+    })
   }
 
-  const inputStyle = { width: '100%', borderBottom: '1px solid #d4d4c8', background: 'transparent', padding: '10px 0', fontSize: '14px', color: '#1a1a1a', outline: 'none', fontFamily: 'var(--font-cormorant), Georgia, serif' }
-  const labelStyle = { fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase' as const, color: '#9a9a8a', display: 'block', marginBottom: '8px' }
-
-  if (mode === 'landing') return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: '100%', background: '#fafaf8' }}>
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 24px' }}>
-      <div style={{ marginBottom: '64px' }}><AvantiLogo size="lg" /></div>
-      <p style={{ fontSize: '11px', letterSpacing: '0.25em', textTransform: 'uppercase', color: '#9a9a8a', marginBottom: '6px' }}>Avanti handles it.</p>
-      <p style={{ fontSize: '11px', letterSpacing: '0.25em', textTransform: 'uppercase', color: '#9a9a8a', marginBottom: '64px' }}>You just show up.</p>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%', maxWidth: '280px' }}>
-        <button onClick={() => setMode('signup')} style={{ width: '100%', border: '1px solid #1a1a1a', padding: '14px', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', color: '#1a1a1a', background: 'transparent', cursor: 'pointer', fontFamily: 'var(--font-cormorant), Georgia, serif', transition: 'all 0.3s' }}
-          onMouseEnter={e => { (e.target as HTMLButtonElement).style.background = '#1a1a1a'; (e.target as HTMLButtonElement).style.color = '#fafaf8' }}
-          onMouseLeave={e => { (e.target as HTMLButtonElement).style.background = 'transparent'; (e.target as HTMLButtonElement).style.color = '#1a1a1a' }}>
-          Create account
-        </button>
-        <button onClick={() => setMode('signin')} style={{ width: '100%', border: '1px solid #d4d4c8', padding: '14px', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', color: '#9a9a8a', background: 'transparent', cursor: 'pointer', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
-          Sign in
-        </button>
-      </div>
-      </div>
-      <Footer />
-    </div>
-  )
-
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: '100%', background: '#fafaf8' }}>
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 24px' }}>
-      <div style={{ width: '100%', maxWidth: '320px' }}>
-        <div style={{ textAlign: 'center', marginBottom: '48px' }}>
-          <AvantiLogo size="md" />
-          <p style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#083807', marginTop: '20px' }}>{mode === 'signup' ? 'Create your account' : 'Welcome back'}</p>
+    <div className="min-h-screen bg-background text-foreground flex flex-col">
+      <header className="relative inset-x-0 top-0 z-30 bg-forest-deep">
+        <div className="grid grid-cols-3 items-center px-6 md:px-10 py-6 max-w-[1400px] mx-auto">
+          <div className="flex items-center">
+            <button
+              className="md:hidden flex flex-col gap-1.5 p-2 -ml-2"
+              onClick={() => setMenuOpen(!menuOpen)}
+              aria-label="Toggle menu"
+            >
+              <span className="block w-6 h-0.5 bg-cream" />
+              <span className="block w-6 h-0.5 bg-cream" />
+              <span className="block w-6 h-0.5 bg-cream" />
+            </button>
+            <nav className="hidden md:flex items-center gap-8 eyebrow text-cream/90">
+              <Link href="/how-it-works" className="hover:opacity-70 transition">How it works</Link>
+              <Link href="/about" className="hover:opacity-70 transition">About</Link>
+              <Link href="/contact" className="hover:opacity-70 transition">Contact</Link>
+            </nav>
+          </div>
+
+          <div className="flex justify-center">
+            <Link href="/" className="font-serif tracking-[0.45em] text-cream text-lg md:text-xl" aria-label="Avanti home">
+              AVANTI
+            </Link>
+          </div>
+
+          <div className="flex justify-end items-center gap-6 eyebrow text-cream/90">
+            <button type="button" onClick={() => openAuth('signin')} className="hidden md:inline hover:opacity-70 transition">
+              Sign in
+            </button>
+            <button
+              type="button"
+              onClick={() => openAuth('signup')}
+              className="border border-cream/60 px-4 py-2 hover:bg-cream hover:text-forest-deep transition"
+            >
+              Create account
+            </button>
+          </div>
         </div>
-        <button onClick={handleGoogle} style={{ width: '100%', border: '1px solid #d4d4c8', padding: '14px', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#6a6a6a', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', marginBottom: '24px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
-          <svg width="14" height="14" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
-          Continue with Google
-        </button>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
-          <div style={{ flex: 1, height: '1px', background: '#e4e4d8' }}></div>
-          <span style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#c4c4b8' }}>or</span>
-          <div style={{ flex: 1, height: '1px', background: '#e4e4d8' }}></div>
+
+        {menuOpen && (
+          <div className="md:hidden absolute top-full left-0 right-0 bg-forest-deep/95 backdrop-blur-sm border-t border-cream/10 px-6 py-8 z-40">
+            <nav className="flex flex-col gap-6 eyebrow text-cream/90 text-lg">
+              <Link href="/how-it-works" onClick={() => setMenuOpen(false)}>How it works</Link>
+              <Link href="/about" onClick={() => setMenuOpen(false)}>About</Link>
+              <Link href="/contact" onClick={() => setMenuOpen(false)}>Contact</Link>
+              <button type="button" onClick={() => openAuth('signin')}>Sign in</button>
+            </nav>
+          </div>
+        )}
+      </header>
+
+      <section className="relative flex-1 bg-forest-deep">
+        <div className="relative z-10 pt-32 md:pt-40 pb-24 md:pb-32 flex flex-col items-center text-center px-6 min-h-[85vh] justify-center overflow-hidden">
+          <video
+            src="/Untitled_design.mp4"
+            autoPlay
+            loop
+            muted
+            playsInline
+            className="absolute inset-0 w-full h-full object-cover grayscale"
+            aria-hidden
+          />
+          <div className="absolute inset-0 bg-cream/70" aria-hidden />
+
+          <div className="relative z-10">
+            <p className="eyebrow text-forest-deep/70 mb-6">Group travel, Handled · Est. 2026</p>
+            <h1
+              className="font-serif text-forest-deep leading-[0.9] italic"
+              style={{ fontSize: 'clamp(4.5rem, 16vw, 16rem)', letterSpacing: '0.02em', fontWeight: 400 }}
+            >
+              {'AVANTI'.split('').map((letter, i) => (
+                <span key={i} className="animate-letter" style={{ animationDelay: `${i * 0.08}s` }}>
+                  {letter}
+                </span>
+              ))}
+            </h1>
+            <p className="mt-8 font-serif italic text-forest-deep/85 text-xl md:text-2xl max-w-md leading-snug mx-auto">
+              All the dream. None of the nightmare.
+            </p>
+            <button
+              type="button"
+              onClick={() => openAuth('signup')}
+              className="mt-10 inline-block bg-forest-deep text-cream eyebrow px-10 py-4 hover:opacity-90 transition"
+            >
+              Let&apos;s get planning
+            </button>
+          </div>
         </div>
-        <form onSubmit={mode === 'signup' ? handleSignUp : handleSignIn} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          {error && <p style={{ fontSize: '12px', color: '#c0392b', textAlign: 'center' }}>{error}</p>}
-          <div><label style={labelStyle}>Email</label><input type="email" required value={email} onChange={e => setEmail(e.target.value)} style={inputStyle} placeholder="your@email.com" /></div>
-          <div><label style={labelStyle}>Password</label><input type="password" required value={password} onChange={e => setPassword(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit() }} style={inputStyle} placeholder="••••••••" /></div>
-          {mode === 'signin' && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
-              <input type="checkbox" id="remember" checked={rememberMe} onChange={e => setRememberMe(e.target.checked)} style={{ cursor: 'pointer' }} />
-              <label htmlFor="remember" style={{ fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#9a9a8a', cursor: 'pointer', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>Keep me signed in</label>
+
+        <div className="relative z-10 border-t border-cream/15 bg-forest-deep">
+          <div className="grid grid-cols-1 md:grid-cols-3 max-w-[1400px] mx-auto">
+            {panels.map((p, i) => (
+              <button
+                key={p.label}
+                type="button"
+                onClick={() => openAuth('signup')}
+                className={`group relative flex flex-col justify-between p-8 md:p-10 min-h-[50vh] md:min-h-[60vh] border-cream/15 text-left w-full ${
+                  i > 0 ? 'md:border-l' : ''
+                } ${i < panels.length - 1 ? 'border-b md:border-b-0' : ''} transition-colors hover:bg-cream/90 hover:text-forest-deep`}
+              >
+                <div className="flex items-start justify-between text-cream/70 group-hover:text-forest-deep/70 transition-colors">
+                  <span className="eyebrow">{p.eyebrow}</span>
+                </div>
+                <div className="py-12">
+                  <h2
+                    className="font-serif leading-[0.95] text-cream group-hover:text-forest-deep transition-colors"
+                    style={{ fontSize: 'clamp(3rem, 7vw, 6rem)', letterSpacing: '-0.01em' }}
+                  >
+                    {p.title}
+                  </h2>
+                  <p className="mt-6 max-w-xs text-cream/80 group-hover:text-forest-deep/80 transition-colors text-base md:text-lg leading-relaxed">
+                    {p.body}
+                  </p>
+                </div>
+                <span className="eyebrow text-cream/60 group-hover:text-forest-deep/60 transition-colors">{p.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="relative z-10 border-t border-cream/15 px-6 md:px-10 py-10 flex flex-col md:flex-row items-center justify-between gap-6 bg-forest-deep max-w-[1400px] mx-auto w-full">
+          <p className="eyebrow text-cream/70 text-center md:text-left">
+            THE ONLY TRAVEL APP THAT THINKS FOR EVERYONE AND OF EVERYTHING
+          </p>
+          <div className="flex items-center gap-6">
+            <button
+              type="button"
+              onClick={() => openAuth('signup')}
+              className="bg-cream text-forest-deep eyebrow px-8 py-4 hover:bg-cream/90 transition"
+            >
+              Create account
+            </button>
+            <button type="button" onClick={() => openAuth('signin')} className="eyebrow text-cream border-b border-cream/60 pb-1 hover:opacity-70 transition">
+              Sign in
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <Footer variant="marketing" />
+
+      {authMode && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-forest-deep/80 backdrop-blur-sm p-6"
+          onClick={() => setAuthMode(null)}
+        >
+          <div
+            className="w-full max-w-md bg-cream p-8 md:p-10 shadow-2xl"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="text-center mb-8">
+              <p className="font-serif tracking-[0.45em] text-forest-deep text-lg">AVANTI</p>
+              <p className="eyebrow text-forest/80 mt-4">
+                {authMode === 'signup' ? 'Create your account' : 'Welcome back'}
+              </p>
             </div>
-          )}
-          <button type="submit" disabled={loading} style={{ width: '100%', border: '1px solid #083807', padding: '14px', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', color: '#ffffff', background: '#083807', cursor: 'pointer', marginTop: '8px', fontFamily: 'var(--font-cormorant), Georgia, serif', opacity: loading ? 0.5 : 1 }}>
-            {loading ? 'Please wait...' : mode === 'signup' ? 'Create account' : 'Sign in'}
-          </button>
-        </form>
-        <button onClick={() => setMode(mode === 'signup' ? 'signin' : 'signup')} style={{ width: '100%', textAlign: 'center', fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#9a9a8a', background: 'none', border: 'none', cursor: 'pointer', marginTop: '20px' }}>
-          {mode === 'signup' ? 'Already have an account? Sign in' : "Don't have an account? Create one"}
-        </button>
-        <button onClick={() => setMode('landing')} style={{ width: '100%', textAlign: 'center', fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#c4c4b8', background: 'none', border: 'none', cursor: 'pointer', marginTop: '8px' }}>← Back</button>
-      </div>
-      </div>
-      <Footer />
+
+            <button
+              type="button"
+              onClick={handleGoogle}
+              className="w-full border border-border px-4 py-3 eyebrow text-muted-foreground hover:bg-ivory transition flex items-center justify-center gap-2 mb-6"
+            >
+              Continue with Google
+            </button>
+
+            <div className="flex items-center gap-4 mb-6">
+              <div className="flex-1 h-px bg-border" />
+              <span className="eyebrow text-muted-foreground/70">or</span>
+              <div className="flex-1 h-px bg-border" />
+            </div>
+
+            <form onSubmit={authMode === 'signup' ? handleSignUp : handleSignIn} className="flex flex-col gap-5">
+              {error && <p className="text-sm text-center" style={{ color: 'var(--destructive)' }}>{error}</p>}
+              <div>
+                <label className="eyebrow text-muted-foreground block mb-2">Email</label>
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  className="w-full border-b border-border bg-transparent py-2 font-serif text-foreground outline-none"
+                  placeholder="your@email.com"
+                />
+              </div>
+              <div>
+                <label className="eyebrow text-muted-foreground block mb-2">Password</label>
+                <input
+                  type="password"
+                  required
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  className="w-full border-b border-border bg-transparent py-2 font-serif text-foreground outline-none"
+                  placeholder="••••••••"
+                />
+              </div>
+              {authMode === 'signin' && (
+                <label className="flex items-center gap-2 eyebrow text-muted-foreground cursor-pointer">
+                  <input type="checkbox" checked={rememberMe} onChange={e => setRememberMe(e.target.checked)} />
+                  Keep me signed in
+                </label>
+              )}
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-forest-deep text-cream eyebrow py-4 hover:opacity-90 transition disabled:opacity-50"
+              >
+                {loading ? 'Please wait...' : authMode === 'signup' ? 'Create account' : 'Sign in'}
+              </button>
+            </form>
+
+            <button
+              type="button"
+              onClick={() => setAuthMode(authMode === 'signup' ? 'signin' : 'signup')}
+              className="w-full mt-4 eyebrow text-muted-foreground hover:text-foreground transition"
+            >
+              {authMode === 'signup' ? 'Already have an account? Sign in' : "Don't have an account? Create one"}
+            </button>
+            <button type="button" onClick={() => setAuthMode(null)} className="w-full mt-2 eyebrow text-muted-foreground/70">
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
