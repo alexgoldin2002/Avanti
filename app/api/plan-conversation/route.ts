@@ -1,7 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { parsePlanResponse } from '@/lib/parse-plan-response'
 
 export const maxDuration = 60
 
@@ -21,8 +20,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Database not configured' }, { status: 500 })
     }
 
-    const { tripId, messages, userMessage } = await request.json()
-    console.log('[plan-conversation] request', { tripId, messageCount: messages?.length, userMessageLength: userMessage?.length })
+    const { tripId, messages } = await request.json()
+    console.log('[plan-conversation] request', { tripId, messageCount: messages?.length })
 
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -130,44 +129,38 @@ Never ask follow-up questions after this line unless the user initiates.
 
 ALL TEMPERATURES IN FAHRENHEIT. ALL COSTS IN USD. NEVER CELSIUS. NEVER EUROS OR OTHER CURRENCIES WITHOUT USD CONVERSION.`
 
-    const conversationMessages = userMessage
-      ? [...(messages || []), { role: 'user', content: userMessage }]
-      : (messages || [])
+    const conversationMessages = (messages || []).map((msg: any, idx: number) => {
+      if (idx === 0 && msg.role === 'user') {
+        return {
+          role: 'user',
+          content: msg.content + '\n\nIMPORTANT: Do not ask any follow-up questions. Generate destination cards immediately using the CARDS: format specified in your instructions. I have provided all the information you need.'
+        }
+      }
+      return msg
+    })
+    console.log('[plan-conversation] full first message:', conversationMessages[0]?.content)
 
     console.log('[plan-conversation] calling Anthropic', { model: 'claude-sonnet-4-6', messageCount: conversationMessages.length })
 
     const response = await client.messages.create({
       model: 'claude-sonnet-4-6',
-      max_tokens: 4096,
+      max_tokens: 8000,
       system: systemPrompt,
       messages: conversationMessages
     })
 
     const content = response.content[0]
     if (content.type !== 'text') {
-      console.error('[plan-conversation] unexpected response type', { type: content.type })
-      return NextResponse.json({ text: 'Something went wrong', cards: null })
+      return NextResponse.json({ error: 'No response' }, { status: 500 })
     }
-
     const text = content.text
-    const parsed = parsePlanResponse(text)
-    console.log('[plan-conversation] response received', {
-      textLength: text.length,
-      hasCards: Boolean(parsed.cards?.length),
-      hasOptions: Boolean(parsed.options?.length),
-      openText: parsed.openText,
-    })
-
-    if (parsed.cards?.length) {
-      console.log('[plan-conversation] parsed cards', { cardCount: parsed.cards.length })
-    }
-
+    console.log('[plan-conversation] claude raw response:', text.slice(0, 500))
     return NextResponse.json({
       message: text,
-      text: parsed.text,
-      cards: parsed.cards,
-      options: parsed.options,
-      openText: parsed.openText,
+      text: text,
+      cards: null,
+      options: null,
+      openText: false,
     })
   } catch (error) {
     console.error('[plan-conversation] unhandled error', {
