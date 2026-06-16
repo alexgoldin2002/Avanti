@@ -4,19 +4,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import AvantiLogo from '../components/AvantiLogo'
 import SuitcaseLoader from '../components/SuitcaseLoader'
-import PlacesAutocomplete from '../components/PlacesAutocomplete'
 import Footer from '../components/Footer'
-
-const COLORS = [
-  { name: 'Midnight', value: 'var(--foreground)' },
-  { name: 'Forest', value: '#2d4a3e' },
-  { name: 'Navy', value: '#1e3a5f' },
-  { name: 'Burgundy', value: '#4a1a2c' },
-  { name: 'Sand', value: '#8b7355' },
-  { name: 'Slate', value: '#4a5568' },
-  { name: 'Terracotta', value: '#8b4513' },
-  { name: 'Sage', value: '#4a5e4a' },
-]
 
 const DESTINATION_IMAGES: Record<string, string> = {
   default: 'https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=800&q=80',
@@ -75,31 +63,27 @@ export default function Dashboard() {
   const [loadingNames, setLoadingNames] = useState(false)
   const defaultForm = {
     name: '',
-    date_type: 'exact',
-    start_date: '',
-    end_date: '',
-    date_range_start: '',
-    date_range_end: '',
-    date_flexibility_nights: 5,
-    destination_type: 'single',
-    destination: '',
-    destinations: [] as string[],
-    destination_input: '',
-    destination_place: null as any,
-    destinations_places: [] as any[],
-    cover_color: 'var(--foreground)',
     cover_image: '',
   }
   const [form, setForm] = useState(defaultForm)
-  const [destinationMode, setDestinationMode] = useState<'know' | 'deciding' | null>(null)
+  const [tripType, setTripType] = useState('')
+  const [isEventCentered, setIsEventCentered] = useState(false)
+  const [eventName, setEventName] = useState('')
+  const [eventDate, setEventDate] = useState('')
+  const [eventLocation, setEventLocation] = useState('')
 
   const resetModalState = () => {
-    setDestinationMode(null)
     setShowErrors(false)
+    setTripType('')
+    setIsEventCentered(false)
+    setEventName('')
+    setEventDate('')
+    setEventLocation('')
   }
 
   const closeModal = () => {
     setShowModal(false)
+    setForm(defaultForm)
     resetModalState()
   }
 
@@ -170,12 +154,7 @@ export default function Dashboard() {
   }
 
   const canCreate = () => {
-    if (!form.name.trim()) return false
-    if (form.date_type === 'exact' && (!form.start_date || !form.end_date)) return false
-    if (form.date_type === 'range' && (!form.date_range_start || !form.date_range_end)) return false
-    if (!destinationMode) return false
-    if (destinationMode === 'know' && !form.destination.trim()) return false
-    return true
+    return form.name.trim().length > 0 && tripType.length > 0
   }
 
   const getNameSuggestions = async () => {
@@ -201,25 +180,14 @@ export default function Dashboard() {
 
     const tripData: any = {
       name: form.name,
-      destination: destinationMode === 'know' ? form.destination : 'TBD',
-      destination_type: destinationMode === 'know' ? 'decided' : 'flexible',
-      destinations: [],
-      date_type: form.date_type,
-      cover_color: form.cover_color,
+      trip_type: tripType,
+      is_event_centered: isEventCentered,
+      event_name: isEventCentered ? eventName : null,
+      event_date: isEventCentered ? eventDate : null,
+      event_location: isEventCentered ? eventLocation : null,
       cover_image: form.cover_image || null,
       organizer_id: user.id,
       status: 'planning',
-    }
-
-    if (form.date_type === 'exact') {
-      tripData.start_date = form.start_date
-      tripData.end_date = form.end_date
-      tripData.dates_locked = true
-    } else {
-      tripData.date_range_start = form.date_range_start
-      tripData.date_range_end = form.date_range_end
-      tripData.date_flexibility_nights = form.date_flexibility_nights
-      tripData.dates_locked = false
     }
 
     const { data: trip, error } = await supabase.from('trips').insert(tripData).select().single()
@@ -362,7 +330,7 @@ export default function Dashboard() {
               style={{ position: 'absolute', top: '20px', right: '20px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '18px', color: 'var(--muted-foreground)' }}>×</button>
 
             <p style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--muted-foreground)', marginBottom: '8px' }}>New trip</p>
-            <h2 style={{ fontSize: '28px', fontWeight: 300, color: 'var(--foreground)', margin: '0 0 32px' }}>Where are we going?</h2>
+            <h2 style={{ fontSize: '28px', fontWeight: 300, color: 'var(--foreground)', margin: '0 0 32px' }}>Create a trip</h2>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
 
@@ -397,99 +365,64 @@ export default function Dashboard() {
               </div>
 
               <div>
-                <label style={labelStyle}>Dates</label>
-                <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
-                  {[{ value: 'exact', label: 'Exact dates' }, { value: 'range', label: 'Flexible range' }].map(opt => (
-                    <button key={opt.value} onClick={() => setFormAndDraft({...form, date_type: opt.value})}
-                      style={{ flex: 1, padding: '8px', fontSize: '11px', letterSpacing: '0.08em', border: `1px solid ${form.date_type === opt.value ? 'var(--foreground)' : 'var(--border)'}`, background: form.date_type === opt.value ? 'var(--foreground)' : 'transparent', color: form.date_type === opt.value ? 'var(--cream)' : 'var(--muted-foreground)', cursor: 'pointer', ...s }}>
-                      {opt.label}
+                <p style={labelStyle}>Type of trip</p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                  {['Bachelorette', 'Bachelor', 'Wedding', 'Birthday', 'Friend group', 'Family reunion', 'Corporate', 'Honeymoon', 'Other'].map(type => (
+                    <button
+                      key={type}
+                      onClick={() => setTripType(type)}
+                      style={{
+                        padding: '8px 16px', fontSize: '13px', cursor: 'pointer',
+                        border: `1px solid ${tripType === type ? '#1a3a2a' : '#d4d4c8'}`,
+                        background: tripType === type ? '#e8f5ee' : 'transparent',
+                        color: tripType === type ? '#1a3a2a' : '#6a6a6a',
+                        borderRadius: '24px', fontFamily: 'var(--font-cormorant), Georgia, serif',
+                      }}
+                    >
+                      {type}
                     </button>
                   ))}
                 </div>
-                {form.date_type === 'exact' ? (
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                    <div>
-                      <label style={{ ...labelStyle, fontSize: '9px' }}>Start date</label>
-                      <input type="date" style={inputStyle} value={form.start_date} onChange={e => setFormAndDraft({...form, start_date: e.target.value})} />
-                      {showErrors && form.date_type === 'exact' && !form.start_date && <p style={{ fontSize: '11px', color: '#c0392b', margin: '4px 0 0' }}>Please select a start date</p>}
-                    </div>
-                    <div>
-                      <label style={{ ...labelStyle, fontSize: '9px' }}>End date</label>
-                      <input type="date" style={inputStyle} value={form.end_date} onChange={e => setFormAndDraft({...form, end_date: e.target.value})} />
-                      {showErrors && form.date_type === 'exact' && !form.end_date && <p style={{ fontSize: '11px', color: '#c0392b', margin: '4px 0 0' }}>Please select an end date</p>}
-                    </div>
-                  </div>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                      <div>
-                        <label style={{ ...labelStyle, fontSize: '9px' }}>Earliest start</label>
-                        <input type="date" style={inputStyle} value={form.date_range_start} onChange={e => setFormAndDraft({...form, date_range_start: e.target.value})} />
-                      </div>
-                      <div>
-                        <label style={{ ...labelStyle, fontSize: '9px' }}>Latest end</label>
-                        <input type="date" style={inputStyle} value={form.date_range_end} onChange={e => setFormAndDraft({...form, date_range_end: e.target.value})} />
-                      </div>
-                    </div>
-                    {form.date_type === 'range' && (
-                      <div style={{ marginTop: '12px' }}>
-                        <label style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--muted-foreground)', display: 'block', marginBottom: '6px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>Roughly how many nights?</label>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <input
-                            type="number"
-                            min="1"
-                            max="30"
-                            value={form.date_flexibility_nights || ''}
-                            onChange={e => {
-                              const val = parseInt(e.target.value, 10)
-                              setFormAndDraft({ ...form, date_flexibility_nights: Number.isNaN(val) ? 5 : val })
-                            }}
-                            placeholder="7"
-                            style={{ width: '70px', border: 'none', borderBottom: '1px solid var(--border)', background: 'transparent', padding: '6px 0', fontSize: '16px', color: 'var(--foreground)', outline: 'none', textAlign: 'center', fontFamily: 'var(--font-cormorant), Georgia, serif' }}
-                          />
-                          <span style={{ fontSize: '12px', color: 'var(--muted-foreground)', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>nights — roughly, not set in stone</span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--muted-foreground)', display: 'block', marginBottom: '8px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>Destination</label>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  {[
-                    { key: 'know', label: 'I know where I\'m going' },
-                    { key: 'deciding', label: 'Still deciding' }
-                  ].map(opt => (
-                    <button key={opt.key} onClick={() => setDestinationMode(opt.key as 'know' | 'deciding')}
-                      style={{ flex: 1, padding: '10px', border: `1.5px solid ${destinationMode === opt.key ? 'var(--forest-deep)' : 'var(--border)'}`, background: destinationMode === opt.key ? 'var(--accent-light)' : 'transparent', color: destinationMode === opt.key ? 'var(--forest-deep)' : 'var(--muted-foreground)', fontSize: '12px', cursor: 'pointer', borderRadius: '8px', fontFamily: 'var(--font-cormorant), Georgia, serif', transition: 'all 0.2s' }}>
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-                {destinationMode === 'know' && (
-                  <div style={{ marginTop: '10px' }}>
-                    <PlacesAutocomplete
-                      value={form.destination || ''}
-                      onChange={val => setFormAndDraft({ ...form, destination: val })}
-                      onSelect={place => setFormAndDraft({ ...form, destination: place.fullName, destination_place: place })}
-                      placeholder="Where are you going?"
-                    />
-                  </div>
-                )}
-                {showErrors && !destinationMode && <p style={{ fontSize: '11px', color: '#c0392b', margin: '8px 0 0' }}>Please choose a destination option</p>}
-                {showErrors && destinationMode === 'know' && !form.destination.trim() && <p style={{ fontSize: '11px', color: '#c0392b', margin: '8px 0 0' }}>Please enter a destination</p>}
+                {showErrors && !tripType && <p style={{ fontSize: '11px', color: '#c0392b', margin: '8px 0 0' }}>Please choose a trip type</p>}
               </div>
 
               <div>
-                <label style={labelStyle}>Trip card color</label>
-                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                  {COLORS.map(c => (
-                    <button key={c.value} onClick={() => setFormAndDraft({...form, cover_color: c.value})} title={c.name}
-                      style={{ width: '32px', height: '32px', borderRadius: '50%', background: c.value, border: form.cover_color === c.value ? '3px solid var(--foreground)' : '3px solid transparent', cursor: 'pointer', outline: form.cover_color === c.value ? '2px solid var(--cream)' : 'none', outlineOffset: '-4px' }} />
-                  ))}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 0', borderBottom: '0.5px solid #e4e4d8' }}>
+                  <div>
+                    <p style={{ fontSize: '14px', color: '#1a1a1a', margin: '0 0 2px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>Centered around an event?</p>
+                    <p style={{ fontSize: '12px', color: '#9a9a8a', margin: 0 }}>e.g. a wedding, concert, conference</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsEventCentered(!isEventCentered)}
+                    style={{
+                      width: '44px', height: '24px', borderRadius: '12px', border: 'none', cursor: 'pointer',
+                      background: isEventCentered ? '#1a3a2a' : '#d4d4c8', position: 'relative', transition: 'background 0.2s',
+                    }}
+                  >
+                    <div style={{
+                      width: '18px', height: '18px', borderRadius: '50%', background: '#fff',
+                      position: 'absolute', top: '3px',
+                      left: isEventCentered ? '23px' : '3px', transition: 'left 0.2s',
+                    }} />
+                  </button>
                 </div>
+                {isEventCentered && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingTop: '16px' }}>
+                    <div>
+                      <label style={labelStyle}>Event name</label>
+                      <input style={inputStyle} value={eventName} onChange={e => setEventName(e.target.value)} placeholder="e.g. Sarah's Wedding" />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Event date</label>
+                      <input type="date" style={inputStyle} value={eventDate} onChange={e => setEventDate(e.target.value)} />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Event location</label>
+                      <input style={inputStyle} value={eventLocation} onChange={e => setEventLocation(e.target.value)} placeholder="City, venue, or address" />
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div>

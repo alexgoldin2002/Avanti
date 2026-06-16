@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { NextRequest, NextResponse } from 'next/server'
-import { ITINERARY_SYSTEM_PROMPT } from './prompt'
+
+const ITINERARY_SYSTEM_PROMPT = 'You are Avanti, an expert travel planner. Return only valid JSON itineraries with no markdown.'
 
 const client = new Anthropic()
 export async function POST(request: NextRequest) {

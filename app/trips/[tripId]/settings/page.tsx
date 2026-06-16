@@ -3,103 +3,108 @@ import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import AvantiLogo from '../../../components/AvantiLogo'
-import Footer from '../../../components/Footer'
+import SuitcaseLoader from '../../../components/SuitcaseLoader'
 
 export default function TripSettings() {
-  const params = useParams()
+  const { tripId } = useParams() as { tripId: string }
   const router = useRouter()
-  const tripId = params.tripId as string
-  const [trip, setTrip] = useState<any>(null)
-  const [settings, setSettings] = useState({
-    max_vote_options_per_person: 3,
-    show_member_conversations: true,
-  })
+  const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
-  const [isOrganizer, setIsOrganizer] = useState(false)
+  const [trip, setTrip] = useState<any>(null)
+  const [maxVotes, setMaxVotes] = useState(2)
+  const [travelerCount, setTravelerCount] = useState(0)
+
+  const s = { fontFamily: 'var(--font-cormorant), Georgia, serif' }
+  const labelStyle = { fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase' as const, color: '#9a9a8a', display: 'block', marginBottom: '6px' }
 
   useEffect(() => {
     const load = async () => {
       const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { router.push('/'); return }
+
       const { data: tripData } = await supabase.from('trips').select('*').eq('id', tripId).single()
       if (tripData) {
         setTrip(tripData)
-        if (user) setIsOrganizer(tripData.organizer_id === user.id)
+        const { count } = await supabase.from('travelers').select('*', { count: 'exact', head: true }).eq('trip_id', tripId)
+        const tc = count || 0
+        setTravelerCount(tc)
+        setMaxVotes(tripData.max_votes ?? (tc <= 8 ? 2 : 1))
       }
-      const { data: settingsData } = await supabase.from('trip_settings').select('*').eq('trip_id', tripId).maybeSingle()
-      if (settingsData) setSettings({ max_vote_options_per_person: settingsData.max_vote_options_per_person, show_member_conversations: settingsData.show_member_conversations })
+      setLoading(false)
     }
     load()
-  }, [tripId])
+  }, [tripId, router])
 
-  const handleSave = async () => {
+  const save = async () => {
     setSaving(true)
-    await supabase.from('trip_settings').upsert({ trip_id: tripId, ...settings, updated_at: new Date().toISOString() }, { onConflict: 'trip_id' })
+    await supabase.from('trips').update({ max_votes: maxVotes }).eq('id', tripId)
     setSaving(false)
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
   }
 
-  const s = { fontFamily: 'var(--font-cormorant), Georgia, serif' }
-
-  if (!trip) return null
+  if (loading) return <SuitcaseLoader message="Loading settings" />
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: '100%', background: 'var(--cream)', ...s }}>
-      <div style={{ flex: 1, maxWidth: '560px', margin: '0 auto', padding: '40px 24px', width: '100%' }}>
-
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '36px' }}>
+    <main style={{ minHeight: '100vh', background: '#fafaf8', ...s }}>
+      <div style={{ maxWidth: '560px', margin: '0 auto', padding: '48px 24px 80px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '32px' }}>
           <AvantiLogo size="sm" />
-          <button onClick={() => router.push(`/trips/${tripId}`)} style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--muted-foreground)', background: 'none', border: 'none', cursor: 'pointer', ...s }}>← Back to trip</button>
+          <button onClick={() => router.push(`/trips/${tripId}`)} style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#9a9a8a', background: 'none', border: 'none', cursor: 'pointer', ...s }}>
+            ← Back
+          </button>
         </div>
 
-        <h1 style={{ fontSize: '32px', fontWeight: 300, color: 'var(--foreground)', margin: '0 0 32px', ...s }}>Trip settings</h1>
+        <p style={{ fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', color: '#9a9a8a', margin: '0 0 6px' }}>
+          {trip?.name}
+        </p>
+        <h1 style={{ fontSize: '36px', fontWeight: 300, color: '#1a1a1a', margin: '0 0 40px' }}>Trip settings</h1>
 
-        {!isOrganizer && (
-          <div style={{ padding: '16px', background: '#faeeda', border: '0.5px solid #ef9f27', borderRadius: '10px', marginBottom: '24px' }}>
-            <p style={{ fontSize: '13px', color: '#854f0b', margin: 0 }}>Only the trip organizer can change these settings.</p>
-          </div>
-        )}
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-
-          <div style={{ background: '#fff', border: '0.5px solid var(--border)', borderRadius: '14px', padding: '20px' }}>
-            <p style={{ fontSize: '13px', color: 'var(--foreground)', margin: '0 0 4px', ...s }}>Options per person per vote</p>
-            <p style={{ fontSize: '11px', color: 'var(--muted-foreground)', margin: '0 0 14px', lineHeight: 1.6 }}>How many options can each member add to a group vote</p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+          <div style={{ background: '#fff', border: '0.5px solid #e4e4d8', borderRadius: '12px', padding: '24px' }}>
+            <label style={labelStyle}>Max votes per traveler</label>
+            <p style={{ fontSize: '12px', color: '#9a9a8a', margin: '0 0 16px', lineHeight: 1.6 }}>
+              How many destination cards each traveler can vote for.
+              {travelerCount > 0 && ` Auto-set to ${travelerCount <= 8 ? '2' : '1'} based on your group size of ${travelerCount}.`}
+            </p>
             <div style={{ display: 'flex', gap: '8px' }}>
-              {[1, 2, 3, 5, 99].map(n => (
-                <button key={n} onClick={() => isOrganizer && setSettings(s => ({ ...s, max_vote_options_per_person: n }))}
-                  style={{ flex: 1, padding: '10px 6px', border: `1.5px solid ${settings.max_vote_options_per_person === n ? 'var(--forest-deep)' : 'var(--border)'}`, background: settings.max_vote_options_per_person === n ? 'var(--accent-light)' : 'transparent', color: settings.max_vote_options_per_person === n ? 'var(--forest-deep)' : 'var(--muted-foreground)', fontSize: '13px', cursor: isOrganizer ? 'pointer' : 'default', borderRadius: '8px', ...s }}>
-                  {n === 99 ? '∞' : n}
+              {[1, 2, 3, 4].map(n => (
+                <button
+                  key={n}
+                  onClick={() => setMaxVotes(n)}
+                  style={{
+                    width: '48px', height: '48px', borderRadius: '50%', fontSize: '16px',
+                    border: `1.5px solid ${maxVotes === n ? '#1a3a2a' : '#d4d4c8'}`,
+                    background: maxVotes === n ? '#e8f5ee' : 'transparent',
+                    color: maxVotes === n ? '#1a3a2a' : '#6a6a6a',
+                    cursor: 'pointer', fontWeight: maxVotes === n ? 500 : 400, ...s,
+                  }}
+                >
+                  {n}
                 </button>
               ))}
             </div>
           </div>
 
-          <div style={{ background: '#fff', border: '0.5px solid var(--border)', borderRadius: '14px', padding: '20px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div>
-                <p style={{ fontSize: '13px', color: 'var(--foreground)', margin: '0 0 4px', ...s }}>Show member conversations</p>
-                <p style={{ fontSize: '11px', color: 'var(--muted-foreground)', margin: 0, lineHeight: 1.5 }}>Allow everyone to read each other's Avanti planning conversations</p>
-              </div>
-              <button onClick={() => isOrganizer && setSettings(s => ({ ...s, show_member_conversations: !s.show_member_conversations }))}
-                style={{ width: '44px', height: '24px', borderRadius: '12px', background: settings.show_member_conversations ? 'var(--forest)' : 'var(--border)', border: 'none', cursor: isOrganizer ? 'pointer' : 'default', position: 'relative', transition: 'background 0.2s', flexShrink: 0, marginLeft: '20px' }}>
-                <div style={{ width: '18px', height: '18px', borderRadius: '50%', background: '#fff', position: 'absolute', top: '3px', left: settings.show_member_conversations ? '23px' : '3px', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
-              </button>
-            </div>
+          <div style={{ padding: '20px', border: '0.5px dashed #d4d4c8', borderRadius: '12px', textAlign: 'center' }}>
+            <p style={{ fontSize: '13px', color: '#b4b4a8', margin: 0, fontStyle: 'italic' }}>More settings coming soon</p>
           </div>
 
-        </div>
-
-        {isOrganizer && (
-          <button onClick={handleSave} disabled={saving}
-            style={{ width: '100%', border: '1px solid var(--forest-deep)', background: 'var(--forest-deep)', color: '#fff', padding: '16px', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '10px', marginTop: '24px', opacity: saving ? 0.6 : 1, ...s }}>
-            {saved ? 'Saved ✓' : saving ? 'Saving...' : 'Save settings'}
+          <button
+            onClick={save}
+            disabled={saving}
+            style={{
+              width: '100%', border: '1px solid #1a3a2a', padding: '16px',
+              fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase',
+              color: '#fafaf8', background: saved ? '#2d6a4f' : '#1a3a2a',
+              cursor: 'pointer', opacity: saving ? 0.6 : 1, transition: 'background 0.3s', ...s,
+            }}
+          >
+            {saving ? 'Saving...' : saved ? 'Saved ✓' : 'Save settings →'}
           </button>
-        )}
-
+        </div>
       </div>
-      <Footer />
-    </div>
+    </main>
   )
 }

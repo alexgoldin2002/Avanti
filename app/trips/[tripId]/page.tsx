@@ -178,12 +178,17 @@ export default function TripDashboard() {
 
   const steps = [
     { number: 1, title: 'Invite guests', description: trip?.invites_closed ? `${travelers.filter(t => t.role !== 'organizer').length} guests · closed` : `${travelers.filter(t => t.role !== 'organizer').length} guests added`, path: `/trips/${tripId}/invite` },
-    { number: 2, title: 'Brainstorm', description: 'Plan with Avanti AI', path: `/trips/${tripId}/plan` },
+    { number: 2, title: 'Brainstorm', description: 'Plan with Avanti AI', path: `/trips/${tripId}/step2` },
     { number: 3, title: 'Itinerary & flights', description: 'Routes and transport', path: `/trips/${tripId}/itinerary` },
     { number: 4, title: 'Accommodation', description: 'Hotels and Airbnbs', path: `/trips/${tripId}/accommodation` },
     { number: 5, title: 'Activities', description: 'Things to do', path: `/trips/${tripId}/activities` },
     { number: 6, title: 'Dining', description: 'Restaurants and reservations', path: `/trips/${tripId}/dining` },
   ]
+
+  const isStepClickable = (step: (typeof steps)[number], isLocked: boolean) => {
+    if (isLocked || step.disabled) return false
+    return true
+  }
 
   const getDaysLeft = (deadline: string) => {
     const diff = new Date(deadline).getTime() - Date.now()
@@ -251,9 +256,15 @@ export default function TripDashboard() {
                     <i className="ti ti-pencil" style={{ fontSize: '12px', color: 'rgba(255,255,255,0.55)' }} aria-hidden="true" />
                   </button>
                   {isOrganizer && (
-                    <button onClick={() => router.push(`/trips/${tripId}/settings`)}
-                      style={{ background: 'rgba(255,255,255,0.15)', border: 'none', cursor: 'pointer', borderRadius: '50%', width: '26px', height: '26px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <i className="ti ti-settings" style={{ fontSize: '12px', color: 'rgba(255,255,255,0.55)' }} aria-hidden="true" />
+                    <button
+                      onClick={() => router.push(`/trips/${tripId}/settings`)}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}
+                      title="Trip settings"
+                    >
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9a9a8a" strokeWidth="1.5" strokeLinecap="round">
+                        <circle cx="12" cy="12" r="3"/>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                      </svg>
                     </button>
                   )}
                 </>
@@ -346,9 +357,10 @@ export default function TripDashboard() {
                 const isActive = status === 'active'
                 const isLocked = status === 'locked'
                 const isCompleted = status === 'completed'
+                const isClickable = isStepClickable(step, isLocked)
                 return (
-                  <div key={step.number} onClick={() => !isLocked && router.push(step.path)}
-                    style={{ background: colors.bg, border: isActive ? `2px solid ${colors.numBg}` : `0.5px solid ${colors.border}`, borderRadius: '12px', padding: '16px', position: 'relative', cursor: isLocked ? 'default' : 'pointer', opacity: isLocked ? 0.42 : 1, transition: 'all 0.2s', minHeight: '90px', boxShadow: isActive ? `0 0 0 3px ${colors.bg}` : 'none' }}>
+                  <div key={step.number} onClick={() => isClickable && router.push(step.path)}
+                    style={{ background: colors.bg, border: isActive ? `2px solid ${colors.numBg}` : `0.5px solid ${colors.border}`, borderRadius: '12px', padding: '16px', position: 'relative', cursor: isClickable ? 'pointer' : 'default', opacity: isLocked || step.disabled ? 0.42 : 1, transition: 'all 0.2s', minHeight: '90px', boxShadow: isActive ? `0 0 0 3px ${colors.bg}` : 'none' }}>
                     <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: isCompleted ? colors.numBg : isLocked ? 'var(--border)' : isActive ? 'var(--forest-deep)' : colors.numBg, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '15px', fontWeight: 300, position: 'absolute', top: '10px', right: '10px', ...s }}>
                       {isCompleted ? '✓' : step.number}
                     </div>
@@ -367,9 +379,10 @@ export default function TripDashboard() {
                 const isActive = status === 'active'
                 const isLocked = status === 'locked'
                 const isCompleted = status === 'completed'
+                const isClickable = isStepClickable(step, isLocked)
                 return (
-                  <div key={step.number} onClick={() => !isLocked && router.push(step.path)}
-                    style={{ background: colors.bg, border: isActive ? `2px solid ${colors.numBg}` : `0.5px solid ${colors.border}`, borderRadius: '12px', padding: '16px', position: 'relative', cursor: isLocked ? 'default' : 'pointer', opacity: isLocked ? 0.42 : 1, transition: 'all 0.2s', minHeight: '90px' }}>
+                  <div key={step.number} onClick={() => isClickable && router.push(step.path)}
+                    style={{ background: colors.bg, border: isActive ? `2px solid ${colors.numBg}` : `0.5px solid ${colors.border}`, borderRadius: '12px', padding: '16px', position: 'relative', cursor: isClickable ? 'pointer' : 'default', opacity: isLocked || step.disabled ? 0.42 : 1, transition: 'all 0.2s', minHeight: '90px' }}>
                     <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: isCompleted ? colors.numBg : isLocked ? 'var(--border)' : isActive ? 'var(--forest-deep)' : colors.numBg, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '15px', fontWeight: 300, position: 'absolute', top: '10px', right: '10px', ...s }}>
                       {isCompleted ? '✓' : step.number}
                     </div>

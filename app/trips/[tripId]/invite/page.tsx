@@ -29,6 +29,7 @@ export default function InviteGuests() {
   const [pendingApprovals, setPendingApprovals] = useState<any[]>([])
   const [showRemoveModal, setShowRemoveModal] = useState<string | null>(null)
   const [invitesClosed, setInvitesClosed] = useState(false)
+  const [inviteLocked, setInviteLocked] = useState(false)
   const [showCloseConfirm, setShowCloseConfirm] = useState(false)
   const [showMemberConvos, setShowMemberConvos] = useState(true)
   const [addMode, setAddMode] = useState<'new' | 'saved'>('new')
@@ -45,6 +46,7 @@ export default function InviteGuests() {
     if (tripData) {
       setTrip(tripData)
       setInvitesClosed(!!tripData.invites_closed)
+      if (tripData.invite_locked) setInviteLocked(true)
       if (tripData?.show_member_conversations !== undefined) {
         setShowMemberConvos(tripData.show_member_conversations)
       }
@@ -63,7 +65,7 @@ export default function InviteGuests() {
       const myTraveler = travelerData?.find((t: any) => t.user_id === user.id)
       const isOrgByRole = myTraveler?.role === 'organizer'
       setIsOrganizer(isOrgByTrip || isOrgByRole)
-      const { data: saved } = await supabase.from('traveler_profiles').select('*').eq('owner_user_id', user.id)
+      const { data: saved } = await supabase.from('user_profiles').select('*').eq('owner_user_id', user.id)
       setSavedTravelers(saved || [])
     }
   }
@@ -563,6 +565,50 @@ export default function InviteGuests() {
             </div>
           </div>
         )}
+
+        <div style={{ marginTop: '32px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {!inviteLocked ? (
+            <button
+              onClick={async () => {
+                await supabase.from('trips').update({ invite_locked: true }).eq('id', tripId)
+                setInviteLocked(true)
+              }}
+              style={{
+                width: '100%', border: '1px solid #1a1a1a', padding: '16px',
+                fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase',
+                color: '#1a1a1a', background: 'transparent', cursor: 'pointer',
+                fontFamily: 'var(--font-cormorant), Georgia, serif',
+              }}
+            >
+              Lock invite link →
+            </button>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ background: '#fef9ec', border: '1px solid #f0c040', borderRadius: '12px', padding: '16px 20px' }}>
+                <p style={{ fontSize: '13px', color: '#8a6a10', margin: '0 0 6px', fontWeight: 500, fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+                  ⚠ Before you move to Step 2
+                </p>
+                <p style={{ fontSize: '12px', color: '#8a6a10', margin: '0 0 16px', lineHeight: 1.6 }}>
+                  Review your trip settings — including how many votes each traveler gets. You can always change this later.
+                </p>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    onClick={() => router.push(`/trips/${tripId}/settings`)}
+                    style={{ fontSize: '11px', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#8a6a10', background: 'none', border: '1px solid #f0c040', padding: '8px 16px', cursor: 'pointer', borderRadius: '6px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}
+                  >
+                    Review settings
+                  </button>
+                  <button
+                    onClick={() => router.push(`/trips/${tripId}/step2`)}
+                    style={{ fontSize: '11px', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#fafaf8', background: '#1a3a2a', border: 'none', padding: '8px 16px', cursor: 'pointer', borderRadius: '6px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}
+                  >
+                    Proceed to Step 2 →
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           {isOrganizer && !invitesClosed && (
