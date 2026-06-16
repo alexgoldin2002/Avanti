@@ -153,7 +153,7 @@ export default function Home() {
       <section className="relative flex-1 bg-forest-deep">
         <div className="relative z-10 pt-32 md:pt-40 pb-24 md:pb-32 flex flex-col items-center text-center px-6 min-h-[85vh] justify-center overflow-hidden">
           <video
-            src="/hero.mp4"
+            src="https://res.cloudinary.com/dyzhzd5h2/video/upload/v1781584118/Video_uudexh.mp4"
             autoPlay
             muted
             loop
