@@ -2,7 +2,7 @@ export const maxDuration = 60
 export const dynamic = 'force-dynamic'
 
 import Anthropic from '@anthropic-ai/sdk'
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
@@ -118,47 +118,67 @@ AVANTI_CARDS_END`
 
     const userMessage = `Please generate destination suggestions for this group.
 
-IMPORTANT: You only have answers from one traveler so far. Treat their responses as the group's general direction — other members have not yet submitted their own preferences.
-
 TRIP TYPE: ${trip?.trip_type || 'Group trip'}
 GROUP SIZE: ${travelerCount} people
 EVENT: ${trip?.is_event_centered ? `Yes — ${trip.event_name} on ${trip.event_date} in ${trip.event_location}` : 'No specific event'}
 
-TRAVELER ANSWERS:
-
-About this trip:
-${answers.q1}
-
-Departure city: ${answers.departureCity || 'Not specified'}
-Dates: ${answers.fixedDates?.start ? `${answers.fixedDates.start} to ${answers.fixedDates.end}` : answers.dates}${answers.flexLength ? ` (preferred length: ${answers.flexLength})` : ''}
-Domestic or international: ${answers.domestic || 'No preference'}${answers.regions?.length ? ` — regions: ${answers.regions.join(', ')}` : ''}
-Number of stops: ${answers.stops === 'Other' ? answers.stopsOther : (answers.stops || 'flexible')}
+About this trip: ${answers.q1}
+Departure: ${Array.isArray(answers.departureCity) ? answers.departureCity.join(', ') : answers.departureCities?.join(', ') || answers.departureCity}
+Dates: ${answers.fixedDates?.start ? `${answers.fixedDates.start} to ${answers.fixedDates.end}` : answers.dates}${answers.flexLength ? ` (preferred: ${answers.flexLength})` : ''}
+Domestic/international: ${answers.domestic || 'No preference'}${answers.regions?.length ? ` — regions: ${answers.regions.join(', ')}` : ''}
+Number of stops: ${answers.stops || 'flexible'}
 Activities wanted: ${answers.activities?.join(', ') || 'Not specified'}
 Vibe: ${answers.vibe?.join(', ') || 'Not specified'}
-Accommodation preference: ${answers.accommodation || 'No preference'}
-Budget per person: ${answers.budget === 'Other' ? answers.budgetOther : (answers.budget || 'Not specified')}
-Destination popularity preference: ${answers.popularity || 'No preference'}
+Accommodation: ${answers.accommodation || 'No preference'}
+Budget per person: ${answers.budget || 'Not specified'}
+Popularity preference: ${answers.popularity || 'No preference'}
+Deal breakers: ${answers.q3 || 'None stated'}
 
-Deal breakers and anything else:
-${answers.q3 || 'None stated'}
-
-Generate four destination cards now.`
+Generate 4 destination cards now (3 main + 1 wildcard).`
 
     const conversationMessages = messages?.length > 0
-      ? [...messages, { role: 'user', content: userMessage }]
-      : [{ role: 'user', content: userMessage }]
+      ? [...messages, { role: 'user' as const, content: userMessage }]
+      : [{ role: 'user' as const, content: userMessage }]
 
-    const response = await client.messages.create({
+    const stream = client.messages.stream({
       model: 'claude-sonnet-4-6',
       max_tokens: 5000,
       system: systemPrompt,
       messages: conversationMessages,
     })
 
-    const text = response.content[0].type === 'text' ? response.content[0].text : ''
-    return NextResponse.json({ message: text })
-  } catch (e: any) {
-    console.error('generate-destinations error:', e)
-    return NextResponse.json({ error: e.message }, { status: 500 })
+    const encoder = new TextEncoder()
+    const readable = new ReadableStream({
+      async start(controller) {
+        let fullText = ''
+        try {
+          for await (const chunk of stream) {
+            if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
+              const text = chunk.delta.text
+              fullText += text
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`))
+            }
+          }
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, fullText })}\n\n`))
+        } catch (e: any) {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: e.message })}\n\n`))
+        }
+        controller.close()
+      },
+    })
+
+    return new Response(readable, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        Connection: 'keep-alive',
+      },
+    })
+  } catch (error: any) {
+    console.error('generate-destinations error:', error)
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    })
   }
 }

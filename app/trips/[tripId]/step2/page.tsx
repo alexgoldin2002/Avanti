@@ -410,6 +410,7 @@ export default function Step2() {
 
   const generateDestinations = async () => {
     setGenerating(true)
+    setCards([])
     await saveProgress('done')
     try {
       const res = await fetch('/api/generate-destinations', {
@@ -417,26 +418,66 @@ export default function Step2() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           tripId,
-          answers: buildAnswersPayload(),
+          answers: {
+            q1,
+            departureCities,
+            departureCity: departureCities.join(', '),
+            dates,
+            fixedDates,
+            flexLength,
+            domestic,
+            regions,
+            stops,
+            stopsOther,
+            activities,
+            vibe,
+            vibeOther,
+            accommodation,
+            budget,
+            budgetOther,
+            popularity,
+            q3,
+          },
           messages: [],
         }),
       })
-      const data = await res.json()
-      const parsed = parseCardsFromText(data.message || '')
-      const parsedWhyNot = parseWhyNot(data.message || '')
-      setCards(parsed)
-      setWhyNot(parsedWhyNot)
-      setStage('done')
-      await supabase.from('trip_destinations').upsert({
-        trip_id: tripId,
-        cards: parsed,
-        why_not: parsedWhyNot,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'trip_id' })
-    } catch (e) {
-      console.error(e)
+      if (!res.ok || !res.body) throw new Error('Failed to generate')
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      let fullText = ''
+      let buffer = ''
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n\n')
+        buffer = lines.pop() || ''
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue
+          try {
+            const json = JSON.parse(line.slice(6))
+            if (json.text) fullText += json.text
+            if (json.done) {
+              const parsed = parseCardsFromText(json.fullText || fullText)
+              setCards(parsed)
+              setStage('done')
+              await supabase.from('trip_destinations').upsert({
+                trip_id: tripId,
+                cards: parsed,
+                updated_at: new Date().toISOString(),
+              }, { onConflict: 'trip_id' })
+            }
+            if (json.error) throw new Error(json.error)
+          } catch {
+            // skip malformed chunks
+          }
+        }
+      }
+    } catch (e: any) {
+      console.error('generate error:', e)
+    } finally {
+      setGenerating(false)
     }
-    setGenerating(false)
   }
 
   const sendChat = async () => {
@@ -807,46 +848,7 @@ export default function Step2() {
                 {(stage === 3 || stage === 'generate' || stage === 'done') && !editMode && !generating && (
                   <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '24px' }}>
                     <button
-                      onClick={async () => {
-                        setGenerating(true)
-                        await saveProgress('done')
-                        try {
-                          const res = await fetch('/api/generate-destinations', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                              tripId,
-                              answers: {
-                                q1, departureCity: departureCities.join(', '), dates, fixedDates, flexLength,
-                                domestic, regions, stops, stopsOther, activities,
-                                vibe, vibeOther, accommodation, budget, budgetOther,
-                                popularity, q3,
-                              },
-                              messages: [],
-                            }),
-                          })
-                          const data = await res.json()
-                          console.log('FULL MESSAGE LENGTH:', data.message?.length)
-                          console.log('HAS REASONING:', data.message?.includes('REASONING:'))
-                          console.log('HAS WHY_NOT:', data.message?.includes('WHY_NOT:'))
-                          console.log('REASONING SECTION:', data.message?.slice(data.message?.indexOf('REASONING:'), data.message?.indexOf('REASONING:') + 500))
-                          const parsed = parseCardsFromText(data.message || '')
-                          const parsedWhyNot = parseWhyNot(data.message || '')
-                          console.log('PARSED WHY NOT:', parsedWhyNot)
-                          setCards(parsed)
-                          setWhyNot(parsedWhyNot)
-                          setStage('done')
-                          await supabase.from('trip_destinations').upsert({
-                            trip_id: tripId,
-                            cards: parsed,
-                            why_not: parsedWhyNot,
-                            updated_at: new Date().toISOString(),
-                          }, { onConflict: 'trip_id' })
-                        } catch (e) {
-                          console.error(e)
-                        }
-                        setGenerating(false)
-                      }}
+                      onClick={() => generateDestinations()}
                       style={{
                         padding: '14px 32px',
                         border: '1px solid #1a3a2a',
