@@ -153,12 +153,13 @@ export default function Home() {
       <section className="relative flex-1 bg-forest-deep">
         <div className="relative z-10 pt-32 md:pt-40 pb-24 md:pb-32 flex flex-col items-center text-center px-6 min-h-[85vh] justify-center overflow-hidden">
           <video
-            src="/Untitled_design.mp4"
+            src="/hero.mp4"
             autoPlay
-            loop
             muted
+            loop
             playsInline
-            className="absolute inset-0 w-full h-full object-cover grayscale"
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            className="absolute inset-0 grayscale"
             aria-hidden
           />
           <div className="absolute inset-0 bg-cream/70" aria-hidden />

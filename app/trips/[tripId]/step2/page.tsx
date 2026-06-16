@@ -804,7 +804,7 @@ export default function Step2() {
             ) : q3.trim() && !editMode ? (
               <>
                 <UserBubble>{q3}</UserBubble>
-                {(stage === 'generate' || stage === 'done') && !editMode && !generating && cards.length === 0 && (
+                {(stage === 3 || stage === 'generate' || stage === 'done') && !editMode && !generating && (
                   <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '24px' }}>
                     <button
                       onClick={async () => {

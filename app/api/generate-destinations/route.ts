@@ -33,7 +33,12 @@ IMPORTANT: At this stage you only have answers from one traveler who filled out 
 
 TRAVEL TIME vs DRIVING: These are completely different constraints. 'Not too much driving' means no itineraries where a car is required every day to move between things — it has nothing to do with flight time. A 14-hour flight to Thailand is fine if once you land everything is walkable or a short taxi ride. Only penalize a destination for travel time if the user explicitly says they don't want a long flight or have too few days to justify it.
 
-DESTINATION RANGE: Always generate suggestions with genuine geographic range. Do not cluster all five cards in the same region. If four cards are European, the fifth should not also be European. Spread across at least 2-3 different regions of the world unless the user has explicitly restricted to one region.
+DESTINATION RANGE — ABSOLUTE RULE:
+- Maximum ONE destination per country across all five cards including the wildcard. Exception: the United States has no limit — multiple US destinations are allowed if the group prefers domestic travel.
+- Before finalizing your five cards, list the countries: if any non-US country appears twice, remove the duplicate and replace it with a destination from a different country.
+- Example of what is NOT allowed: Lisbon Portugal + Azores Portugal + Madeira Portugal
+- Example of what IS allowed: Portugal + Croatia + Spain + Colombia + Indonesia
+- This rule cannot be overridden by any other consideration
 
 HIGHLIGHT and CONSIDER tags must be specific to THIS group's inputs — not generic destination facts. 'Beach & nightlife' is only the highlight if this group asked for beach and nightlife. The CONSIDER tag should be the single most relevant thing THIS group should know before choosing this destination.
 
