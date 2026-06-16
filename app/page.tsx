@@ -151,15 +151,18 @@ export default function Home() {
       </header>
 
       <section className="relative flex-1 bg-forest-deep">
-        <div className="relative z-10 pt-32 md:pt-40 pb-24 md:pb-32 flex flex-col items-center text-center px-6 min-h-[85vh] justify-center overflow-hidden">
+        <div
+          className="relative z-10 pt-32 md:pt-40 pb-24 md:pb-32 flex flex-col items-center text-center px-6 justify-center"
+          style={{ position: 'relative', width: '100%', height: '100vh', overflow: 'hidden' }}
+        >
           <video
             src="https://res.cloudinary.com/dyzhzd5h2/video/upload/v1781584118/Video_uudexh.mp4"
             autoPlay
             muted
             loop
             playsInline
-            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-            className="absolute inset-0 grayscale"
+            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+            className="grayscale"
             aria-hidden
           />
           <div className="absolute inset-0 bg-cream/70" aria-hidden />
