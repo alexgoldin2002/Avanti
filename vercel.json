@@ -1,1 +1,1 @@
-{"functions":{"api/generate-destinations":{"maxDuration":60}}}
+{"functions":{"app/api/generate-destinations/route.ts":{"maxDuration":60}}}
