@@ -326,43 +326,43 @@ export default function Step2() {
   const parseCardsFromText = (text: string) => {
     const result: any[] = []
 
-    // Only parse up to AVANTI_CARDS_END or REASONING — whichever comes first
+    // Only parse up to AVANTI_CARDS_END
     let cardsBlock = text
-    const endMarkers = ['AVANTI_CARDS_END', 'REASONING:', 'WHY_NOT:']
-    for (const marker of endMarkers) {
-      const idx = cardsBlock.indexOf(marker)
-      if (idx !== -1) cardsBlock = cardsBlock.slice(0, idx)
-    }
+    const endIdx = text.indexOf('AVANTI_CARDS_END')
+    if (endIdx !== -1) cardsBlock = text.slice(0, endIdx)
 
     if (!cardsBlock.includes('NAME:')) return result
 
-    const sections = cardsBlock.split('---').map((s: string) => s.trim()).filter((s: string) => s)
+    // Split on --- but keep WILDCARD sections
+    const sections = cardsBlock.split(/\n---\n/).map((s: string) => s.trim()).filter((s: string) => s.length > 0)
 
     for (const section of sections) {
       if (!section.includes('NAME:')) continue
-      // Skip header lines like DESTINATIONS:
       if (section.trim() === 'DESTINATIONS:') continue
 
-      const isWildcard = section.includes('WILDCARD:')
+      const isWildcard = /WILDCARD:/i.test(section)
+      const clean = section
+        .replace(/^WILDCARD:\s*/m, '')
+        .replace(/^DESTINATIONS:\s*/m, '')
+        .trim()
 
       const get = (field: string): string => {
-        const lines = section.split('\n')
-        let value = ''
-        let capturing = false
-        for (const line of lines) {
-          const trimmed = line.trim()
-          if (trimmed.startsWith(field + ':')) {
-            value = trimmed.slice(field.length + 1).trim()
-            capturing = true
-          } else if (capturing) {
-            if (/^[A-Z][A-Z\s]+:/.test(trimmed) && !trimmed.startsWith('-')) {
-              capturing = false
-            } else {
-              value += '\n' + line
-            }
-          }
+        const regex = new RegExp(`^${field}:\\s*(.*)`, 'm')
+        const match = clean.match(regex)
+        if (!match) return ''
+
+        const firstLine = match[1].trim()
+        const startIdx = clean.indexOf(match[0]) + match[0].length
+        const remaining = clean.slice(startIdx)
+
+        // Collect continuation lines until next field
+        const continuationLines: string[] = []
+        for (const line of remaining.split('\n')) {
+          if (/^[A-Z][A-Z\s]+:/.test(line.trim()) && !line.trim().startsWith('-')) break
+          continuationLines.push(line)
         }
-        return value.trim()
+
+        return (firstLine + '\n' + continuationLines.join('\n')).trim()
       }
 
       const name = get('NAME')
