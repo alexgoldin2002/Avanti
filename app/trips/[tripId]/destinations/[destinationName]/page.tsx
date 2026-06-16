@@ -111,18 +111,12 @@ export default function DestinationDeepDive() {
           ))}
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '48px' }}>
+        <div style={{ marginTop: '48px' }}>
           <button
             onClick={() => router.push(`/trips/${tripId}/vote`)}
             style={{ width: '100%', padding: '16px', border: 'none', background: '#1a3a2a', color: '#fafaf8', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', cursor: 'pointer', ...s }}
           >
             Go to voting →
-          </button>
-          <button
-            onClick={() => router.push(`/trips/${tripId}/destinations/reasoning`)}
-            style={{ width: '100%', padding: '14px', border: '0.5px solid #d4d4c8', background: 'transparent', color: '#9a9a8a', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', cursor: 'pointer', ...s }}
-          >
-            Why Avanti passed on others
           </button>
         </div>
 
