@@ -326,10 +326,16 @@ export default function Step2() {
   const parseCardsFromText = (text: string) => {
     const result: any[] = []
 
-    // Only parse up to AVANTI_CARDS_END
-    let cardsBlock = text
-    const endIdx = text.indexOf('AVANTI_CARDS_END')
-    if (endIdx !== -1) cardsBlock = text.slice(0, endIdx)
+    // Find where DESTINATIONS: starts — skip any preamble
+    const destStart = text.indexOf('DESTINATIONS:')
+    if (destStart === -1) {
+      // Try to find first NAME: directly if no DESTINATIONS: header
+      if (!text.includes('NAME:')) return result
+    }
+    let cardsBlock = destStart !== -1 ? text.slice(destStart) : text
+    // Stop at AVANTI_CARDS_END
+    const endIdx = cardsBlock.indexOf('AVANTI_CARDS_END')
+    if (endIdx !== -1) cardsBlock = cardsBlock.slice(0, endIdx)
 
     if (!cardsBlock.includes('NAME:')) return result
 
@@ -456,9 +462,15 @@ export default function Step2() {
           if (!line.startsWith('data: ')) continue
           try {
             const json = JSON.parse(line.slice(6))
-            if (json.text) fullText += json.text
+            if (json.text) {
+              fullText += json.text
+              console.log('streaming chunk, total length:', fullText.length)
+            }
             if (json.done) {
+              console.log('DONE received, fullText length:', json.fullText?.length, fullText.length)
+              console.log('FULL TEXT PREVIEW:', (json.fullText || fullText).slice(0, 300))
               const parsed = parseCardsFromText(json.fullText || fullText)
+              console.log('PARSED CARDS:', parsed.length, parsed.map((c: any) => c.name))
               setCards(parsed)
               setStage('done')
               await supabase.from('trip_destinations').upsert({

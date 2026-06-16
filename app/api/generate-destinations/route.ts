@@ -73,6 +73,7 @@ BEFORE YOU WRITE ANYTHING — reason through all of these internally:
 - Should feel like insider knowledge
 
 ABSOLUTE RULES:
+CRITICAL: Do not write any reasoning, thinking, or preamble text before the output. Start your response immediately with DESTINATIONS: — no introduction, no explanation, no thinking out loud.
 - Maximum ONE destination per country (US has no limit)
 - 4+ different countries across all 4 cards
 - Never repeat information across sections
