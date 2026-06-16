@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase'
 import AvantiLogo from '../../../components/AvantiLogo'
 import SuitcaseLoader from '../../../components/SuitcaseLoader'
 
-function StepTwoDestCard({ card, tripId }: { card: any; tripId: string }) {
+function StepTwoDestCard({ card, tripId, isVoted, onVote }: { card: any; tripId: string; isVoted: boolean; onVote: () => void }) {
   const [open, setOpen] = useState<string | null>(null)
   const s = { fontFamily: 'var(--font-cormorant), Georgia, serif' }
   const toggle = (key: string) => setOpen(prev => prev === key ? null : key)
@@ -102,42 +102,33 @@ function StepTwoDestCard({ card, tripId }: { card: any; tripId: string }) {
           )}
         </div>
       ))}
-      <div style={{ padding: '0 20px 8px', textAlign: 'right' }}>
-        <button
-          onClick={() => window.location.href = `/trips/${tripId}/destinations/${encodeURIComponent(card.name)}`}
-          style={{ fontSize: '11px', color: isWildcard ? 'rgba(255,255,255,0.4)' : '#9a9a8a', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontFamily: 'var(--font-cormorant), Georgia, serif' }}
-        >
-          Deep dive →
-        </button>
-      </div>
       <div style={{ padding: '14px 20px', borderTop: `1px solid ${isWildcard ? 'rgba(255,255,255,0.1)' : '#f0f0e8'}`, marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
         <button
-          onClick={() => window.location.href = `/trips/${tripId}/vote`}
+          onClick={onVote}
           style={{
-            width: '100%', padding: '12px',
-            border: 'none',
-            background: isWildcard ? 'rgba(255,255,255,0.15)' : '#1a3a2a',
-            color: '#fafaf8',
+            width: '100%', padding: '11px',
+            border: `1px solid ${isVoted ? '#2d6a4f' : isWildcard ? 'rgba(255,255,255,0.2)' : '#1a1a1a'}`,
+            background: isVoted ? '#e8f5ee' : 'transparent',
+            color: isVoted ? '#1a3a2a' : isWildcard ? 'rgba(255,255,255,0.65)' : '#1a1a1a',
             fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase',
-            cursor: 'pointer', borderRadius: '8px',
+            cursor: 'pointer', borderRadius: '8px', transition: 'all 0.15s',
             fontFamily: 'var(--font-cormorant), Georgia, serif',
           }}
         >
-          Go to voting →
+          {isVoted ? '✓ Selected' : 'Add to vote'}
         </button>
         <button
-          onClick={() => window.location.href = `/trips/${tripId}/destinations/reasoning`}
+          onClick={() => window.location.href = `/trips/${tripId}/destinations/${encodeURIComponent(card.name)}`}
           style={{
-            width: '100%', padding: '10px',
-            border: `0.5px solid ${isWildcard ? 'rgba(255,255,255,0.15)' : '#d4d4c8'}`,
-            background: 'transparent',
-            color: isWildcard ? 'rgba(255,255,255,0.5)' : '#9a9a8a',
+            width: '100%', padding: '9px',
+            border: 'none', background: 'transparent',
+            color: isWildcard ? 'rgba(255,255,255,0.4)' : '#9a9a8a',
             fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase',
-            cursor: 'pointer', borderRadius: '8px',
+            cursor: 'pointer', textDecoration: 'underline',
             fontFamily: 'var(--font-cormorant), Georgia, serif',
           }}
         >
-          Why Avanti passed on others
+          Deep dive →
         </button>
       </div>
     </div>
@@ -154,8 +145,8 @@ export default function Step2() {
   // Q1
   const [q1, setQ1] = useState('')
   // Q2 answers
-  const [departureCity, setDepartureCity] = useState('')
-  const [departureCityOther, setDepartureCityOther] = useState('')
+  const [departureCityInput, setDepartureCityInput] = useState('')
+  const [departureCities, setDepartureCities] = useState<string[]>([])
   const [dates, setDates] = useState('')
   const [fixedDates, setFixedDates] = useState({ start: '', end: '' })
   const [flexLength, setFlexLength] = useState('')
@@ -182,6 +173,8 @@ export default function Step2() {
   const [whyNot, setWhyNot] = useState<{ name: string; reasons: string[] }[]>([])
   const [editMode, setEditMode] = useState(false)
   const [cachedAnswers, setCachedAnswers] = useState<any>(null)
+  const [votes, setVotes] = useState<Record<string, boolean>>({})
+  const [maxVotes, setMaxVotes] = useState(2)
 
   const s = { fontFamily: 'var(--font-cormorant), Georgia, serif' }
   const inputStyle = { width: '100%', borderBottom: '1px solid #d4d4c8', background: 'transparent', padding: '8px 0', fontSize: '15px', color: '#1a1a1a', outline: 'none', ...s }
@@ -213,7 +206,10 @@ export default function Step2() {
   useEffect(() => {
     const load = async () => {
       const { data: tripData } = await supabase.from('trips').select('*').eq('id', tripId).single()
-      if (tripData) setTrip(tripData)
+      if (tripData) {
+        setTrip(tripData)
+        if (tripData.max_votes) setMaxVotes(tripData.max_votes)
+      }
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
         const { data: profile } = await supabase.from('user_profiles').select('email').eq('user_id', user.id).single()
@@ -221,7 +217,7 @@ export default function Step2() {
         if (traveler?.step2) {
           const s2 = traveler.step2
           if (s2.q1) { setQ1(s2.q1) }
-          if (s2.departureCity) setDepartureCity(s2.departureCity)
+          if (s2.departureCity) setDepartureCities(s2.departureCity.split(',').map((c: string) => c.trim()).filter(Boolean))
           if (s2.dates) setDates(s2.dates)
           if (s2.domestic) setDomestic(s2.domestic)
           if (s2.regions) setRegions(s2.regions)
@@ -238,9 +234,13 @@ export default function Step2() {
           .from('trip_destinations')
           .select('cards, why_not')
           .eq('trip_id', tripId)
-          .maybeSingle()
-        if (savedDest?.cards?.length) setCards(savedDest.cards)
-        if (savedDest?.why_not?.length) setWhyNot(savedDest.why_not)
+          .single()
+
+        if (savedDest?.cards && savedDest.cards.length > 0) {
+          setCards(savedDest.cards)
+          if (savedDest.why_not) setWhyNot(savedDest.why_not)
+          setStage('done' as any)
+        }
       }
       setLoading(false)
     }
@@ -251,41 +251,41 @@ export default function Step2() {
   const showQ3 = (typeof stage === 'number' && stage >= 3) || stage === 'generate' || stage === 'done' || editMode
 
   useEffect(() => {
-    if (stage < 2 && !editMode) return
+    if ((window as any).google?.maps?.places) return
+    if (document.getElementById('google-maps-script')) return
+    const script = document.createElement('script')
+    script.id = 'google-maps-script'
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_PLACES_KEY}&libraries=places`
+    script.async = true
+    document.head.appendChild(script)
+  }, [])
 
-    const initAutocomplete = () => {
+  useEffect(() => {
+    if (stage < 2) return
+    const tryInit = () => {
       const input = document.getElementById('departure-city-input') as HTMLInputElement
-      if (!input || !(window as any).google?.maps?.places) return
+      if (!input) return
+      if (!(window as any).google?.maps?.places) return
       const autocomplete = new (window as any).google.maps.places.Autocomplete(input, {
         types: ['(cities)'],
       })
       autocomplete.addListener('place_changed', () => {
         const place = autocomplete.getPlace()
-        if (place?.formatted_address) setDepartureCity(place.formatted_address)
-        else if (place?.name) setDepartureCity(place.name)
+        const name = place?.formatted_address || place?.name || ''
+        if (name) {
+          setDepartureCities(prev => [...prev, name])
+          setDepartureCityInput('')
+        }
       })
     }
-
-    if ((window as any).google?.maps?.places) {
-      initAutocomplete()
-      return
-    }
-
-    if (!document.getElementById('google-places-script')) {
-      ;(window as any).initGooglePlaces = initAutocomplete
-      const script = document.createElement('script')
-      script.id = 'google-places-script'
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_PLACES_KEY}&libraries=places&callback=initGooglePlaces`
-      script.async = true
-      document.head.appendChild(script)
-    } else {
-      ;(window as any).initGooglePlaces = initAutocomplete
-    }
-  }, [stage, editMode])
+    tryInit()
+    const timer = setTimeout(tryInit, 1000)
+    return () => clearTimeout(timer)
+  }, [stage])
 
   const buildAnswersPayload = () => ({
     q1,
-    departureCity,
+    departureCity: departureCities.join(', '),
     dates,
     fixedDates,
     flexLength,
@@ -309,7 +309,7 @@ export default function Step2() {
     const { data: profile } = await supabase.from('user_profiles').select('email').eq('user_id', user.id).single()
     await supabase.from('travelers').update({
       step2: {
-        q1, departureCity,
+        q1, departureCity: departureCities.join(', '),
         dates, fixedDates, flexLength,
         domestic, regions, stops: stops === 'Other' ? stopsOther : stops,
         activities, vibe: vibe.includes('Other') ? [...vibe.filter(v => v !== 'Other'), vibeOther] : vibe,
@@ -325,11 +325,26 @@ export default function Step2() {
 
   const parseCardsFromText = (text: string) => {
     const result: any[] = []
-    if (!text.includes('NAME:')) return result
-    const sections = text.split('---').map((s: string) => s.trim()).filter((s: string) => s)
+
+    // Only parse up to AVANTI_CARDS_END or REASONING — whichever comes first
+    let cardsBlock = text
+    const endMarkers = ['AVANTI_CARDS_END', 'REASONING:', 'WHY_NOT:']
+    for (const marker of endMarkers) {
+      const idx = cardsBlock.indexOf(marker)
+      if (idx !== -1) cardsBlock = cardsBlock.slice(0, idx)
+    }
+
+    if (!cardsBlock.includes('NAME:')) return result
+
+    const sections = cardsBlock.split('---').map((s: string) => s.trim()).filter((s: string) => s)
+
     for (const section of sections) {
       if (!section.includes('NAME:')) continue
+      // Skip header lines like DESTINATIONS:
+      if (section.trim() === 'DESTINATIONS:') continue
+
       const isWildcard = section.includes('WILDCARD:')
+
       const get = (field: string): string => {
         const lines = section.split('\n')
         let value = ''
@@ -340,14 +355,19 @@ export default function Step2() {
             value = trimmed.slice(field.length + 1).trim()
             capturing = true
           } else if (capturing) {
-            if (/^[A-Z ]+:/.test(trimmed) && !trimmed.startsWith('-')) capturing = false
-            else value += '\n' + line
+            if (/^[A-Z][A-Z\s]+:/.test(trimmed) && !trimmed.startsWith('-')) {
+              capturing = false
+            } else {
+              value += '\n' + line
+            }
           }
         }
         return value.trim()
       }
+
       const name = get('NAME')
-      if (!name) continue
+      if (!name || name.length < 2) continue
+
       result.push({
         name,
         highlight: get('HIGHLIGHT'),
@@ -364,6 +384,7 @@ export default function Step2() {
         isWildcard,
       })
     }
+
     return result
   }
 
@@ -429,7 +450,7 @@ export default function Step2() {
       const res = await fetch('/api/step2-chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: newMessages, tripId, context: { q1, departureCity, dates, domestic, activities, vibe, budget, q3 } }),
+        body: JSON.stringify({ messages: newMessages, tripId, context: { q1, departureCity: departureCities.join(', '), dates, domestic, activities, vibe, budget, q3 } }),
       })
       const data = await res.json()
       setChatMessages(m => [...m, { role: 'assistant', content: data.message }])
@@ -440,7 +461,7 @@ export default function Step2() {
     setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
   }
 
-  const q2Valid = departureCity && dates
+  const q2Valid = departureCities.length > 0 && !!dates
 
   const avatarStyle = { width: '40px', height: '40px', borderRadius: '50%', background: '#1a3a2a', flexShrink: 0 } as const
   const questionTextStyle = { fontSize: '16px', color: '#1a1a1a', lineHeight: 1.7, margin: 0, ...s }
@@ -479,72 +500,77 @@ export default function Step2() {
           </button>
         </div>
 
-        {(stage >= 1 || editMode) && (
+        {(stage === 1 || editMode) && (
           <>
             <AvantiQuestion>
               Tell us about this trip. Who is going? What kind of trip are you looking for? Any idea where? What&apos;s the reason for the trip?
             </AvantiQuestion>
 
-            {(stage === 1 || editMode) ? (
-              <div style={{ paddingLeft: '56px', marginTop: '16px' }}>
-                <textarea
-                  value={q1}
-                  onChange={e => setQ1(e.target.value)}
-                  placeholder="e.g. 8 college friends, graduation trip, beaches and nightlife somewhere in Europe"
-                  rows={4}
-                  style={{
-                    width: '100%',
-                    border: 'none',
-                    outline: 'none',
-                    background: 'transparent',
-                    padding: '0',
-                    fontSize: '15px',
-                    color: '#1a1a1a',
-                    resize: 'none',
-                    lineHeight: 1.7,
-                    fontFamily: 'var(--font-cormorant), Georgia, serif',
-                    display: 'block',
-                    pointerEvents: 'auto',
-                  }}
-                />
-                {stage === 1 && !editMode && (
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '16px' }}>
-                    <button
-                      onClick={() => { setStage(2); saveProgress(2) }}
-                      disabled={!q1.trim()}
-                      style={{
-                        padding: '12px 28px', border: '1px solid #1a3a2a',
-                        background: q1.trim() ? '#1a3a2a' : 'transparent',
-                        color: q1.trim() ? '#fafaf8' : '#d4d4c8',
-                        fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase',
-                        cursor: q1.trim() ? 'pointer' : 'default',
-                        fontFamily: 'var(--font-cormorant), Georgia, serif',
-                      }}
-                    >
-                      Next →
-                    </button>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <>
-                <UserBubble>{q1}</UserBubble>
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '6px' }}>
+            <div style={{ paddingLeft: '56px', marginTop: '16px' }}>
+              <textarea
+                value={q1}
+                onChange={e => setQ1(e.target.value)}
+                placeholder="e.g. 8 college friends, graduation trip, beaches and nightlife somewhere in Europe"
+                rows={4}
+                style={{
+                  width: '100%',
+                  border: 'none',
+                  outline: 'none',
+                  background: 'transparent',
+                  padding: '0',
+                  fontSize: '15px',
+                  color: '#1a1a1a',
+                  resize: 'none',
+                  lineHeight: 1.7,
+                  fontFamily: 'var(--font-cormorant), Georgia, serif',
+                  display: 'block',
+                  pointerEvents: 'auto',
+                }}
+              />
+              {stage === 1 && !editMode && (
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '16px' }}>
                   <button
-                    onClick={() => {
-                      setEditMode(true)
-                      setCards([])
-                      setWhyNot([])
-                      setCachedAnswers(buildAnswersPayload())
+                    onClick={() => { setStage(2); saveProgress(2) }}
+                    disabled={!q1.trim()}
+                    style={{
+                      padding: '12px 28px', border: '1px solid #1a3a2a',
+                      background: q1.trim() ? '#1a3a2a' : 'transparent',
+                      color: q1.trim() ? '#fafaf8' : '#d4d4c8',
+                      fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase',
+                      cursor: q1.trim() ? 'pointer' : 'default',
+                      fontFamily: 'var(--font-cormorant), Georgia, serif',
                     }}
-                    style={{ fontSize: '11px', color: '#9a9a8a', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontFamily: 'var(--font-cormorant), Georgia, serif' }}
                   >
-                    Edit
+                    Next →
                   </button>
                 </div>
-              </>
-            )}
+              )}
+            </div>
           </>
+        )}
+
+        {((typeof stage === 'number' && stage >= 2) || stage === 'generate' || stage === 'done') && !editMode && (
+          <div style={{ marginBottom: '32px' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px', marginBottom: '16px' }}>
+              <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#1a3a2a', flexShrink: 0 }} />
+              <p style={{ fontSize: '16px', color: '#1a1a1a', lineHeight: 1.7, margin: 0, fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+                Tell us about this trip. Who is going? What kind of trip are you looking for? Any idea where? What&apos;s the reason for the trip?
+              </p>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <div style={{ maxWidth: '80%', background: '#1a3a2a', color: '#fff', padding: '12px 16px', borderRadius: '12px', fontSize: '14px', lineHeight: 1.6, fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+                {q1}
+              </div>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '6px' }}>
+              <button
+                onClick={() => setStage(1)}
+                style={{ fontSize: '11px', color: '#9a9a8a', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontFamily: 'var(--font-cormorant), Georgia, serif' }}
+              >
+                Edit
+              </button>
+            </div>
+          </div>
         )}
 
         {showQ2 && (
@@ -556,13 +582,60 @@ export default function Step2() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '28px', marginBottom: showQ3 ? '32px' : '0', paddingLeft: '54px' }}>
               <div>
                 <span style={sectionLabel}>Where are you flying from? ★</span>
-                <input
-                  id="departure-city-input"
-                  style={{ width: '100%', borderBottom: '1px solid #d4d4c8', background: 'transparent', padding: '8px 0', fontSize: '14px', color: '#1a1a1a', outline: 'none', fontFamily: 'var(--font-cormorant), Georgia, serif' }}
-                  value={departureCity}
-                  onChange={e => setDepartureCity(e.target.value)}
-                  placeholder="Start typing your city..."
-                />
+
+                {departureCities.length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
+                    {departureCities.map((city, i) => (
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', background: '#e8f5ee', border: '1px solid #2d6a4f', borderRadius: '20px' }}>
+                        <span style={{ fontSize: '13px', color: '#1a3a2a', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>{city}</span>
+                        <button
+                          onClick={() => setDepartureCities(departureCities.filter((_, idx) => idx !== i))}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#2d6a4f', fontSize: '14px', lineHeight: 1, padding: '0 0 0 2px' }}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <input
+                    id="departure-city-input"
+                    type="text"
+                    autoComplete="off"
+                    style={{
+                      width: '200px',
+                      borderBottom: '1px solid #d4d4c8',
+                      borderTop: 'none', borderLeft: 'none', borderRight: 'none',
+                      background: 'transparent',
+                      padding: '8px 0',
+                      fontSize: '14px',
+                      color: '#1a1a1a',
+                      outline: 'none',
+                      fontFamily: 'var(--font-cormorant), Georgia, serif',
+                    }}
+                    value={departureCityInput}
+                    onChange={e => setDepartureCityInput(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' && departureCityInput.trim()) {
+                        setDepartureCities(prev => [...prev, departureCityInput.trim()])
+                        setDepartureCityInput('')
+                      }
+                    }}
+                    placeholder="Type a city..."
+                  />
+                  {departureCityInput.trim() && (
+                    <button
+                      onClick={() => {
+                        setDepartureCities(prev => [...prev, departureCityInput.trim()])
+                        setDepartureCityInput('')
+                      }}
+                      style={{ fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#2d6a4f', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-cormorant), Georgia, serif' }}
+                    >
+                      Add
+                    </button>
+                  )}
+                </div>
               </div>
               <div style={{ borderTop: '0.5px solid #e4e4d8' }} />
 
@@ -744,7 +817,7 @@ export default function Step2() {
                             body: JSON.stringify({
                               tripId,
                               answers: {
-                                q1, departureCity, dates, fixedDates, flexLength,
+                                q1, departureCity: departureCities.join(', '), dates, fixedDates, flexLength,
                                 domestic, regions, stops, stopsOther, activities,
                                 vibe, vibeOther, accommodation, budget, budgetOther,
                                 popularity, q3,
@@ -753,8 +826,13 @@ export default function Step2() {
                             }),
                           })
                           const data = await res.json()
+                          console.log('FULL MESSAGE LENGTH:', data.message?.length)
+                          console.log('HAS REASONING:', data.message?.includes('REASONING:'))
+                          console.log('HAS WHY_NOT:', data.message?.includes('WHY_NOT:'))
+                          console.log('REASONING SECTION:', data.message?.slice(data.message?.indexOf('REASONING:'), data.message?.indexOf('REASONING:') + 500))
                           const parsed = parseCardsFromText(data.message || '')
                           const parsedWhyNot = parseWhyNot(data.message || '')
+                          console.log('PARSED WHY NOT:', parsedWhyNot)
                           setCards(parsed)
                           setWhyNot(parsedWhyNot)
                           setStage('done')
@@ -836,8 +914,48 @@ export default function Step2() {
         {!editMode && !generating && cards.length > 0 && (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginTop: '32px', marginBottom: '32px' }}>
             {cards.map((card, i) => (
-              <StepTwoDestCard key={i} card={card} tripId={tripId} />
+              <StepTwoDestCard
+                key={i}
+                card={card}
+                tripId={tripId}
+                isVoted={!!votes[card.name]}
+                onVote={() => {
+                  const currentCount = Object.values(votes).filter(Boolean).length
+                  const isCurrentlyVoted = votes[card.name]
+                  if (!isCurrentlyVoted && currentCount >= maxVotes) return
+                  setVotes(v => ({ ...v, [card.name]: !v[card.name] }))
+                }}
+              />
             ))}
+          </div>
+        )}
+
+        {!generating && cards.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '24px', marginBottom: '32px' }}>
+            <button
+              onClick={() => router.push(`/trips/${tripId}/vote`)}
+              style={{
+                width: '100%', padding: '16px',
+                border: 'none', background: '#1a3a2a', color: '#fafaf8',
+                fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase',
+                cursor: 'pointer',
+                fontFamily: 'var(--font-cormorant), Georgia, serif',
+              }}
+            >
+              Go to voting →
+            </button>
+            <button
+              onClick={() => router.push(`/trips/${tripId}/destinations/reasoning`)}
+              style={{
+                width: '100%', padding: '14px',
+                border: '0.5px solid #d4d4c8', background: 'transparent', color: '#9a9a8a',
+                fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase',
+                cursor: 'pointer',
+                fontFamily: 'var(--font-cormorant), Georgia, serif',
+              }}
+            >
+              See Avanti&apos;s rationale
+            </button>
           </div>
         )}
 

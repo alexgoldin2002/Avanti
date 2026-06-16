@@ -164,6 +164,12 @@ Rules for WHY_NOT:
 - Be direct and honest — not diplomatic
 - Never repeat a destination already in the cards
 
+CONSISTENCY RULE: Apply hard eliminations consistently. If a destination fails a hard constraint it must never appear in the suggested cards. Examples:
+- If travel dates are in August and a destination has documented monsoon/rainy season in August that severely limits the activities the group requested — it is eliminated, always
+- If a destination has documented extreme heat (above 95°F) in the travel month and the group said no extreme weather — it is eliminated, always  
+- If a destination was listed in WHY_NOT it cannot appear in CARDS in any subsequent generation for the same inputs
+- Budget eliminations are hard — if flights + accommodation + food exceeds the stated budget it does not appear regardless of other fit
+
 ═══════════════════════════════
 CONVERSATION RULES
 ═══════════════════════════════
