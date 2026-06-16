@@ -931,7 +931,7 @@ export default function Step2() {
         )}
 
         {!generating && cards.length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '24px', marginBottom: '32px' }}>
+          <div style={{ marginTop: '24px', marginBottom: '32px' }}>
             <button
               onClick={() => router.push(`/trips/${tripId}/vote`)}
               style={{
@@ -943,18 +943,6 @@ export default function Step2() {
               }}
             >
               Go to voting →
-            </button>
-            <button
-              onClick={() => router.push(`/trips/${tripId}/destinations/reasoning`)}
-              style={{
-                width: '100%', padding: '14px',
-                border: '0.5px solid #d4d4c8', background: 'transparent', color: '#9a9a8a',
-                fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase',
-                cursor: 'pointer',
-                fontFamily: 'var(--font-cormorant), Georgia, serif',
-              }}
-            >
-              See Avanti&apos;s rationale
             </button>
           </div>
         )}

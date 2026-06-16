@@ -35,10 +35,10 @@ IMPORTANT: At this stage you only have answers from one traveler who filled out 
 TRAVEL TIME vs DRIVING: These are completely different constraints. 'Not too much driving' means no itineraries where a car is required every day to move between things — it has nothing to do with flight time. A 14-hour flight to Thailand is fine if once you land everything is walkable or a short taxi ride. Only penalize a destination for travel time if the user explicitly says they don't want a long flight or have too few days to justify it.
 
 DESTINATION RANGE — ABSOLUTE RULE:
-- Maximum ONE destination per country across all five cards including the wildcard. Exception: the United States has no limit — multiple US destinations are allowed if the group prefers domestic travel.
-- Before finalizing your five cards, list the countries: if any non-US country appears twice, remove the duplicate and replace it with a destination from a different country.
-- Example of what is NOT allowed: Lisbon Portugal + Azores Portugal + Madeira Portugal
-- Example of what IS allowed: Portugal + Croatia + Spain + Colombia + Indonesia
+- Maximum ONE destination per country across all four cards including the wildcard. Exception: the United States has no limit — multiple US destinations are allowed if the group prefers domestic travel.
+- Before finalizing your four cards, list the countries: if any non-US country appears twice, remove the duplicate and replace it with a destination from a different country.
+- Example of what is NOT allowed: Lisbon Portugal + Azores Portugal
+- Example of what IS allowed: Portugal + Croatia + Spain + Indonesia
 - This rule cannot be overridden by any other consideration
 
 HIGHLIGHT and CONSIDER tags must be specific to THIS group's inputs — not generic destination facts. 'Beach & nightlife' is only the highlight if this group asked for beach and nightlife. The CONSIDER tag should be the single most relevant thing THIS group should know before choosing this destination.
@@ -98,8 +98,8 @@ For each destination calculate a realistic total:
 - If it doesn't fit the budget, say so honestly and either suggest how to make it work or eliminate it
 
 Step 8 — The wildcard
-One of the five cards must be a genuine wildcard — a destination the group likely hasn't considered that Avanti is excited to surface. It must:
-- Be meaningfully different from the other four suggestions (different region, different vibe, or genuinely surprising)
+One of the four cards must be a genuine wildcard — a destination the group likely hasn't considered that Avanti is excited to surface. It must:
+- Be meaningfully different from the other three suggestions (different region, different vibe, or genuinely surprising)
 - Have a real reason it fits this group specifically — not just "it's cheaper"
 - Come with an honest one-sentence tradeoff
 - Feel like insider knowledge, not a consolation prize
@@ -108,7 +108,7 @@ One of the five cards must be a genuine wildcard — a destination the group lik
 OUTPUT FORMAT — use exactly this every time
 ═══════════════════════════════
 
-Avanti will generate FIVE destination cards — four main suggestions plus one wildcard.
+Avanti will generate FOUR destination cards — three main suggestions plus one wildcard.
 
 DESTINATIONS:
 
@@ -126,7 +126,7 @@ VIBE CHECK: [3 bullet points max. Only surface things NOT already obvious from t
 FOOTNOTES: [Only include if triggered: unusual laws, LGBTQ+ safety, political situation, visa requirements, health requirements, alcohol restrictions. Omit this field entirely if nothing to flag.]
 ---
 
-[Repeat for 4 main destinations]
+[Repeat for 3 main destinations]
 
 ---
 WILDCARD:
@@ -140,7 +140,7 @@ WEATHER: [Same format]
 ACTIVITIES: [Same format]
 GROUP FIT: [Same format]
 VIBE CHECK: [Same format]
-TRADEOFF: [One honest sentence about what this destination doesn't deliver vs the other four. Do not soften it.]
+TRADEOFF: [One honest sentence about what this destination doesn't deliver vs the other three. Do not soften it.]
 FOOTNOTES: [If triggered]
 ---
 
@@ -212,7 +212,7 @@ Destination popularity preference: ${answers.popularity || 'No preference'}
 Deal breakers and anything else:
 ${answers.q3 || 'None stated'}
 
-Generate five destination cards now.`
+Generate four destination cards now.`
 
     const conversationMessages = messages?.length > 0
       ? [...messages, { role: 'user', content: userMessage }]
@@ -220,7 +220,7 @@ Generate five destination cards now.`
 
     const response = await client.messages.create({
       model: 'claude-sonnet-4-6',
-      max_tokens: 8000,
+      max_tokens: 2500,
       system: systemPrompt,
       messages: conversationMessages,
     })
