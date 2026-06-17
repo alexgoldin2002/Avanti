@@ -56,8 +56,9 @@ export function parseDestinationCards(text: string): ParseDestinationCardsResult
     return { cards, closing, rawBlock: block }
   }
 
+  // Accept --- separators with or without surrounding newlines (model output varies).
   const sections = block
-    .split(/\n---\n/)
+    .split(/\n\s*---+\s*\n/)
     .map(s => s.trim())
     .filter(s => s.length > 0)
 

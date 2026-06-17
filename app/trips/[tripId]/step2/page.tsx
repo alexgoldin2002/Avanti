@@ -442,87 +442,35 @@ export default function Step2() {
             q3,
           },
           messages: [],
+          stream: false,
         }),
       })
+
       if (!res.ok) {
         if (res.status === 504) {
-          throw new Error('Generation timed out. Please try again — it usually works on the second attempt.')
+          throw new Error('Generation timed out. Please try again.')
         }
         const errBody = await res.json().catch(() => null)
         throw new Error(errBody?.error || 'Failed to generate trip ideas')
       }
-      if (!res.body) throw new Error('Failed to generate trip ideas')
 
-      const reader = res.body.getReader()
-      const decoder = new TextDecoder()
-      let fullText = ''
-      let buffer = ''
-      let receivedDone = false
+      const data = await res.json()
+      if (data.error) throw new Error(data.error)
 
-      const saveParsedCards = async (text: string) => {
-        const parsed = dedupeCardsByCountry(parseDestinationCards(text).cards)
-        if (parsed.length === 0) {
-          throw new Error('No destination cards were returned. Please try again.')
-        }
-        setCards(parsed)
-        setStage('done')
-        await supabase.from('trip_destinations').upsert({
-          trip_id: tripId,
-          cards: parsed,
-          updated_at: new Date().toISOString(),
-        }, { onConflict: 'trip_id' })
+      const parsed = dedupeCardsByCountry(
+        data.cards?.length ? data.cards : parseDestinationCards(data.message || '').cards,
+      )
+      if (parsed.length === 0) {
+        throw new Error('No destination cards were returned. Please try again.')
       }
 
-      const handleSseLine = async (line: string) => {
-        if (!line.startsWith('data: ')) return
-        let json: { text?: string; done?: boolean; fullText?: string; error?: string }
-        try {
-          json = JSON.parse(line.slice(6))
-        } catch {
-          return
-        }
-        if (json.text) fullText += json.text
-        if (json.error) throw new Error(json.error)
-        if (json.done) {
-          receivedDone = true
-          await saveParsedCards(json.fullText || fullText)
-        }
-      }
-
-      while (true) {
-        const { done: streamDone, value } = await reader.read()
-        if (value) {
-          buffer += decoder.decode(value, { stream: !streamDone })
-        }
-
-        const parts = buffer.split('\n\n')
-        const remainder = streamDone ? '' : (parts.pop() || '')
-        for (const part of parts) {
-          await handleSseLine(part)
-        }
-
-        if (streamDone) {
-          const leftover = remainder.trim()
-          if (leftover) {
-            for (const part of leftover.split('\n\n')) {
-              await handleSseLine(part)
-            }
-          }
-          break
-        }
-
-        buffer = remainder
-      }
-
-      // Fallback: server streamed text but the done event was missed (common on Vercel).
-      if (!receivedDone && fullText.length > 0) {
-        receivedDone = true
-        await saveParsedCards(fullText)
-      }
-
-      if (!receivedDone) {
-        throw new Error('Generation was interrupted. Please try again.')
-      }
+      setCards(parsed)
+      setStage('done')
+      await supabase.from('trip_destinations').upsert({
+        trip_id: tripId,
+        cards: parsed,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'trip_id' })
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : 'Something went wrong generating trip ideas'
       console.error('generate error:', e)

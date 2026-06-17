@@ -38,13 +38,28 @@ export async function POST(request: NextRequest) {
         : [{ role: 'user' as const, content: userMessage }]
 
     if (!useStream) {
-      const fullText = await generateValidatedDestinationText(client, conversationMessages)
-      const { cards, closing } = parseDestinationCards(fullText)
-      return NextResponse.json({
-        message: fullText,
-        cards: dedupeCardsByCountry(cards),
-        closing,
+      const response = await client.messages.create({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 4096,
+        system: DESTINATION_SYSTEM_PROMPT,
+        messages: conversationMessages,
       })
+      const fullText = response.content[0].type === 'text' ? response.content[0].text : ''
+      let { cards, closing } = parseDestinationCards(fullText)
+      cards = dedupeCardsByCountry(cards)
+
+      if (cards.length < 4) {
+        const retried = await generateValidatedDestinationText(client, conversationMessages, 1)
+        const reparsed = parseDestinationCards(retried)
+        cards = dedupeCardsByCountry(reparsed.cards)
+        return NextResponse.json({
+          message: retried,
+          cards,
+          closing: reparsed.closing,
+        })
+      }
+
+      return NextResponse.json({ message: fullText, cards, closing })
     }
 
     const anthropicStream = client.messages.stream({
@@ -67,10 +82,13 @@ export async function POST(request: NextRequest) {
             }
           }
 
-          // Return streamed output immediately — a follow-up validation call often
-          // pushes the request past Vercel's 60s limit. Client-side dedupe handles
-          // duplicate countries; user can regenerate if cards are missing.
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, fullText: streamedText })}\n\n`))
+          // Return parsed cards from the server so the client never has to re-parse SSE.
+          const parsed = dedupeCardsByCountry(parseDestinationCards(streamedText).cards)
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+            done: true,
+            fullText: streamedText,
+            cards: parsed,
+          })}\n\n`))
         } catch (e: unknown) {
           const message = e instanceof Error ? e.message : 'Generation failed'
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: message })}\n\n`))
