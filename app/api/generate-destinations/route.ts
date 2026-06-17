@@ -13,6 +13,11 @@ import {
   type DestinationBatch,
 } from '@/lib/generate-destinations-core'
 import { parseDestinationCards } from '@/lib/parse-destination-cards'
+import {
+  buildChatSupplementBlock,
+  resolveGroupSize,
+  sanitizeChatMessages,
+} from '@/lib/infer-trip-context'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -29,6 +34,7 @@ export async function POST(request: NextRequest) {
       stream: useStream = true,
       batch = 'all' as DestinationBatch,
       excludeCountries = [] as string[],
+      preview = false,
     } = await request.json()
 
     const supabase = createClient(
@@ -36,26 +42,47 @@ export async function POST(request: NextRequest) {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     )
 
-    const { data: trip } = await supabase.from('trips').select('*').eq('id', tripId).single()
-    const { data: travelers } = await supabase.from('travelers').select('*').eq('trip_id', tripId)
-    const travelerCount = travelers?.length || 0
+    const isPreview = preview || !tripId
+    const chatMessages = sanitizeChatMessages(messages)
 
-    const baseUserMessage = buildDestinationUserMessage(trip, travelerCount, answers)
+    let trip: Record<string, unknown> | null = null
+    let dbTravelerCount = 0
+
+    if (isPreview) {
+      trip = {
+        trip_type: (answers?.tripLabel as string) || 'Group trip',
+        is_event_centered: false,
+      }
+    } else {
+      const { data: tripData } = await supabase.from('trips').select('*').eq('id', tripId).single()
+      trip = tripData
+      const { data: travelers } = await supabase.from('travelers').select('*').eq('trip_id', tripId)
+      dbTravelerCount = travelers?.length || 0
+    }
+
+    const travelerCount = resolveGroupSize({
+      dbCount: dbTravelerCount,
+      answers: answers ?? {},
+      chatMessages,
+    })
+
+    const chatSupplement = buildChatSupplementBlock(chatMessages)
+    const baseUserMessage = buildDestinationUserMessage(trip, travelerCount, answers ?? {}, chatSupplement)
     const userMessage = appendBatchInstructions(baseUserMessage, batch, excludeCountries)
     const conversationMessages =
-      messages?.length > 0
-        ? [...messages, { role: 'user' as const, content: userMessage }]
+      chatMessages.length > 0
+        ? [...chatMessages, { role: 'user' as const, content: userMessage }]
         : [{ role: 'user' as const, content: userMessage }]
 
     if (!useStream) {
-      const maxTokens = batch === 'wildcard-only' ? 1400 : batch === 'all' ? 3200 : 2200
+      const maxTokens = batch === 'wildcard-only' ? 1200 : batch === 'all' ? 3200 : 1800
       const result = await createDestinationCards(client, conversationMessages, maxTokens)
       return NextResponse.json(result)
     }
 
     const anthropicStream = client.messages.stream({
       model: 'claude-sonnet-4-6',
-      max_tokens: batch === 'wildcard-only' ? 1400 : batch === 'all' ? 3200 : 2200,
+      max_tokens: batch === 'wildcard-only' ? 1200 : batch === 'all' ? 3200 : 1800,
       system: DESTINATION_SYSTEM_PROMPT,
       messages: conversationMessages,
     })

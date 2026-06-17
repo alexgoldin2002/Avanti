@@ -3,140 +3,10 @@ import { useState, useEffect, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import SuitcaseLoader from '../../../components/SuitcaseLoader'
+import DestinationCard from '../../../components/DestinationCard'
 import { BackLink } from '../../../components/SubpageShell'
-import { parseDestinationCards } from '@/lib/parse-destination-cards'
-import { dedupeCardsByCountry } from '@/lib/generate-destinations-core'
-import { extractCountryFromDestinationName, getCountryDuplicateViolations } from '@/lib/destination-country-rules'
-
-function StepTwoDestCard({ card, tripId, isVoted, onVote }: { card: any; tripId: string; isVoted: boolean; onVote: () => void }) {
-  const [open, setOpen] = useState<string | null>(null)
-  const s = { fontFamily: 'var(--font-cormorant), Georgia, serif' }
-  const toggle = (key: string) => setOpen(prev => prev === key ? null : key)
-  const isWildcard = card.isWildcard
-  const parseBullets = (text: string): string[] => {
-    if (!text) return []
-    return text.split('\n').map((l: string) => l.replace(/^[-•*]\s*/, '').trim()).filter((l: string) => l.length > 2)
-  }
-  const costPill = card.cost?.split('\n')[0]?.trim() || ''
-  const sections = [
-    { key: 'logistics', label: 'Getting there', content: card.logistics },
-    { key: 'cost', label: 'Cost breakdown', content: card.cost },
-    { key: 'weather', label: 'Weather', content: card.weather },
-    { key: 'activities', label: 'Activities', content: card.activities },
-    { key: 'groupFit', label: 'Group fit', content: card.groupFit },
-    { key: 'vibeCheck', label: 'Vibe check', content: card.vibeCheck },
-    ...(card.tradeoff ? [{ key: 'tradeoff', label: 'Honest tradeoff', content: card.tradeoff }] : []),
-    ...(card.footnotes ? [{ key: 'footnotes', label: 'Things to know', content: card.footnotes }] : []),
-  ].filter(sec => sec.content?.trim())
-  return (
-    <div style={{ border: '1.5px solid #1a1a1a', borderRadius: '0', overflow: 'hidden', background: isWildcard ? 'var(--forest-deep)' : '#fff', display: 'flex', flexDirection: 'column' }}>
-      {isWildcard && (
-        <div style={{ padding: '12px 20px 0' }}>
-          <span style={{ fontSize: '9px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.45)', background: 'rgba(255,255,255,0.08)', padding: '3px 10px', borderRadius: '0' }}>Wildcard — Avanti&apos;s curveball</span>
-        </div>
-      )}
-      <div style={{ padding: isWildcard ? '14px 20px 18px' : '22px 20px 18px' }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '8px', marginBottom: '8px' }}>
-          <h3 style={{ fontSize: '22px', fontWeight: 400, color: isWildcard ? '#fff' : '#1a1a1a', margin: 0, lineHeight: 1.2, ...s }}>
-            {card.name}
-          </h3>
-          {costPill && (
-            <span style={{ fontSize: '12px', color: isWildcard ? 'rgba(255,255,255,0.55)' : '#9a9a8a', flexShrink: 0, ...s }}>
-              {costPill.match(/\$[\d,]+[–\-]\$?[\d,]+/)?.[0] || costPill.slice(0, 25)}
-            </span>
-          )}
-        </div>
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '10px', flexWrap: 'wrap' }}>
-          {card.highlight && (
-            <span style={{
-              fontSize: '10px', padding: '3px 10px', borderRadius: '20px',
-              background: isWildcard ? 'rgba(255,255,255,0.12)' : '#e8f5ee',
-              color: isWildcard ? 'rgba(255,255,255,0.8)' : 'var(--forest-deep)',
-              border: `0.5px solid ${isWildcard ? 'rgba(255,255,255,0.2)' : '#a8d4b8'}`,
-              fontFamily: 'var(--font-cormorant), Georgia, serif',
-              letterSpacing: '0.05em',
-            }}>
-              {card.highlight}
-            </span>
-          )}
-          {card.consider && (
-            <span style={{
-              fontSize: '10px', padding: '3px 10px', borderRadius: '20px',
-              background: isWildcard ? 'rgba(255,165,0,0.15)' : '#fef9ec',
-              color: isWildcard ? 'rgba(255,200,100,0.9)' : '#8a6a10',
-              border: `0.5px solid ${isWildcard ? 'rgba(255,165,0,0.3)' : '#f0c040'}`,
-              fontFamily: 'var(--font-cormorant), Georgia, serif',
-              letterSpacing: '0.05em',
-            }}>
-              {card.consider}
-            </span>
-          )}
-        </div>
-        <p style={{ fontSize: '13px', color: isWildcard ? 'rgba(255,255,255,0.65)' : '#6a6a6a', margin: 0, lineHeight: 1.6 }}>
-          {card.synopsis}
-        </p>
-      </div>
-      <div style={{ borderTop: `1px solid ${isWildcard ? 'rgba(255,255,255,0.1)' : '#f0f0e8'}` }} />
-      {sections.map((section, si) => (
-        <div key={section.key}>
-          <button
-            onClick={() => toggle(section.key)}
-            style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 20px', background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left' }}
-          >
-            <span style={{ fontSize: '10px', letterSpacing: '0.12em', textTransform: 'uppercase', color: isWildcard ? 'rgba(255,255,255,0.4)' : '#9a9a8a' }}>{section.label}</span>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={isWildcard ? 'rgba(255,255,255,0.3)' : '#c4c4b8'} strokeWidth="2" style={{ transform: open === section.key ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', flexShrink: 0 }}>
-              <polyline points="6 9 12 15 18 9"/>
-            </svg>
-          </button>
-          {open === section.key && (
-            <div style={{ padding: '0 20px 14px' }}>
-              <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                {parseBullets(section.content).map((bullet: string, bi: number) => (
-                  <li key={bi} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
-                    <span style={{ fontSize: '10px', color: isWildcard ? 'rgba(255,255,255,0.25)' : '#c4c4b8', flexShrink: 0, marginTop: '3px' }}>—</span>
-                    <span style={{ fontSize: '12px', color: isWildcard ? 'rgba(255,255,255,0.75)' : '#3a3a3a', lineHeight: 1.6 }}>{bullet}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-          {si < sections.length - 1 && (
-            <div style={{ borderTop: `0.5px solid ${isWildcard ? 'rgba(255,255,255,0.07)' : '#f5f5f0'}`, margin: '0 20px' }} />
-          )}
-        </div>
-      ))}
-      <div style={{ padding: '14px 20px', borderTop: `1px solid ${isWildcard ? 'rgba(255,255,255,0.1)' : '#f0f0e8'}`, marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        <button
-          onClick={onVote}
-          style={{
-            width: '100%', padding: '11px',
-            border: `1px solid ${isVoted ? '#2d6a4f' : isWildcard ? 'rgba(255,255,255,0.2)' : '#1a1a1a'}`,
-            background: isVoted ? '#e8f5ee' : 'transparent',
-            color: isVoted ? 'var(--forest-deep)' : isWildcard ? 'rgba(255,255,255,0.65)' : '#1a1a1a',
-            fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase',
-            cursor: 'pointer', borderRadius: '0', transition: 'all 0.15s',
-            fontFamily: 'var(--font-cormorant), Georgia, serif',
-          }}
-        >
-          {isVoted ? '✓ Selected' : 'Add to vote'}
-        </button>
-        <button
-          onClick={() => window.location.href = `/trips/${tripId}/destinations/${encodeURIComponent(card.name)}`}
-          style={{
-            width: '100%', padding: '9px',
-            border: 'none', background: 'transparent',
-            color: isWildcard ? 'rgba(255,255,255,0.4)' : '#9a9a8a',
-            fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase',
-            cursor: 'pointer', textDecoration: 'underline',
-            fontFamily: 'var(--font-cormorant), Georgia, serif',
-          }}
-        >
-          Deep dive →
-        </button>
-      </div>
-    </div>
-  )
-}
+import { fetchFullDestinationCards } from '@/lib/fetch-destination-batches'
+import { STOP_OPTIONS } from '@/lib/preview-trip-storage'
 
 export default function Step2() {
   const { tripId } = useParams() as { tripId: string }
@@ -226,9 +96,14 @@ export default function Step2() {
           if (s2.q1) { setQ1(s2.q1) }
           if (s2.departureCity) setDepartureCities(s2.departureCity.split(',').map((c: string) => c.trim()).filter(Boolean))
           if (s2.dates) setDates(s2.dates)
+          if (s2.fixedDates) setFixedDates(s2.fixedDates)
+          if (s2.flexLength) setFlexLength(s2.flexLength)
           if (s2.domestic) setDomestic(s2.domestic)
           if (s2.regions) setRegions(s2.regions)
-          if (s2.stops) setStops(s2.stops)
+          if (s2.stops) {
+            if (STOP_OPTIONS.includes(s2.stops)) setStops(s2.stops)
+            else { setStops('Other'); setStopsOther(s2.stops) }
+          }
           if (s2.activities) setActivities(s2.activities)
           if (s2.vibe) setVibe(s2.vibe)
           if (s2.accommodation) setAccommodation(s2.accommodation)
@@ -440,65 +315,16 @@ export default function Step2() {
       q3,
     }
 
-    const fetchBatch = async (batch: 'half1' | 'half2' | 'wildcard-only', excludeCountries: string[] = []) => {
-      const res = await fetch('/api/generate-destinations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tripId,
-          answers: answerPayload,
-          messages: [],
-          stream: false,
-          batch,
-          excludeCountries,
-        }),
-      })
-
-      if (!res.ok) {
-        if (res.status === 504) {
-          throw new Error('Generation timed out. Please try again.')
-        }
-        const errBody = await res.json().catch(() => null)
-        throw new Error(errBody?.error || 'Failed to generate trip ideas')
-      }
-
-      const data = await res.json()
-      if (data.error) throw new Error(data.error)
-
-      return dedupeCardsByCountry(
-        data.cards?.length ? data.cards : parseDestinationCards(data.message || '').cards,
-      )
-    }
-
     try {
-      const firstBatch = await fetchBatch('half1')
-      if (firstBatch.length === 0) {
-        throw new Error('No destination cards were returned. Please try again.')
-      }
-
-      setGenerateStatus('Adding final picks and a wildcard…')
-      const usedCountries = firstBatch
-        .map(card => extractCountryFromDestinationName(card.name))
-        .filter(Boolean) as string[]
-
-      const secondBatch = await fetchBatch('half2', usedCountries)
-      let parsed = dedupeCardsByCountry([...firstBatch, ...secondBatch])
-
-      const violations = getCountryDuplicateViolations(parsed)
-      const hasValidWildcard = parsed.some(c => c.isWildcard)
-      if (violations.length > 0 || !hasValidWildcard || parsed.length < 4) {
-        setGenerateStatus('Picking a wildcard…')
-        const mains = parsed.filter(c => !c.isWildcard)
-        const excludeAll = mains
-          .map(card => extractCountryFromDestinationName(card.name))
-          .filter(Boolean) as string[]
-        const wildcardBatch = await fetchBatch('wildcard-only', excludeAll)
-        parsed = dedupeCardsByCountry([...mains, ...wildcardBatch])
-      }
-
-      if (parsed.length === 0) {
-        throw new Error('No destination cards were returned. Please try again.')
-      }
+      const parsed = await fetchFullDestinationCards(answerPayload, {
+        tripId,
+        onStatus: setGenerateStatus,
+        onPartialCards: partial => {
+          setCards(partial)
+          if (partial.length > 0) setStage('done')
+        },
+        messages: chatMessages,
+      })
 
       setCards(parsed)
       setStage('done')
@@ -933,7 +759,7 @@ export default function Step2() {
           </button>
         )}
 
-        {generating && (
+        {generating && cards.length === 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '60px 0', gap: '16px' }}>
             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#2d6a4f" strokeWidth="1.5" strokeLinecap="round">
               <style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
@@ -946,7 +772,7 @@ export default function Step2() {
           </div>
         )}
 
-        {!generating && generateError && (
+        {!generating && generateError && cards.length === 0 && (
           <div style={{ marginTop: '32px', padding: '20px 24px', border: '1px solid #c0392b', background: '#fdf2f2', textAlign: 'center' }}>
             <p style={{ fontSize: '14px', color: '#c0392b', margin: '0 0 16px', lineHeight: 1.6, fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
               {generateError}
@@ -971,10 +797,26 @@ export default function Step2() {
           </div>
         )}
 
-        {!editMode && !generating && cards.length > 0 && (
+        {!editMode && cards.length > 0 && (
+          <>
+            {generating && (
+              <p style={{ fontSize: '12px', color: 'var(--muted-foreground)', textAlign: 'center', marginTop: '24px', lineHeight: 1.6, fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+                {generateStatus || 'Adding more destinations…'}
+              </p>
+            )}
+            {generateError && cards.length > 0 && cards.length < 4 && (
+              <div style={{ marginTop: '16px', padding: '14px 18px', border: '1px solid #d4a017', background: '#fef9ec', textAlign: 'center' }}>
+                <p style={{ fontSize: '13px', color: '#8a6a10', margin: '0 0 10px', lineHeight: 1.6, fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+                  {generateError} — showing {cards.length} of 4 picks so far.
+                </p>
+                <button type="button" onClick={() => generateDestinations()} style={{ padding: '10px 20px', border: '1px solid var(--forest-deep)', background: 'var(--forest-deep)', color: '#fafaf8', fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', cursor: 'pointer', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+                  Finish generating →
+                </button>
+              </div>
+            )}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginTop: '32px', marginBottom: '32px' }}>
             {cards.map((card, i) => (
-              <StepTwoDestCard
+              <DestinationCard
                 key={i}
                 card={card}
                 tripId={tripId}
@@ -988,9 +830,21 @@ export default function Step2() {
               />
             ))}
           </div>
+          </>
         )}
 
-        {!generating && cards.length > 0 && (
+        {!generating && cards.length > 0 && cards.length < 4 && !generateError && (
+          <div style={{ marginTop: '8px', marginBottom: '24px', textAlign: 'center' }}>
+            <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', margin: '0 0 12px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+              {cards.length} of 4 destinations ready — tap to generate the rest.
+            </p>
+            <button type="button" onClick={() => generateDestinations()} style={{ padding: '10px 20px', border: '1px solid var(--forest-deep)', background: 'var(--forest-deep)', color: '#fafaf8', fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', cursor: 'pointer', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+              Finish generating →
+            </button>
+          </div>
+        )}
+
+        {!generating && cards.length >= 4 && (
           <div style={{ marginTop: '24px', marginBottom: '32px' }}>
             <button
               onClick={() => router.push(`/trips/${tripId}/vote`)}

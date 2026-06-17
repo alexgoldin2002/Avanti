@@ -20,7 +20,7 @@ Current answers:
 - Budget: ${context.budget || 'not yet answered'}
 - Deal breakers: ${context.q3 || 'not yet answered'}
 
-Answer questions about the trip planning process. Be concise, warm, and helpful. If they ask about destination suggestions, tell them to hit Generate to see the full recommendations. Do not generate destination cards here — that happens on the next page.`
+Answer questions about the trip planning process. Be concise, warm, and helpful. If they share details like group size, departure city breakdowns, or trip length in chat, acknowledge it — that context is included automatically when they hit Generate. If they ask about destination suggestions, tell them to hit Generate to see the full recommendations. Do not generate destination cards here — that happens on the next page.`
     const response = await client.messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 500,

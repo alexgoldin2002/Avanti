@@ -1,8 +1,10 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import SubpageShell from '../components/SubpageShell'
+import { applyPreviewToTrip } from '@/lib/apply-preview-to-trip'
+import { getCreateFormDefaultsFromPreview, isPendingShare, loadPreviewTrip } from '@/lib/preview-trip-storage'
 
 const COLORS = [
   { name: 'Midnight', value: 'var(--foreground)' },
@@ -43,6 +45,27 @@ export default function CreateTrip() {
     destination_input: '',
     visibility: 'invite_only',
   })
+  const [fromPreview, setFromPreview] = useState(false)
+
+  useEffect(() => {
+    if (!isPendingShare()) return
+    const { answers } = loadPreviewTrip()
+    if (!answers?.q1) return
+    const defaults = getCreateFormDefaultsFromPreview(answers)
+    setFromPreview(true)
+    setForm(f => ({
+      ...f,
+      name: defaults.name,
+      trip_type: defaults.trip_type,
+      destination_type: defaults.destination_type,
+      date_type: defaults.date_type,
+      start_date: defaults.start_date,
+      end_date: defaults.end_date,
+      date_range_start: defaults.date_range_start,
+      date_range_end: defaults.date_range_end,
+      date_flexibility_nights: defaults.date_flexibility_nights,
+    }))
+  }, [])
 
   const addDestination = () => {
     if (!form.destination_input.trim()) return
@@ -59,6 +82,7 @@ export default function CreateTrip() {
     if (!user) { router.push('/'); return }
 
     const { data: profile } = await supabase.from('user_profiles').select('*').eq('user_id', user.id).maybeSingle()
+    const travelerEmail = profile?.email || user.email || ''
 
     const tripData: any = {
       name: form.name,
@@ -89,11 +113,15 @@ export default function CreateTrip() {
     await supabase.from('travelers').insert({
       trip_id: trip.id,
       full_name: profile?.full_name || '',
-      email: profile?.email || '',
+      email: travelerEmail,
       nickname: profile?.full_name?.split(' ')[0] || '',
       role: 'organizer',
       profile_complete: true,
     })
+
+    if (travelerEmail) {
+      await applyPreviewToTrip(trip.id, travelerEmail)
+    }
 
     router.push(`/trips/${trip.id}/invite`)
   }
@@ -117,6 +145,11 @@ export default function CreateTrip() {
 
   return (
     <SubpageShell backHref="/dashboard" maxWidth="max-w-xl" className="!pt-6">
+        {fromPreview && (
+          <div className="mb-8 border border-forest-deep/20 bg-ivory px-5 py-4 text-sm leading-relaxed text-muted-foreground" style={s}>
+            Your trip ideas from the homepage are saved — after you invite your group, step 2 will already be filled in with your destinations.
+          </div>
+        )}
         <div style={{ display: 'flex', gap: '4px', marginBottom: '40px' }}>
           {Array.from({ length: totalSteps }).map((_, i) => (
             <div key={i} style={{ flex: 1, height: '2px', background: i < step ? 'var(--foreground)' : 'var(--border)', transition: 'background 0.3s' }} />

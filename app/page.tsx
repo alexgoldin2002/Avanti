@@ -4,6 +4,8 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import Footer from './components/Footer'
+import HomeTripPlanner from './components/HomeTripPlanner'
+import { getPostAuthPath, hasPreviewAnswers, isPendingShare, markPendingShare, loadPreviewTrip, savePreviewTrip } from '@/lib/preview-trip-storage'
 
 const HERO_VIDEO =
   process.env.NEXT_PUBLIC_HERO_VIDEO ??
@@ -39,11 +41,39 @@ export default function Home() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [rememberMe, setRememberMe] = useState(true)
+  const [plannerRevealed, setPlannerRevealed] = useState(false)
+
+  const revealPlanner = () => {
+    setPlannerRevealed(true)
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        document.getElementById('plan-your-trip')?.scrollIntoView({ behavior: 'smooth' })
+      }, 100)
+    })
+  }
+
+  const closePlanner = () => {
+    setPlannerRevealed(false)
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        document.getElementById('home-hero')?.scrollIntoView({ behavior: 'smooth' })
+      }, 100)
+    })
+  }
+
+  const togglePlannerPreview = () => {
+    if (plannerRevealed) closePlanner()
+    else revealPlanner()
+  }
 
   useEffect(() => {
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession()
       if (session) {
+        if (hasPreviewAnswers() && isPendingShare()) {
+          router.push('/create')
+          return
+        }
         const { data: profile } = await supabase
           .from('user_profiles')
           .select('profile_complete')
@@ -72,7 +102,7 @@ export default function Home() {
       setLoading(false)
       return
     }
-    router.push('/profile')
+    router.push(getPostAuthPath(false))
   }
 
   const handleSignIn = async (e: React.FormEvent) => {
@@ -90,11 +120,16 @@ export default function Home() {
       .select('profile_complete')
       .eq('user_id', data.user.id)
       .maybeSingle()
-    if (!profile?.profile_complete) router.push('/profile')
-    else router.push('/dashboard')
+    if (!profile?.profile_complete) router.push(getPostAuthPath(false))
+    else router.push(getPostAuthPath(true))
   }
 
   const handleGoogle = async () => {
+    if (hasPreviewAnswers()) {
+      const { answers, cards } = loadPreviewTrip()
+      if (answers) savePreviewTrip(answers, cards || [])
+      markPendingShare()
+    }
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo: `${window.location.origin}/auth/callback` },
@@ -167,7 +202,7 @@ export default function Home() {
           />
           <div className="absolute inset-0 bg-cream/70" aria-hidden />
 
-          <div className="relative z-10">
+          <div id="home-hero" className="relative z-10">
             <p className="eyebrow text-forest-deep/70 mb-6">Group travel, Handled · Est. 2026</p>
             <h1
               className="font-serif text-forest-deep leading-[0.9] italic"
@@ -184,13 +219,39 @@ export default function Home() {
             </p>
             <button
               type="button"
-              onClick={() => openAuth('signup')}
+              onClick={revealPlanner}
               className="mt-10 inline-block bg-forest-deep text-cream eyebrow px-10 py-4 hover:bg-forest-deep/90 transition"
             >
               Let&apos;s get planning
             </button>
+            <button
+              type="button"
+              onClick={togglePlannerPreview}
+              aria-label={plannerRevealed ? 'Close trip planner preview' : 'Open trip planner preview'}
+              className={`mt-14 flex flex-col items-center gap-1 text-forest-deep/60 hover:text-forest-deep transition-colors ${plannerRevealed ? 'animate-bounce-up' : 'animate-bounce-down'}`}
+            >
+              <span className="eyebrow text-[10px] tracking-widest">
+                {plannerRevealed ? 'Close preview' : 'Try it first'}
+              </span>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                {plannerRevealed ? (
+                  <polyline points="6 15 12 9 18 15" />
+                ) : (
+                  <polyline points="6 9 12 15 18 9" />
+                )}
+              </svg>
+            </button>
           </div>
         </div>
+
+        {plannerRevealed && (
+          <section id="plan-your-trip" className="relative z-10 border-t border-cream/15">
+            <HomeTripPlanner
+              onSignupRequest={() => openAuth('signup')}
+              onSigninRequest={() => openAuth('signin')}
+            />
+          </section>
+        )}
 
         <div className="relative z-10 border-t border-cream/15 bg-forest-deep">
           <div className="relative grid grid-cols-1 md:grid-cols-3">

@@ -146,6 +146,7 @@ export function buildDestinationUserMessage(
   trip: Record<string, unknown> | null,
   travelerCount: number,
   answers: Record<string, unknown>,
+  chatSupplement = '',
 ): string {
   const departure =
     Array.isArray(answers.departureCity)
@@ -182,7 +183,7 @@ Vibe: ${vibe?.join(', ') || 'Not specified'}
 Accommodation: ${answers.accommodation || 'No preference'}
 Budget per person: ${answers.budget || 'Not specified'}
 Popularity preference: ${answers.popularity || 'No preference'}
-Deal breakers: ${answers.q3 || 'None stated'}${travelTimeRule}
+Deal breakers: ${answers.q3 || 'None stated'}${travelTimeRule}${chatSupplement}
 
 Generate 4 destination cards now (3 main + 1 wildcard). Remember: only ONE card per country (United States excepted). All 4 cards must be in 4 different countries.`
 }
