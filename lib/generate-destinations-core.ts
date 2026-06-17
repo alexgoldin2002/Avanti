@@ -28,7 +28,7 @@ BEFORE YOU WRITE ANYTHING — reason through all of these internally:
 2. LOGISTICS & TRAVEL TIME:
 - How easy or hard is it to get to from their departure city?
 - How much time is spent traveling vs. days actually on the ground?
-- CRITICAL: If the trip is 7 nights or fewer, do NOT recommend destinations requiring roughly 10+ hours of flying each way (e.g. US → New Zealand, Australia, Bali, Thailand). Round-trip travel would consume most of the trip. For 5–7 nights from the US, stay in the Americas, Caribbean, or eastern Atlantic (≤8h flights each way).
+- For trips of 7 nights or fewer: prefer destinations within ~8 hours flying each way from their departure city. Long-haul (10+ hours each way — Asia, South Pacific, Australia, New Zealand) is only a good fit if the group explicitly selected that region; if you include one, be honest in CONSIDER and LOGISTICS (e.g. ~5 days on ground after long flights — a stretch, not ideal).
 - If multi-stop: are the destinations close to each other or does moving between them eat trip days?
 - Weighted expense: how much does getting there cost vs. how much does being there cost? A cheap destination with expensive flights may not be the best value.
 
@@ -111,6 +111,37 @@ AVANTI_CARDS_END
 
 BREVITY: One short line per bullet (under 15 words). Skip FOOTNOTES unless critical. No preamble — start with DESTINATIONS: immediately.`
 
+const LONG_HAUL_REGIONS = new Set([
+  'East Asia',
+  'Southeast Asia',
+  'South Pacific',
+  'Africa',
+  'Middle East',
+])
+
+function isShortTrip(flexLength?: string): boolean {
+  return !!flexLength && /^(3[–-]4|5[–-]7)\s*night/i.test(flexLength)
+}
+
+function buildTravelTimeRule(
+  flexLength: string | undefined,
+  departure: string,
+  regions: string[] | undefined,
+  domestic: string | undefined,
+): string {
+  if (!isShortTrip(flexLength)) return ''
+
+  const selected = regions?.filter(Boolean) ?? []
+  const wantsLongHaul = selected.some(r => LONG_HAUL_REGIONS.has(r) || r === 'Anywhere')
+  const regionLine = selected.length ? selected.join(', ') : 'no region specified'
+
+  if (domestic === 'International' && wantsLongHaul) {
+    return `\nTRAVEL TIME: ${flexLength} from ${departure}; they chose ${regionLine}. Long-haul is allowed but a stretch — you MAY suggest Asia/Pacific/Middle East/Africa if it fits. Be upfront: ~13h flights each way means roughly 4–5 full days on the ground. Flag it in CONSIDER (e.g. "Long flight haul") and LOGISTICS. Do not sell it as easy.`
+  }
+
+  return `\nTRAVEL TIME: ${flexLength} from ${departure}. Prefer ≤8h flights each way. Avoid 10+ hour destinations (Japan, NZ, Australia, etc.) unless they selected that region — otherwise they'd only get ~4–5 days on the ground.`
+}
+
 export function buildDestinationUserMessage(
   trip: Record<string, unknown> | null,
   travelerCount: number,
@@ -133,9 +164,7 @@ export function buildDestinationUserMessage(
   const vibe = answers.vibe as string[] | undefined
 
   const flexLength = answers.flexLength as string | undefined
-  const travelTimeRule = flexLength && /^(3[–-]4|5[–-]7)\s*night/i.test(flexLength)
-    ? `\nTRAVEL TIME (HARD RULE): Trip length is ${flexLength} from ${departure}. Do NOT suggest destinations requiring ~10+ hours flying each way (e.g. New Zealand, Australia, Bali, Thailand from the US) — round-trip travel would leave almost no time on the ground.`
-    : ''
+  const travelTimeRule = buildTravelTimeRule(flexLength, departure, regions, answers.domestic as string | undefined)
 
   return `Please generate destination suggestions for this group.
 
