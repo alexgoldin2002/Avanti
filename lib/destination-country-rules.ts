@@ -31,12 +31,15 @@ export function isUnitedStatesCountry(countryKey: string): boolean {
  * "San José del Cabo / Los Cabos, Mexico" → "mexico"
  */
 export function extractCountryFromDestinationName(name: string): string | null {
-  const trimmed = name.trim()
+  let trimmed = name.trim()
   if (!trimmed) return null
+
+  // Model sometimes adds meta text like "... *(skipped — Portugal excluded)*"
+  trimmed = trimmed.replace(/\.\.\.+.*$/s, '').replace(/\*[^*]*\*/g, '').trim()
 
   if (trimmed.includes(',')) {
     const afterComma = trimmed.split(',').pop()?.trim()
-    if (afterComma) return normalizeCountryKey(afterComma)
+    if (afterComma) return normalizeCountryKey(afterComma.replace(/\.$/, ''))
   }
 
   // "City / Region Country" without comma — last token if it looks like a country

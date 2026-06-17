@@ -48,14 +48,14 @@ export async function POST(request: NextRequest) {
         : [{ role: 'user' as const, content: userMessage }]
 
     if (!useStream) {
-      const maxTokens = batch === 'all' ? 3200 : 2200
+      const maxTokens = batch === 'wildcard-only' ? 1400 : batch === 'all' ? 3200 : 2200
       const result = await createDestinationCards(client, conversationMessages, maxTokens)
       return NextResponse.json(result)
     }
 
     const anthropicStream = client.messages.stream({
       model: 'claude-sonnet-4-6',
-      max_tokens: batch === 'all' ? 3200 : 2200,
+      max_tokens: batch === 'wildcard-only' ? 1400 : batch === 'all' ? 3200 : 2200,
       system: DESTINATION_SYSTEM_PROMPT,
       messages: conversationMessages,
     })

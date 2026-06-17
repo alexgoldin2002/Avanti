@@ -28,6 +28,7 @@ BEFORE YOU WRITE ANYTHING — reason through all of these internally:
 2. LOGISTICS & TRAVEL TIME:
 - How easy or hard is it to get to from their departure city?
 - How much time is spent traveling vs. days actually on the ground?
+- CRITICAL: If the trip is 7 nights or fewer, do NOT recommend destinations requiring roughly 10+ hours of flying each way (e.g. US → New Zealand, Australia, Bali, Thailand). Round-trip travel would consume most of the trip. For 5–7 nights from the US, stay in the Americas, Caribbean, or eastern Atlantic (≤8h flights each way).
 - If multi-stop: are the destinations close to each other or does moving between them eat trip days?
 - Weighted expense: how much does getting there cost vs. how much does being there cost? A cheap destination with expensive flights may not be the best value.
 
@@ -93,7 +94,7 @@ FOOTNOTES: [Only if triggered: safety flags, political situation, unusual laws, 
 
 ---
 WILDCARD:
-NAME: [Destination]
+NAME: [City/Region, Country — a real place only. Never put notes like "skipped" or "excluded" in NAME. Must be a country not used in any other card.]
 HIGHLIGHT: [2-3 words]
 CONSIDER: [2-3 words]
 SYNOPSIS: [2-3 sentences — enthusiastic, different voice]
@@ -131,6 +132,11 @@ export function buildDestinationUserMessage(
   const activities = answers.activities as string[] | undefined
   const vibe = answers.vibe as string[] | undefined
 
+  const flexLength = answers.flexLength as string | undefined
+  const travelTimeRule = flexLength && /^(3[–-]4|5[–-]7)\s*night/i.test(flexLength)
+    ? `\nTRAVEL TIME (HARD RULE): Trip length is ${flexLength} from ${departure}. Do NOT suggest destinations requiring ~10+ hours flying each way (e.g. New Zealand, Australia, Bali, Thailand from the US) — round-trip travel would leave almost no time on the ground.`
+    : ''
+
   return `Please generate destination suggestions for this group.
 
 TRIP TYPE: ${(trip?.trip_type as string) || 'Group trip'}
@@ -139,7 +145,7 @@ EVENT: ${trip?.is_event_centered ? `Yes — ${trip.event_name} on ${trip.event_d
 
 About this trip: ${answers.q1 || 'Not specified'}
 Departure: ${departure}
-Dates: ${datesLine}${answers.flexLength ? ` (preferred: ${answers.flexLength})` : ''}
+Dates: ${datesLine}${flexLength ? ` (preferred: ${flexLength})` : ''}
 Domestic/international: ${answers.domestic || 'No preference'}${regions?.length ? ` — regions: ${regions.join(', ')}` : ''}
 Number of stops: ${answers.stops || 'flexible'}
 Activities wanted: ${activities?.join(', ') || 'Not specified'}
@@ -147,12 +153,12 @@ Vibe: ${vibe?.join(', ') || 'Not specified'}
 Accommodation: ${answers.accommodation || 'No preference'}
 Budget per person: ${answers.budget || 'Not specified'}
 Popularity preference: ${answers.popularity || 'No preference'}
-Deal breakers: ${answers.q3 || 'None stated'}
+Deal breakers: ${answers.q3 || 'None stated'}${travelTimeRule}
 
-Generate 4 destination cards now (3 main + 1 wildcard). Remember: only ONE card per country (United States excepted).`
+Generate 4 destination cards now (3 main + 1 wildcard). Remember: only ONE card per country (United States excepted). All 4 cards must be in 4 different countries.`
 }
 
-export type DestinationBatch = 'all' | 'half1' | 'half2'
+export type DestinationBatch = 'all' | 'half1' | 'half2' | 'wildcard-only'
 
 export function appendBatchInstructions(
   userMessage: string,
@@ -169,8 +175,16 @@ Generate ONLY the first TWO main destination cards. Do NOT write a third main ca
     return `${userMessage}
 
 Generate ONE more main destination card PLUS the WILDCARD card (2 cards total).
-${exclude.length ? `Do NOT use these countries: ${exclude.join(', ')}.` : ''}
-Use the exact format including the WILDCARD: block.`
+${exclude.length ? `Countries already used — do NOT repeat: ${exclude.join(', ')}.` : ''}
+The WILDCARD must be in a country not used in any other card. NAME must be a real place (City/Region, Country) — never meta text like "skipped" or "excluded".`
+  }
+  if (batch === 'wildcard-only') {
+    const exclude = excludeCountries.filter(Boolean)
+    return `${userMessage}
+
+Generate ONLY the WILDCARD card (one card). Use the WILDCARD: block format.
+Countries already used — do NOT repeat: ${exclude.join(', ')}.
+NAME must be a real destination (City/Region, Country). No meta commentary in NAME.`
   }
   return userMessage
 }
@@ -211,12 +225,22 @@ export function destinationOutputIsValid(fullText: string): boolean {
   return getCountryDuplicateViolations(cards).length === 0
 }
 
+export function isValidDestinationCardName(name: string): boolean {
+  const trimmed = name.trim()
+  if (trimmed.length < 4) return false
+  if (/\.\.\.|skipped|excluded|do not use|cannot use/i.test(trimmed)) return false
+  if (!trimmed.includes(',')) return false
+  return true
+}
+
 /** Keep the first card per non-US country; drop later duplicates. */
 export function dedupeCardsByCountry(cards: ParsedDestinationCard[]): ParsedDestinationCard[] {
   const seen = new Set<string>()
   const result: ParsedDestinationCard[] = []
 
   for (const card of cards) {
+    if (!isValidDestinationCardName(card.name)) continue
+
     const country = extractCountryFromDestinationName(card.name)
     if (!country) {
       result.push(card)

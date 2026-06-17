@@ -6,7 +6,7 @@ import SuitcaseLoader from '../../../components/SuitcaseLoader'
 import { BackLink } from '../../../components/SubpageShell'
 import { parseDestinationCards } from '@/lib/parse-destination-cards'
 import { dedupeCardsByCountry } from '@/lib/generate-destinations-core'
-import { extractCountryFromDestinationName } from '@/lib/destination-country-rules'
+import { extractCountryFromDestinationName, getCountryDuplicateViolations } from '@/lib/destination-country-rules'
 
 function StepTwoDestCard({ card, tripId, isVoted, onVote }: { card: any; tripId: string; isVoted: boolean; onVote: () => void }) {
   const [open, setOpen] = useState<string | null>(null)
@@ -32,7 +32,7 @@ function StepTwoDestCard({ card, tripId, isVoted, onVote }: { card: any; tripId:
     <div style={{ border: '1.5px solid #1a1a1a', borderRadius: '0', overflow: 'hidden', background: isWildcard ? 'var(--forest-deep)' : '#fff', display: 'flex', flexDirection: 'column' }}>
       {isWildcard && (
         <div style={{ padding: '12px 20px 0' }}>
-          <span style={{ fontSize: '9px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.45)', background: 'rgba(255,255,255,0.08)', padding: '3px 10px', borderRadius: '0' }}>Wildcard</span>
+          <span style={{ fontSize: '9px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.45)', background: 'rgba(255,255,255,0.08)', padding: '3px 10px', borderRadius: '0' }}>Wildcard — Avanti&apos;s curveball</span>
         </div>
       )}
       <div style={{ padding: isWildcard ? '14px 20px 18px' : '22px 20px 18px' }}>
@@ -440,7 +440,7 @@ export default function Step2() {
       q3,
     }
 
-    const fetchBatch = async (batch: 'half1' | 'half2', excludeCountries: string[] = []) => {
+    const fetchBatch = async (batch: 'half1' | 'half2' | 'wildcard-only', excludeCountries: string[] = []) => {
       const res = await fetch('/api/generate-destinations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -482,7 +482,19 @@ export default function Step2() {
         .filter(Boolean) as string[]
 
       const secondBatch = await fetchBatch('half2', usedCountries)
-      const parsed = dedupeCardsByCountry([...firstBatch, ...secondBatch])
+      let parsed = dedupeCardsByCountry([...firstBatch, ...secondBatch])
+
+      const violations = getCountryDuplicateViolations(parsed)
+      const hasValidWildcard = parsed.some(c => c.isWildcard)
+      if (violations.length > 0 || !hasValidWildcard || parsed.length < 4) {
+        setGenerateStatus('Picking a wildcard…')
+        const mains = parsed.filter(c => !c.isWildcard)
+        const excludeAll = mains
+          .map(card => extractCountryFromDestinationName(card.name))
+          .filter(Boolean) as string[]
+        const wildcardBatch = await fetchBatch('wildcard-only', excludeAll)
+        parsed = dedupeCardsByCountry([...mains, ...wildcardBatch])
+      }
 
       if (parsed.length === 0) {
         throw new Error('No destination cards were returned. Please try again.')
