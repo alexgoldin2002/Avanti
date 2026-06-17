@@ -1,5 +1,6 @@
 'use client'
 import Link from 'next/link'
+import { INSTAGRAM_URL, TIKTOK_URL } from '@/lib/social-links'
 
 export default function Footer({ variant = 'app', paddingTop = 48 }: { variant?: 'marketing' | 'app'; paddingTop?: number }) {
   if (variant === 'marketing') {
@@ -24,8 +25,16 @@ export default function Footer({ variant = 'app', paddingTop = 48 }: { variant?:
           <div>
             <div className="eyebrow text-cream/60 mb-4">Connect</div>
             <ul className="space-y-2 text-sm">
-              <li><a href="#" className="hover:opacity-70">Instagram</a></li>
-              <li><a href="#" className="hover:opacity-70">TikTok</a></li>
+              <li>
+                <a href={INSTAGRAM_URL} target="_blank" rel="noopener noreferrer" className="hover:opacity-70">
+                  Instagram
+                </a>
+              </li>
+              <li>
+                <a href={TIKTOK_URL} target="_blank" rel="noopener noreferrer" className="hover:opacity-70">
+                  TikTok
+                </a>
+              </li>
             </ul>
           </div>
         </div>

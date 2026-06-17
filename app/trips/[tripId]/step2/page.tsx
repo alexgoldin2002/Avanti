@@ -173,6 +173,7 @@ export default function Step2() {
   const [showRefreshChatConfirm, setShowRefreshChatConfirm] = useState(false)
   const [refreshingChat, setRefreshingChat] = useState(false)
   const [generating, setGenerating] = useState(false)
+  const [generateError, setGenerateError] = useState<string | null>(null)
   const [cards, setCards] = useState<any[]>([])
   const [whyNot, setWhyNot] = useState<{ name: string; reasons: string[] }[]>([])
   const [editMode, setEditMode] = useState(false)
@@ -411,6 +412,7 @@ export default function Step2() {
 
   const generateDestinations = async () => {
     setGenerating(true)
+    setGenerateError(null)
     setCards([])
     await saveProgress('done')
     try {
@@ -442,11 +444,19 @@ export default function Step2() {
           messages: [],
         }),
       })
-      if (!res.ok || !res.body) throw new Error('Failed to generate')
+      if (!res.ok) {
+        if (res.status === 504) {
+          throw new Error('Generation timed out. Please try again — it usually works on the second attempt.')
+        }
+        const errBody = await res.json().catch(() => null)
+        throw new Error(errBody?.error || 'Failed to generate trip ideas')
+      }
+      if (!res.body) throw new Error('Failed to generate trip ideas')
       const reader = res.body.getReader()
       const decoder = new TextDecoder()
       let fullText = ''
       let buffer = ''
+      let receivedDone = false
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
@@ -455,33 +465,37 @@ export default function Step2() {
         buffer = lines.pop() || ''
         for (const line of lines) {
           if (!line.startsWith('data: ')) continue
+          let json: { text?: string; done?: boolean; fullText?: string; error?: string }
           try {
-            const json = JSON.parse(line.slice(6))
-            if (json.text) {
-              fullText += json.text
-              console.log('streaming chunk, total length:', fullText.length)
-            }
-            if (json.done) {
-              console.log('DONE received, fullText length:', json.fullText?.length, fullText.length)
-              console.log('FULL TEXT PREVIEW:', (json.fullText || fullText).slice(0, 300))
-              const parsed = dedupeCardsByCountry(parseDestinationCards(json.fullText || fullText).cards)
-              console.log('PARSED CARDS:', parsed.length, parsed.map((c: any) => c.name))
-              setCards(parsed)
-              setStage('done')
-              await supabase.from('trip_destinations').upsert({
-                trip_id: tripId,
-                cards: parsed,
-                updated_at: new Date().toISOString(),
-              }, { onConflict: 'trip_id' })
-            }
-            if (json.error) throw new Error(json.error)
+            json = JSON.parse(line.slice(6))
           } catch {
-            // skip malformed chunks
+            continue
+          }
+          if (json.text) fullText += json.text
+          if (json.error) throw new Error(json.error)
+          if (json.done) {
+            receivedDone = true
+            const parsed = dedupeCardsByCountry(parseDestinationCards(json.fullText || fullText).cards)
+            if (parsed.length === 0) {
+              throw new Error('No destination cards were returned. Please try again.')
+            }
+            setCards(parsed)
+            setStage('done')
+            await supabase.from('trip_destinations').upsert({
+              trip_id: tripId,
+              cards: parsed,
+              updated_at: new Date().toISOString(),
+            }, { onConflict: 'trip_id' })
           }
         }
       }
-    } catch (e: any) {
+      if (!receivedDone) {
+        throw new Error('Generation was interrupted. Please try again.')
+      }
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : 'Something went wrong generating trip ideas'
       console.error('generate error:', e)
+      setGenerateError(message)
     } finally {
       setGenerating(false)
     }
@@ -913,6 +927,31 @@ export default function Step2() {
             <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', textAlign: 'center', maxWidth: '280px', lineHeight: 1.6, fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
               Based on what you&apos;ve shared — weighing destinations against your vibe, budget, and deal breakers
             </p>
+          </div>
+        )}
+
+        {!generating && generateError && (
+          <div style={{ marginTop: '32px', padding: '20px 24px', border: '1px solid #c0392b', background: '#fdf2f2', textAlign: 'center' }}>
+            <p style={{ fontSize: '14px', color: '#c0392b', margin: '0 0 16px', lineHeight: 1.6, fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+              {generateError}
+            </p>
+            <button
+              type="button"
+              onClick={() => generateDestinations()}
+              style={{
+                padding: '12px 28px',
+                border: '1px solid var(--forest-deep)',
+                background: 'var(--forest-deep)',
+                color: '#fafaf8',
+                fontSize: '10px',
+                letterSpacing: '0.2em',
+                textTransform: 'uppercase',
+                cursor: 'pointer',
+                fontFamily: 'var(--font-cormorant), Georgia, serif',
+              }}
+            >
+              Try again →
+            </button>
           </div>
         )}
 

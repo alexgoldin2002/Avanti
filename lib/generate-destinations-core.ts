@@ -194,7 +194,7 @@ export function dedupeCardsByCountry(cards: ParsedDestinationCard[]): ParsedDest
 export async function generateValidatedDestinationText(
   client: Anthropic,
   conversationMessages: MessageParam[],
-  maxAttempts = 3,
+  maxAttempts = 2,
 ): Promise<string> {
   let messages = conversationMessages
   let lastText = ''
@@ -202,7 +202,7 @@ export async function generateValidatedDestinationText(
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const response = await client.messages.create({
       model: 'claude-sonnet-4-6',
-      max_tokens: 5000,
+      max_tokens: 4096,
       system: DESTINATION_SYSTEM_PROMPT,
       messages,
     })
@@ -240,6 +240,9 @@ export async function ensureValidDestinationText(
 ): Promise<string> {
   if (destinationOutputIsValid(streamedText)) return streamedText
 
+  const deduped = dedupeCardsByCountry(parseDestinationCards(streamedText).cards)
+  if (deduped.length >= 4) return streamedText
+
   const { cards } = parseDestinationCards(streamedText)
   const violations = getCountryDuplicateViolations(cards)
 
@@ -254,5 +257,6 @@ export async function ensureValidDestinationText(
     },
   ]
 
-  return generateValidatedDestinationText(client, correctionMessages, 2)
+  // One retry only — a second full call often exceeds Vercel's 60s limit after streaming.
+  return generateValidatedDestinationText(client, correctionMessages, 1)
 }

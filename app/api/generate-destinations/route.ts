@@ -8,7 +8,6 @@ import {
   buildDestinationUserMessage,
   dedupeCardsByCountry,
   DESTINATION_SYSTEM_PROMPT,
-  ensureValidDestinationText,
   generateValidatedDestinationText,
 } from '@/lib/generate-destinations-core'
 import { parseDestinationCards } from '@/lib/parse-destination-cards'
@@ -17,6 +16,10 @@ const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
 export async function POST(request: NextRequest) {
   try {
+    if (!process.env.ANTHROPIC_API_KEY) {
+      return NextResponse.json({ error: 'AI service is not configured' }, { status: 500 })
+    }
+
     const { tripId, answers, messages, stream: useStream = true } = await request.json()
 
     const supabase = createClient(
@@ -46,7 +49,7 @@ export async function POST(request: NextRequest) {
 
     const anthropicStream = client.messages.stream({
       model: 'claude-sonnet-4-6',
-      max_tokens: 5000,
+      max_tokens: 4096,
       system: DESTINATION_SYSTEM_PROMPT,
       messages: conversationMessages,
     })
@@ -64,8 +67,10 @@ export async function POST(request: NextRequest) {
             }
           }
 
-          const fullText = await ensureValidDestinationText(client, conversationMessages, streamedText)
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, fullText })}\n\n`))
+          // Return streamed output immediately — a follow-up validation call often
+          // pushes the request past Vercel's 60s limit. Client-side dedupe handles
+          // duplicate countries; user can regenerate if cards are missing.
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, fullText: streamedText })}\n\n`))
         } catch (e: unknown) {
           const message = e instanceof Error ? e.message : 'Generation failed'
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: message })}\n\n`))

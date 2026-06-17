@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import { INSTAGRAM_URL, TIKTOK_URL } from '@/lib/social-links'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -258,13 +259,20 @@ function Footer() {
         <div>
           <div style={{ ...EYEBROW, color: CREAM_60, marginBottom: 16 }}>Connect</div>
           <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {['Instagram', 'TikTok'].map(label => (
-              <li key={label}>
-                <a href="#" style={{ color: CREAM, textDecoration: 'none', fontSize: '0.875rem', opacity: 0.85 }}
+            {[
+              { label: 'Instagram', href: INSTAGRAM_URL },
+              { label: 'TikTok', href: TIKTOK_URL },
+            ].map(item => (
+              <li key={item.label}>
+                <a
+                  href={item.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: CREAM, textDecoration: 'none', fontSize: '0.875rem', opacity: 0.85 }}
                   onMouseEnter={e => (e.currentTarget.style.opacity = '0.5')}
                   onMouseLeave={e => (e.currentTarget.style.opacity = '0.85')}
                 >
-                  {label}
+                  {item.label}
                 </a>
               </li>
             ))}
