@@ -252,8 +252,29 @@ export default function Step2() {
     load()
   }, [tripId])
 
+  const isQ2Complete = () => {
+    if (departureCities.length === 0) return false
+    if (!dates) return false
+    if (dates === 'Fixed dates' && (!fixedDates.start || !fixedDates.end)) return false
+    if (dates === 'Flexible — I have a range' && (!fixedDates.start || !fixedDates.end || !flexLength)) return false
+    if (!domestic) return false
+    if (domestic === 'International' && regions.length === 0) return false
+    if (!stops) return false
+    if (stops === 'Other' && !stopsOther.trim()) return false
+    if (activities.length === 0) return false
+    if (vibe.length === 0) return false
+    if (vibe.includes('Other') && !vibeOther.trim()) return false
+    if (!accommodation) return false
+    if (!budget) return false
+    if (budget === 'Other' && !budgetOther.trim()) return false
+    if (!popularity) return false
+    return true
+  }
+
+  const q2Valid = isQ2Complete()
+
   const showQ2 = (typeof stage === 'number' && stage >= 2) || stage === 'generate' || stage === 'done' || editMode
-  const showQ3 = (typeof stage === 'number' && stage >= 3) || stage === 'generate' || stage === 'done' || editMode
+  const showQ3 = editMode || stage === 'generate' || stage === 'done' || (typeof stage === 'number' && stage >= 3 && q2Valid)
 
   useEffect(() => {
     if ((window as any).google?.maps?.places) return
@@ -492,8 +513,6 @@ export default function Step2() {
     setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
   }
 
-  const q2Valid = departureCities.length > 0 && !!dates
-
   const avatarStyle = { width: '40px', height: '40px', borderRadius: '50%', background: 'var(--forest-deep)', flexShrink: 0 } as const
   const questionTextStyle = { fontSize: '16px', color: 'var(--foreground)', lineHeight: 1.7, margin: 0, ...s }
   const underlineInputStyle = { width: '100%', border: 'none', borderBottom: '1px solid #d4d4c8', background: 'transparent', padding: '8px 0', fontSize: '15px', color: 'var(--foreground)', outline: 'none', resize: 'none' as const, lineHeight: 1.6, ...s }
@@ -606,7 +625,7 @@ export default function Step2() {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '28px', marginBottom: showQ3 ? '32px' : '0', paddingLeft: '54px' }}>
               <div>
-                <span style={sectionLabel}>Where are you flying from? ★</span>
+                <span style={sectionLabel}>Where are you flying from?</span>
 
                 {departureCities.length > 0 && (
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
@@ -665,7 +684,7 @@ export default function Step2() {
               <div style={{ borderTop: '0.5px solid #e4e4d8' }} />
 
               <div>
-                <span style={sectionLabel}>What are your dates? ★</span>
+                <span style={sectionLabel}>What are your dates?</span>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '12px' }}>
                   {['Fixed dates', 'Flexible — I have a range', 'Completely flexible'].map(opt => (
                     <button key={opt} onClick={() => setDates(opt)} style={chipStyle(dates === opt)}>{opt}</button>
