@@ -2,9 +2,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import AvantiLogo from '../../../../components/AvantiLogo'
 import SuitcaseLoader from '../../../../components/SuitcaseLoader'
 import Footer from '../../../../components/Footer'
+import { BackLink } from '../../../../components/SubpageShell'
 
 export default function VotePage() {
   const params = useParams()
@@ -165,15 +165,12 @@ export default function VotePage() {
 
   if (!loading && !vote) return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: '100%', background: 'var(--cream)', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ textAlign: 'center', padding: '24px' }}>
-        <p style={{ fontSize: '20px', fontWeight: 300, color: 'var(--foreground)', marginBottom: '8px' }}>Vote not found</p>
-        <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', marginBottom: '24px' }}>This vote may have been deleted or the link is invalid.</p>
-        <button onClick={() => router.push(`/trips/${tripId}`)}
-          style={{ border: '1px solid var(--forest-deep)', background: 'var(--forest-deep)', color: '#fff', padding: '12px 24px', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '8px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
-          ← Back to trip
-        </button>
-      </div>
+      <div style={{ flex: 1, maxWidth: '600px', margin: '0 auto', padding: '40px 24px', width: '100%' }}>
+        <BackLink href={`/trips/${tripId}`} wrapperClassName="mb-8 flex justify-end" />
+        <div style={{ textAlign: 'center', padding: '24px 0' }}>
+          <p style={{ fontSize: '20px', fontWeight: 300, color: 'var(--foreground)', marginBottom: '8px' }}>Vote not found</p>
+          <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', margin: 0 }}>This vote may have been deleted or the link is invalid.</p>
+        </div>
       </div>
       <Footer />
     </div>
@@ -197,10 +194,7 @@ export default function VotePage() {
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: '100%', background: 'var(--cream)', ...s }}>
       <div style={{ flex: 1, maxWidth: '600px', margin: '0 auto', padding: '40px 24px', width: '100%' }}>
 
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '32px' }}>
-          <AvantiLogo size="sm" />
-          <button onClick={() => router.push(`/trips/${tripId}`)} style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--muted-foreground)', background: 'none', border: 'none', cursor: 'pointer', ...s }}>← Back to trip</button>
-        </div>
+        <BackLink href={`/trips/${tripId}/decisions`} wrapperClassName="mb-8 flex justify-end" />
 
         <div style={{ marginBottom: '24px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
@@ -218,17 +212,17 @@ export default function VotePage() {
         </div>
 
         {isOrganizer && !vote.submission_deadline && (
-          <div style={{ background: '#faeeda', border: '0.5px solid #ef9f27', borderRadius: '10px', padding: '16px 18px', marginBottom: '20px' }}>
+          <div style={{ background: '#faeeda', border: '0.5px solid #ef9f27', borderRadius: '0', padding: '16px 18px', marginBottom: '20px' }}>
             <p style={{ fontSize: '13px', color: '#854f0b', margin: '0 0 10px', ...s }}>Set voting timeline to open this vote to the group</p>
             <button onClick={() => setShowTimingModal(true)}
-              style={{ border: '1px solid #854f0b', background: 'transparent', color: '#854f0b', padding: '10px 20px', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '8px', ...s }}>
+              style={{ border: '1px solid #854f0b', background: 'transparent', color: '#854f0b', padding: '10px 20px', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '0', ...s }}>
               Set timeline →
             </button>
           </div>
         )}
 
         {voteStatus === 'submission_open' && vote.submission_deadline && (
-          <div style={{ background: '#fff', border: '0.5px solid var(--border)', borderRadius: '10px', padding: '14px 18px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ background: 'var(--card)', border: '0.5px solid var(--border)', borderRadius: '0', padding: '14px 18px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <p style={{ fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--muted-foreground)', margin: '0 0 2px' }}>Options close</p>
               <p style={{ fontSize: '13px', color: '#854f0b', margin: 0, ...s }}>{getTimeLeft(vote.submission_deadline)}</p>
@@ -241,7 +235,7 @@ export default function VotePage() {
         )}
 
         {voteStatus === 'voting_open' && vote.voting_deadline && (
-          <div style={{ background: 'var(--accent-light)', border: '0.5px solid #9fd4b8', borderRadius: '10px', padding: '14px 18px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ background: 'var(--accent-light)', border: '0.5px solid #9fd4b8', borderRadius: '0', padding: '14px 18px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <p style={{ fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--forest)', margin: '0 0 2px' }}>Vote closes</p>
               <p style={{ fontSize: '13px', color: 'var(--forest-deep)', margin: 0, ...s }}>{getTimeLeft(vote.voting_deadline)}</p>
@@ -270,13 +264,13 @@ export default function VotePage() {
             const pct = totalVoters > 0 ? Math.round((voteCount / totalVoters) * 100) : 0
 
             return (
-              <div key={i} style={{ border: isSelected ? '2px solid var(--forest)' : '0.5px solid var(--border)', borderRadius: '12px', background: '#fff', overflow: 'hidden', transition: 'border-color 0.2s' }}>
+              <div key={i} style={{ border: isSelected ? '2px solid var(--forest)' : '0.5px solid var(--border)', borderRadius: '0', background: 'var(--card)', overflow: 'hidden', transition: 'border-color 0.2s' }}>
                 <div style={{ padding: '16px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
                     <div style={{ flex: 1 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
                         <p style={{ fontSize: '16px', color: 'var(--foreground)', margin: 0, ...s }}>{option.title}</p>
-                        {option.is_manual && <span style={{ fontSize: '9px', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--muted-foreground)', background: '#f5f5f0', padding: '2px 8px', borderRadius: '10px' }}>Added by group</span>}
+                        {option.is_manual && <span style={{ fontSize: '9px', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--muted-foreground)', background: '#f5f5f0', padding: '2px 8px', borderRadius: '0' }}>Added by group</span>}
                       </div>
                       {option.tagline && <p style={{ fontSize: '12px', color: 'var(--muted-foreground)', margin: 0, lineHeight: 1.4 }}>{option.tagline}</p>}
                     </div>
@@ -313,7 +307,7 @@ export default function VotePage() {
 
                   <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
                     <button onClick={() => setExpandedCard(isExpanded ? null : i)}
-                      style={{ padding: '7px 14px', border: '1px solid var(--border)', background: '#fff', color: 'var(--muted-foreground)', fontSize: '11px', letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '20px', ...s }}>
+                      style={{ padding: '7px 14px', border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--muted-foreground)', fontSize: '11px', letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '20px', ...s }}>
                       {isExpanded ? 'Hide ↑' : 'Details'}
                     </button>
                     {voteStatus === 'voting_open' && !submitted && (
@@ -333,7 +327,7 @@ export default function VotePage() {
                 {isExpanded && (
                   <div style={{ borderTop: '0.5px solid #f0f0e8', padding: '16px', background: 'var(--cream)', display: 'flex', flexDirection: 'column', gap: '14px' }}>
                     {option.details?.avanti_take && (
-                      <div style={{ padding: '12px 14px', background: 'var(--accent-light)', borderRadius: '8px' }}>
+                      <div style={{ padding: '12px 14px', background: 'var(--accent-light)', borderRadius: '0' }}>
                         <p style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--forest)', margin: '0 0 6px', ...s }}>Why Avanti picks this</p>
                         <p style={{ fontSize: '12px', color: '#0a3a1e', margin: 0, lineHeight: 1.7, ...s }}>{option.details.avanti_take}</p>
                       </div>
@@ -399,7 +393,7 @@ export default function VotePage() {
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                           {option.details.tiktok_searches.map((term: string, j: number) => (
                             <a key={j} href={`https://www.tiktok.com/search?q=${encodeURIComponent(term)}`} target="_blank" rel="noopener noreferrer"
-                              style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: '#fff', border: '0.5px solid var(--border)', borderRadius: '8px', textDecoration: 'none' }}>
+                              style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'var(--card)', border: '0.5px solid var(--border)', borderRadius: '0', textDecoration: 'none' }}>
                               <span style={{ fontSize: '14px' }}>🎵</span>
                               <p style={{ fontSize: '12px', color: 'var(--foreground)', margin: 0, ...s }}>{term}</p>
                               <span style={{ fontSize: '10px', color: 'var(--muted-foreground)', marginLeft: 'auto' }}>Search TikTok →</span>
@@ -409,7 +403,7 @@ export default function VotePage() {
                       </div>
                     )}
                     {option.bottomLine && (
-                      <div style={{ padding: '12px 14px', background: 'var(--forest-deep)', borderRadius: '8px' }}>
+                      <div style={{ padding: '12px 14px', background: 'var(--forest-deep)', borderRadius: '0' }}>
                         <p style={{ fontSize: '12px', color: '#ffffff', margin: 0, lineHeight: 1.7, ...s }}>{option.bottomLine}</p>
                       </div>
                     )}
@@ -424,11 +418,11 @@ export default function VotePage() {
           <div style={{ marginBottom: '20px' }}>
             {!showAddOption ? (
               <button onClick={() => setShowAddOption(true)}
-                style={{ width: '100%', border: '1.5px solid var(--forest)', background: 'transparent', color: 'var(--forest)', padding: '14px', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '10px', ...s }}>
+                style={{ width: '100%', border: '1.5px solid var(--forest)', background: 'transparent', color: 'var(--forest)', padding: '14px', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '0', ...s }}>
                 + Add an option to vote on
               </button>
             ) : (
-              <div style={{ background: '#fff', border: '0.5px solid var(--border)', borderRadius: '12px', padding: '18px' }}>
+              <div style={{ background: 'var(--card)', border: '0.5px solid var(--border)', borderRadius: '0', padding: '18px' }}>
                 <p style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--muted-foreground)', margin: '0 0 14px', ...s }}>Add your option</p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   <div>
@@ -457,16 +451,16 @@ export default function VotePage() {
         {voteStatus === 'voting_open' && !submitted && selectedOptions.length > 0 && (
           <div style={{ marginBottom: '16px' }}>
             <textarea value={myComment} onChange={e => setMyComment(e.target.value)} placeholder="Add a comment (optional)..." rows={2}
-              style={{ width: '100%', border: '0.5px solid var(--border)', background: '#fff', padding: '10px 14px', fontSize: '13px', color: 'var(--foreground)', outline: 'none', resize: 'none', borderRadius: '8px', marginBottom: '10px', ...s }} />
+              style={{ width: '100%', border: '0.5px solid var(--border)', background: 'var(--card)', padding: '10px 14px', fontSize: '13px', color: 'var(--foreground)', outline: 'none', resize: 'none', borderRadius: '0', marginBottom: '10px', ...s }} />
             <button onClick={handleSubmitVote} disabled={submitting}
-              style={{ width: '100%', border: '1px solid var(--forest-deep)', background: 'var(--forest-deep)', color: '#fff', padding: '14px', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '8px', opacity: submitting ? 0.6 : 1, ...s }}>
+              style={{ width: '100%', border: '1px solid var(--forest-deep)', background: 'var(--forest-deep)', color: '#fff', padding: '14px', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '0', opacity: submitting ? 0.6 : 1, ...s }}>
               {submitting ? 'Submitting...' : `Submit vote${selectedOptions.length > 1 ? 's' : ''} →`}
             </button>
           </div>
         )}
 
         {submitted && voteStatus === 'voting_open' && (
-          <div style={{ padding: '14px 18px', background: 'var(--accent-light)', borderRadius: '8px', textAlign: 'center', marginBottom: '16px' }}>
+          <div style={{ padding: '14px 18px', background: 'var(--accent-light)', borderRadius: '0', textAlign: 'center', marginBottom: '16px' }}>
             <p style={{ fontSize: '13px', color: 'var(--forest)', margin: 0, ...s }}>✓ Your vote is in. Results update in real time.</p>
           </div>
         )}
@@ -476,12 +470,12 @@ export default function VotePage() {
             <p style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--muted-foreground)', margin: '0 0 6px' }}>Organizer controls</p>
             {options.length > 2 ? (
               <button onClick={handleAdvanceRound}
-                style={{ width: '100%', border: '1px solid #534ab7', background: 'transparent', color: '#534ab7', padding: '13px', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '8px', marginBottom: '10px', ...s }}>
+                style={{ width: '100%', border: '1px solid #534ab7', background: 'transparent', color: '#534ab7', padding: '13px', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '0', marginBottom: '10px', ...s }}>
                 Advance to next round — eliminate lowest options →
               </button>
             ) : null}
             <button onClick={handleLockWinner} disabled={locking}
-              style={{ width: '100%', background: 'var(--forest-deep)', border: 'none', padding: '14px', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', color: '#fff', cursor: 'pointer', borderRadius: '8px', opacity: locking ? 0.6 : 1, ...s }}>
+              style={{ width: '100%', background: 'var(--forest-deep)', border: 'none', padding: '14px', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', color: '#fff', cursor: 'pointer', borderRadius: '0', opacity: locking ? 0.6 : 1, ...s }}>
               {locking ? 'Locking...' : 'Lock in winner →'}
             </button>
           </div>
@@ -491,7 +485,7 @@ export default function VotePage() {
 
       {showTimingModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: '24px' }}>
-          <div style={{ background: 'var(--cream)', borderRadius: '16px', padding: '32px', width: '100%', maxWidth: '400px', ...s }}>
+          <div style={{ background: 'var(--cream)', borderRadius: '0', padding: '32px', width: '100%', maxWidth: '400px', ...s }}>
             <h3 style={{ fontSize: '22px', fontWeight: 300, color: 'var(--foreground)', margin: '0 0 6px', ...s }}>Set voting timeline</h3>
             <p style={{ fontSize: '12px', color: 'var(--muted-foreground)', margin: '0 0 24px', lineHeight: 1.6 }}>How long should each phase last?</p>
             <div style={{ marginBottom: '20px' }}>
@@ -499,7 +493,7 @@ export default function VotePage() {
               <div style={{ display: 'flex', gap: '8px' }}>
                 {[12, 24, 48, 72].map(h => (
                   <button key={h} onClick={() => setSubmissionHours(h)}
-                    style={{ flex: 1, padding: '10px 6px', border: `1.5px solid ${submissionHours === h ? 'var(--forest-deep)' : 'var(--border)'}`, background: submissionHours === h ? 'var(--accent-light)' : 'transparent', color: submissionHours === h ? 'var(--forest-deep)' : 'var(--muted-foreground)', fontSize: '12px', cursor: 'pointer', borderRadius: '8px', ...s }}>
+                    style={{ flex: 1, padding: '10px 6px', border: `1.5px solid ${submissionHours === h ? 'var(--forest-deep)' : 'var(--border)'}`, background: submissionHours === h ? 'var(--accent-light)' : 'transparent', color: submissionHours === h ? 'var(--forest-deep)' : 'var(--muted-foreground)', fontSize: '12px', cursor: 'pointer', borderRadius: '0', ...s }}>
                     {h < 24 ? `${h}h` : `${h/24}d`}
                   </button>
                 ))}
@@ -510,15 +504,15 @@ export default function VotePage() {
               <div style={{ display: 'flex', gap: '8px' }}>
                 {[12, 24, 48, 72].map(h => (
                   <button key={h} onClick={() => setVotingHours(h)}
-                    style={{ flex: 1, padding: '10px 6px', border: `1.5px solid ${votingHours === h ? 'var(--forest-deep)' : 'var(--border)'}`, background: votingHours === h ? 'var(--accent-light)' : 'transparent', color: votingHours === h ? 'var(--forest-deep)' : 'var(--muted-foreground)', fontSize: '12px', cursor: 'pointer', borderRadius: '8px', ...s }}>
+                    style={{ flex: 1, padding: '10px 6px', border: `1.5px solid ${votingHours === h ? 'var(--forest-deep)' : 'var(--border)'}`, background: votingHours === h ? 'var(--accent-light)' : 'transparent', color: votingHours === h ? 'var(--forest-deep)' : 'var(--muted-foreground)', fontSize: '12px', cursor: 'pointer', borderRadius: '0', ...s }}>
                     {h < 24 ? `${h}h` : `${h/24}d`}
                   </button>
                 ))}
               </div>
             </div>
             <div style={{ display: 'flex', gap: '10px' }}>
-              <button onClick={() => setShowTimingModal(false)} style={{ flex: 1, border: '0.5px solid var(--border)', padding: '12px', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--muted-foreground)', background: 'transparent', cursor: 'pointer', borderRadius: '8px', ...s }}>Cancel</button>
-              <button onClick={handleSetTiming} style={{ flex: 2, border: '1px solid var(--forest-deep)', background: 'var(--forest-deep)', color: '#fff', padding: '12px', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '8px', ...s }}>Open vote →</button>
+              <button onClick={() => setShowTimingModal(false)} style={{ flex: 1, border: '0.5px solid var(--border)', padding: '12px', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--muted-foreground)', background: 'transparent', cursor: 'pointer', borderRadius: '0', ...s }}>Cancel</button>
+              <button onClick={handleSetTiming} style={{ flex: 2, border: '1px solid var(--forest-deep)', background: 'var(--forest-deep)', color: '#fff', padding: '12px', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '0', ...s }}>Open vote →</button>
             </div>
           </div>
         </div>

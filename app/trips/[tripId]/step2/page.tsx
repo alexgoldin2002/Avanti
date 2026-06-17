@@ -2,8 +2,10 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import AvantiLogo from '../../../components/AvantiLogo'
 import SuitcaseLoader from '../../../components/SuitcaseLoader'
+import { BackLink } from '../../../components/SubpageShell'
+import { parseDestinationCards } from '@/lib/parse-destination-cards'
+import { dedupeCardsByCountry } from '@/lib/generate-destinations-core'
 
 function StepTwoDestCard({ card, tripId, isVoted, onVote }: { card: any; tripId: string; isVoted: boolean; onVote: () => void }) {
   const [open, setOpen] = useState<string | null>(null)
@@ -26,10 +28,10 @@ function StepTwoDestCard({ card, tripId, isVoted, onVote }: { card: any; tripId:
     ...(card.footnotes ? [{ key: 'footnotes', label: 'Things to know', content: card.footnotes }] : []),
   ].filter(sec => sec.content?.trim())
   return (
-    <div style={{ border: '1.5px solid #1a1a1a', borderRadius: '16px', overflow: 'hidden', background: isWildcard ? '#1a3a2a' : '#fff', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ border: '1.5px solid #1a1a1a', borderRadius: '0', overflow: 'hidden', background: isWildcard ? 'var(--forest-deep)' : '#fff', display: 'flex', flexDirection: 'column' }}>
       {isWildcard && (
         <div style={{ padding: '12px 20px 0' }}>
-          <span style={{ fontSize: '9px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.45)', background: 'rgba(255,255,255,0.08)', padding: '3px 10px', borderRadius: '10px' }}>Wildcard</span>
+          <span style={{ fontSize: '9px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.45)', background: 'rgba(255,255,255,0.08)', padding: '3px 10px', borderRadius: '0' }}>Wildcard</span>
         </div>
       )}
       <div style={{ padding: isWildcard ? '14px 20px 18px' : '22px 20px 18px' }}>
@@ -48,7 +50,7 @@ function StepTwoDestCard({ card, tripId, isVoted, onVote }: { card: any; tripId:
             <span style={{
               fontSize: '10px', padding: '3px 10px', borderRadius: '20px',
               background: isWildcard ? 'rgba(255,255,255,0.12)' : '#e8f5ee',
-              color: isWildcard ? 'rgba(255,255,255,0.8)' : '#1a3a2a',
+              color: isWildcard ? 'rgba(255,255,255,0.8)' : 'var(--forest-deep)',
               border: `0.5px solid ${isWildcard ? 'rgba(255,255,255,0.2)' : '#a8d4b8'}`,
               fontFamily: 'var(--font-cormorant), Georgia, serif',
               letterSpacing: '0.05em',
@@ -109,9 +111,9 @@ function StepTwoDestCard({ card, tripId, isVoted, onVote }: { card: any; tripId:
             width: '100%', padding: '11px',
             border: `1px solid ${isVoted ? '#2d6a4f' : isWildcard ? 'rgba(255,255,255,0.2)' : '#1a1a1a'}`,
             background: isVoted ? '#e8f5ee' : 'transparent',
-            color: isVoted ? '#1a3a2a' : isWildcard ? 'rgba(255,255,255,0.65)' : '#1a1a1a',
+            color: isVoted ? 'var(--forest-deep)' : isWildcard ? 'rgba(255,255,255,0.65)' : '#1a1a1a',
             fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase',
-            cursor: 'pointer', borderRadius: '8px', transition: 'all 0.15s',
+            cursor: 'pointer', borderRadius: '0', transition: 'all 0.15s',
             fontFamily: 'var(--font-cormorant), Georgia, serif',
           }}
         >
@@ -168,6 +170,8 @@ export default function Step2() {
   const [chatInput, setChatInput] = useState('')
   const [chatMessages, setChatMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([])
   const [chatLoading, setChatLoading] = useState(false)
+  const [showRefreshChatConfirm, setShowRefreshChatConfirm] = useState(false)
+  const [refreshingChat, setRefreshingChat] = useState(false)
   const [generating, setGenerating] = useState(false)
   const [cards, setCards] = useState<any[]>([])
   const [whyNot, setWhyNot] = useState<{ name: string; reasons: string[] }[]>([])
@@ -177,14 +181,14 @@ export default function Step2() {
   const [maxVotes, setMaxVotes] = useState(2)
 
   const s = { fontFamily: 'var(--font-cormorant), Georgia, serif' }
-  const inputStyle = { width: '100%', borderBottom: '1px solid #d4d4c8', background: 'transparent', padding: '8px 0', fontSize: '15px', color: '#1a1a1a', outline: 'none', ...s }
-  const labelStyle = { fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase' as const, color: '#9a9a8a', display: 'block', marginBottom: '8px' }
-  const sectionLabel = { fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase' as const, color: '#9a9a8a', marginBottom: '10px', display: 'block' }
+  const inputStyle = { width: '100%', borderBottom: '1px solid #d4d4c8', background: 'transparent', padding: '8px 0', fontSize: '15px', color: 'var(--foreground)', outline: 'none', ...s }
+  const labelStyle = { fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase' as const, color: 'var(--muted-foreground)', display: 'block', marginBottom: '8px' }
+  const sectionLabel = { fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase' as const, color: 'var(--muted-foreground)', marginBottom: '10px', display: 'block' }
   const chipStyle = (selected: boolean) => ({
     padding: '8px 16px', fontSize: '13px', cursor: 'pointer',
-    border: `1px solid ${selected ? '#1a3a2a' : '#d4d4c8'}`,
+    border: `1px solid ${selected ? 'var(--forest-deep)' : '#d4d4c8'}`,
     background: selected ? '#e8f5ee' : '#fff',
-    color: selected ? '#1a3a2a' : '#6a6a6a',
+    color: selected ? 'var(--forest-deep)' : '#6a6a6a',
     borderRadius: '24px', transition: 'all 0.15s', ...s,
   })
   const nextBtn = (onClick: () => void, disabled: boolean, label = 'Next →') => (
@@ -192,8 +196,8 @@ export default function Step2() {
       onClick={onClick}
       disabled={disabled}
       style={{
-        padding: '14px 32px', border: '1px solid #1a3a2a',
-        background: disabled ? 'transparent' : '#1a3a2a',
+        padding: '14px 32px', border: '1px solid var(--forest-deep)',
+        background: disabled ? 'transparent' : 'var(--forest-deep)',
         color: disabled ? '#d4d4c8' : '#fafaf8',
         fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase',
         cursor: disabled ? 'default' : 'pointer', ...s,
@@ -229,6 +233,7 @@ export default function Step2() {
           if (s2.popularity) setPopularity(s2.popularity)
           if (s2.q3) setQ3(s2.q3)
           if (s2.stage) setStage(s2.stage)
+          if (Array.isArray(s2.chatMessages)) setChatMessages(s2.chatMessages)
         }
         const { data: savedDest } = await supabase
           .from('trip_destinations')
@@ -303,7 +308,7 @@ export default function Step2() {
     q3,
   })
 
-  const saveProgress = async (stageToSave: any) => {
+  const saveProgress = async (stageToSave: any, messagesOverride?: { role: 'user' | 'assistant'; content: string }[]) => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
     const { data: profile } = await supabase.from('user_profiles').select('email').eq('user_id', user.id).single()
@@ -315,83 +320,52 @@ export default function Step2() {
         activities, vibe: vibe.includes('Other') ? [...vibe.filter(v => v !== 'Other'), vibeOther] : vibe,
         accommodation, budget: budget === 'Other' ? budgetOther : budget,
         popularity, q3, stage: stageToSave,
+        chatMessages: messagesOverride ?? chatMessages,
       }
     }).eq('trip_id', tripId).eq('email', profile?.email || '')
   }
 
-  const toggleMulti = (arr: string[], val: string, setter: (a: string[]) => void) => {
-    setter(arr.includes(val) ? arr.filter(x => x !== val) : [...arr, val])
+  const persistChatMessages = async (messages: { role: 'user' | 'assistant'; content: string }[]) => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const { data: profile } = await supabase.from('user_profiles').select('email').eq('user_id', user.id).single()
+    const { data: traveler } = await supabase
+      .from('travelers')
+      .select('step2')
+      .eq('trip_id', tripId)
+      .eq('email', profile?.email || '')
+      .single()
+    const existingStep2 = traveler?.step2 || {}
+    await supabase.from('travelers').update({
+      step2: { ...existingStep2, chatMessages: messages },
+    }).eq('trip_id', tripId).eq('email', profile?.email || '')
   }
 
-  const parseCardsFromText = (text: string) => {
-    const result: any[] = []
-
-    // Find where DESTINATIONS: starts — skip any preamble
-    const destStart = text.indexOf('DESTINATIONS:')
-    if (destStart === -1) {
-      // Try to find first NAME: directly if no DESTINATIONS: header
-      if (!text.includes('NAME:')) return result
+  const refreshChat = async () => {
+    setRefreshingChat(true)
+    const { data: { user } } = await supabase.auth.getUser()
+    setChatMessages([])
+    setChatInput('')
+    if (user) {
+      const { data: profile } = await supabase.from('user_profiles').select('email').eq('user_id', user.id).single()
+      const { data: traveler } = await supabase
+        .from('travelers')
+        .select('step2')
+        .eq('trip_id', tripId)
+        .eq('email', profile?.email || '')
+        .single()
+      const existingStep2 = traveler?.step2 || {}
+      await supabase.from('travelers').update({
+        step2: { ...existingStep2, chatMessages: [] },
+      }).eq('trip_id', tripId).eq('email', profile?.email || '')
+      await supabase.from('trip_conversations').delete().eq('trip_id', tripId).eq('user_id', user.id)
     }
-    let cardsBlock = destStart !== -1 ? text.slice(destStart) : text
-    // Stop at AVANTI_CARDS_END
-    const endIdx = cardsBlock.indexOf('AVANTI_CARDS_END')
-    if (endIdx !== -1) cardsBlock = cardsBlock.slice(0, endIdx)
+    setRefreshingChat(false)
+    setShowRefreshChatConfirm(false)
+  }
 
-    if (!cardsBlock.includes('NAME:')) return result
-
-    // Split on --- but keep WILDCARD sections
-    const sections = cardsBlock.split(/\n---\n/).map((s: string) => s.trim()).filter((s: string) => s.length > 0)
-
-    for (const section of sections) {
-      if (!section.includes('NAME:')) continue
-      if (section.trim() === 'DESTINATIONS:') continue
-
-      const isWildcard = /WILDCARD:/i.test(section)
-      const clean = section
-        .replace(/^WILDCARD:\s*/m, '')
-        .replace(/^DESTINATIONS:\s*/m, '')
-        .trim()
-
-      const get = (field: string): string => {
-        const regex = new RegExp(`^${field}:\\s*(.*)`, 'm')
-        const match = clean.match(regex)
-        if (!match) return ''
-
-        const firstLine = match[1].trim()
-        const startIdx = clean.indexOf(match[0]) + match[0].length
-        const remaining = clean.slice(startIdx)
-
-        // Collect continuation lines until next field
-        const continuationLines: string[] = []
-        for (const line of remaining.split('\n')) {
-          if (/^[A-Z][A-Z\s]+:/.test(line.trim()) && !line.trim().startsWith('-')) break
-          continuationLines.push(line)
-        }
-
-        return (firstLine + '\n' + continuationLines.join('\n')).trim()
-      }
-
-      const name = get('NAME')
-      if (!name || name.length < 2) continue
-
-      result.push({
-        name,
-        highlight: get('HIGHLIGHT'),
-        consider: get('CONSIDER'),
-        synopsis: get('SYNOPSIS'),
-        logistics: get('LOGISTICS'),
-        cost: get('COST'),
-        weather: get('WEATHER'),
-        activities: get('ACTIVITIES'),
-        groupFit: get('GROUP FIT'),
-        vibeCheck: get('VIBE CHECK'),
-        footnotes: get('FOOTNOTES') || undefined,
-        tradeoff: get('TRADEOFF') || undefined,
-        isWildcard,
-      })
-    }
-
-    return result
+  const toggleMulti = (arr: string[], val: string, setter: (a: string[]) => void) => {
+    setter(arr.includes(val) ? arr.filter(x => x !== val) : [...arr, val])
   }
 
   const parseWhyNot = (text: string): { name: string; reasons: string[] }[] => {
@@ -469,7 +443,7 @@ export default function Step2() {
             if (json.done) {
               console.log('DONE received, fullText length:', json.fullText?.length, fullText.length)
               console.log('FULL TEXT PREVIEW:', (json.fullText || fullText).slice(0, 300))
-              const parsed = parseCardsFromText(json.fullText || fullText)
+              const parsed = dedupeCardsByCountry(parseDestinationCards(json.fullText || fullText).cards)
               console.log('PARSED CARDS:', parsed.length, parsed.map((c: any) => c.name))
               setCards(parsed)
               setStage('done')
@@ -506,9 +480,13 @@ export default function Step2() {
         body: JSON.stringify({ messages: newMessages, tripId, context: { q1, departureCity: departureCities.join(', '), dates, domestic, activities, vibe, budget, q3 } }),
       })
       const data = await res.json()
-      setChatMessages(m => [...m, { role: 'assistant', content: data.message }])
+      const finalMessages = [...newMessages, { role: 'assistant' as const, content: data.message }]
+      setChatMessages(finalMessages)
+      await persistChatMessages(finalMessages)
     } catch (e) {
-      setChatMessages(m => [...m, { role: 'assistant', content: 'Something went wrong. Try again.' }])
+      const finalMessages = [...newMessages, { role: 'assistant' as const, content: 'Something went wrong. Try again.' }]
+      setChatMessages(finalMessages)
+      await persistChatMessages(finalMessages)
     }
     setChatLoading(false)
     setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
@@ -516,9 +494,9 @@ export default function Step2() {
 
   const q2Valid = departureCities.length > 0 && !!dates
 
-  const avatarStyle = { width: '40px', height: '40px', borderRadius: '50%', background: '#1a3a2a', flexShrink: 0 } as const
-  const questionTextStyle = { fontSize: '16px', color: '#1a1a1a', lineHeight: 1.7, margin: 0, ...s }
-  const underlineInputStyle = { width: '100%', border: 'none', borderBottom: '1px solid #d4d4c8', background: 'transparent', padding: '8px 0', fontSize: '15px', color: '#1a1a1a', outline: 'none', resize: 'none' as const, lineHeight: 1.6, ...s }
+  const avatarStyle = { width: '40px', height: '40px', borderRadius: '50%', background: 'var(--forest-deep)', flexShrink: 0 } as const
+  const questionTextStyle = { fontSize: '16px', color: 'var(--foreground)', lineHeight: 1.7, margin: 0, ...s }
+  const underlineInputStyle = { width: '100%', border: 'none', borderBottom: '1px solid #d4d4c8', background: 'transparent', padding: '8px 0', fontSize: '15px', color: 'var(--foreground)', outline: 'none', resize: 'none' as const, lineHeight: 1.6, ...s }
 
   const AvantiQuestion = ({ children }: { children: React.ReactNode }) => (
     <div style={{ display: 'flex', gap: '14px', alignItems: 'flex-start', marginBottom: '20px' }}>
@@ -529,7 +507,7 @@ export default function Step2() {
 
   const UserBubble = ({ children }: { children: React.ReactNode }) => (
     <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '28px' }}>
-      <div style={{ maxWidth: '80%', background: '#1a3a2a', color: '#fff', borderRadius: '12px', padding: '12px 16px', fontSize: '14px', lineHeight: 1.6, whiteSpace: 'pre-wrap', ...s }}>
+      <div style={{ maxWidth: '80%', background: 'var(--forest-deep)', color: '#fff', borderRadius: '0', padding: '12px 16px', fontSize: '14px', lineHeight: 1.6, whiteSpace: 'pre-wrap', ...s }}>
         {children}
       </div>
     </div>
@@ -538,19 +516,13 @@ export default function Step2() {
   if (loading) return <SuitcaseLoader message="Loading" />
 
   return (
-    <main style={{ minHeight: '100vh', background: '#fafaf8', paddingBottom: '140px', ...s }}>
+    <main style={{ minHeight: '100vh', background: 'transparent', paddingBottom: '140px', ...s }}>
       <div style={{ maxWidth: '640px', margin: '0 auto', padding: '48px 24px' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', marginBottom: '40px' }}>
-          <AvantiLogo size="sm" />
-          <p style={{ fontSize: '18px', fontWeight: 400, color: '#1a1a1a', margin: 0, textAlign: 'center', padding: '0 12px', ...s }}>
+        <BackLink href={`/trips/${tripId}`} wrapperClassName="mb-8 flex justify-end" />
+        <div style={{ marginBottom: '40px', textAlign: 'center' }}>
+          <p style={{ fontSize: '18px', fontWeight: 400, color: 'var(--foreground)', margin: 0, ...s }}>
             {trip?.name}
           </p>
-          <button
-            onClick={() => router.push(`/trips/${tripId}`)}
-            style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#9a9a8a', background: 'none', border: 'none', cursor: 'pointer', justifySelf: 'end', ...s }}
-          >
-            ← Back
-          </button>
         </div>
 
         {(stage === 1 || editMode) && (
@@ -572,7 +544,7 @@ export default function Step2() {
                   background: 'transparent',
                   padding: '0',
                   fontSize: '15px',
-                  color: '#1a1a1a',
+                  color: 'var(--foreground)',
                   resize: 'none',
                   lineHeight: 1.7,
                   fontFamily: 'var(--font-cormorant), Georgia, serif',
@@ -586,8 +558,8 @@ export default function Step2() {
                     onClick={() => { setStage(2); saveProgress(2) }}
                     disabled={!q1.trim()}
                     style={{
-                      padding: '12px 28px', border: '1px solid #1a3a2a',
-                      background: q1.trim() ? '#1a3a2a' : 'transparent',
+                      padding: '12px 28px', border: '1px solid var(--forest-deep)',
+                      background: q1.trim() ? 'var(--forest-deep)' : 'transparent',
                       color: q1.trim() ? '#fafaf8' : '#d4d4c8',
                       fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase',
                       cursor: q1.trim() ? 'pointer' : 'default',
@@ -605,20 +577,20 @@ export default function Step2() {
         {((typeof stage === 'number' && stage >= 2) || stage === 'generate' || stage === 'done') && !editMode && (
           <div style={{ marginBottom: '32px' }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px', marginBottom: '16px' }}>
-              <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#1a3a2a', flexShrink: 0 }} />
-              <p style={{ fontSize: '16px', color: '#1a1a1a', lineHeight: 1.7, margin: 0, fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+              <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--forest-deep)', flexShrink: 0 }} />
+              <p style={{ fontSize: '16px', color: 'var(--foreground)', lineHeight: 1.7, margin: 0, fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
                 Tell us about this trip. Who is going? What kind of trip are you looking for? Any idea where? What&apos;s the reason for the trip?
               </p>
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <div style={{ maxWidth: '80%', background: '#1a3a2a', color: '#fff', padding: '12px 16px', borderRadius: '12px', fontSize: '14px', lineHeight: 1.6, fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+              <div style={{ maxWidth: '80%', background: 'var(--forest-deep)', color: '#fff', padding: '12px 16px', borderRadius: '0', fontSize: '14px', lineHeight: 1.6, fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
                 {q1}
               </div>
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '6px' }}>
               <button
                 onClick={() => setStage(1)}
-                style={{ fontSize: '11px', color: '#9a9a8a', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontFamily: 'var(--font-cormorant), Georgia, serif' }}
+                style={{ fontSize: '11px', color: 'var(--muted-foreground)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontFamily: 'var(--font-cormorant), Georgia, serif' }}
               >
                 Edit
               </button>
@@ -640,7 +612,7 @@ export default function Step2() {
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
                     {departureCities.map((city, i) => (
                       <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', background: '#e8f5ee', border: '1px solid #2d6a4f', borderRadius: '20px' }}>
-                        <span style={{ fontSize: '13px', color: '#1a3a2a', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>{city}</span>
+                        <span style={{ fontSize: '13px', color: 'var(--forest-deep)', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>{city}</span>
                         <button
                           onClick={() => setDepartureCities(departureCities.filter((_, idx) => idx !== i))}
                           style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#2d6a4f', fontSize: '14px', lineHeight: 1, padding: '0 0 0 2px' }}
@@ -663,7 +635,7 @@ export default function Step2() {
                       background: 'transparent',
                       padding: '8px 0',
                       fontSize: '14px',
-                      color: '#1a1a1a',
+                      color: 'var(--foreground)',
                       outline: 'none',
                       fontFamily: 'var(--font-cormorant), Georgia, serif',
                     }}
@@ -863,8 +835,8 @@ export default function Step2() {
                       onClick={() => generateDestinations()}
                       style={{
                         padding: '14px 32px',
-                        border: '1px solid #1a3a2a',
-                        background: '#1a3a2a',
+                        border: '1px solid var(--forest-deep)',
+                        background: 'var(--forest-deep)',
                         color: '#fafaf8',
                         fontSize: '10px',
                         letterSpacing: '0.25em',
@@ -901,7 +873,7 @@ export default function Step2() {
             }}
             style={{
               width: '100%', padding: '18px',
-              border: '1px solid #1a3a2a', background: '#1a3a2a',
+              border: '1px solid var(--forest-deep)', background: 'var(--forest-deep)',
               color: '#fafaf8', fontSize: '11px', letterSpacing: '0.25em',
               textTransform: 'uppercase', cursor: 'pointer',
               fontFamily: 'var(--font-cormorant), Georgia, serif',
@@ -919,7 +891,7 @@ export default function Step2() {
               <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" style={{ animation: 'spin 1.5s linear infinite', transformOrigin: 'center' }} />
             </svg>
             <p style={{ fontSize: '11px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#2d6a4f', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>Avanti is thinking...</p>
-            <p style={{ fontSize: '13px', color: '#9a9a8a', textAlign: 'center', maxWidth: '280px', lineHeight: 1.6, fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+            <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', textAlign: 'center', maxWidth: '280px', lineHeight: 1.6, fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
               Based on what you&apos;ve shared — weighing destinations against your vibe, budget, and deal breakers
             </p>
           </div>
@@ -950,7 +922,7 @@ export default function Step2() {
               onClick={() => router.push(`/trips/${tripId}/vote`)}
               style={{
                 width: '100%', padding: '16px',
-                border: 'none', background: '#1a3a2a', color: '#fafaf8',
+                border: 'none', background: 'var(--forest-deep)', color: '#fafaf8',
                 fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase',
                 cursor: 'pointer',
                 fontFamily: 'var(--font-cormorant), Georgia, serif',
@@ -966,17 +938,39 @@ export default function Step2() {
 
       <div style={{
         position: 'fixed', bottom: 0, left: 0, right: 0,
-        background: '#fff', borderTop: '0.5px solid #e4e4d8',
+        background: 'var(--card)', borderTop: '0.5px solid #e4e4d8',
         padding: '12px 24px 20px', zIndex: 50,
       }}>
         <div style={{ maxWidth: '600px', margin: '0 auto' }}>
+          {(chatMessages.length > 0 || chatLoading) && (
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }}>
+              <button
+                type="button"
+                onClick={() => setShowRefreshChatConfirm(true)}
+                disabled={chatLoading || refreshingChat}
+                style={{
+                  fontSize: '10px',
+                  letterSpacing: '0.15em',
+                  textTransform: 'uppercase',
+                  color: 'var(--muted-foreground)',
+                  background: 'none',
+                  border: 'none',
+                  cursor: chatLoading || refreshingChat ? 'default' : 'pointer',
+                  opacity: chatLoading || refreshingChat ? 0.4 : 1,
+                  ...s,
+                }}
+              >
+                Refresh chat
+              </button>
+            </div>
+          )}
           {chatMessages.length > 0 && (
             <div style={{ maxHeight: '160px', overflowY: 'auto', marginBottom: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {chatMessages.map((msg, i) => (
                 <div key={i} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
                   <div style={{
-                    maxWidth: '80%', padding: '8px 14px', borderRadius: '12px', fontSize: '13px', lineHeight: 1.5,
-                    background: msg.role === 'user' ? '#1a3a2a' : '#f5f5f0',
+                    maxWidth: '80%', padding: '8px 14px', borderRadius: '0', fontSize: '13px', lineHeight: 1.5,
+                    background: msg.role === 'user' ? 'var(--forest-deep)' : '#f5f5f0',
                     color: msg.role === 'user' ? '#fff' : '#1a1a1a',
                   }}>
                     {msg.content}
@@ -1001,14 +995,14 @@ export default function Step2() {
               style={{
                 flex: 1, border: 'none', borderBottom: '1px solid #d4d4c8',
                 background: 'transparent', padding: '8px 0', fontSize: '14px',
-                color: '#1a1a1a', outline: 'none', ...s,
+                color: 'var(--foreground)', outline: 'none', ...s,
               }}
             />
             <button
               onClick={sendChat}
               disabled={!chatInput.trim() || chatLoading}
               style={{
-                padding: '8px 18px', background: '#1a3a2a', border: 'none',
+                padding: '8px 18px', background: 'var(--forest-deep)', border: 'none',
                 color: '#fff', fontSize: '10px', letterSpacing: '0.15em',
                 textTransform: 'uppercase', cursor: 'pointer',
                 opacity: chatInput.trim() ? 1 : 0.4, borderRadius: '6px', ...s,
@@ -1019,6 +1013,35 @@ export default function Step2() {
           </div>
         </div>
       </div>
+
+      {showRefreshChatConfirm && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 60, padding: '24px' }}>
+          <div style={{ background: 'var(--cream)', borderRadius: '0', padding: '28px', width: '100%', maxWidth: '360px', textAlign: 'center', fontFamily: 'var(--font-cormorant), Georgia, serif', boxShadow: 'var(--shadow-box)' }}>
+            <p style={{ fontSize: '18px', fontWeight: 300, color: 'var(--foreground)', margin: '0 0 12px' }}>Refresh chat?</p>
+            <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', margin: '0 0 24px', lineHeight: 1.7 }}>
+              Are you sure? This will delete your chat history and any stored conversation data. This cannot be undone.
+            </p>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                type="button"
+                onClick={() => setShowRefreshChatConfirm(false)}
+                disabled={refreshingChat}
+                style={{ flex: 1, border: '1px solid var(--border)', padding: '12px', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--muted-foreground)', background: 'transparent', cursor: 'pointer', borderRadius: '0', fontFamily: 'var(--font-cormorant), Georgia, serif' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={refreshChat}
+                disabled={refreshingChat}
+                style={{ flex: 1, border: '1px solid var(--foreground)', padding: '12px', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#fff', background: 'var(--foreground)', cursor: 'pointer', borderRadius: '0', fontFamily: 'var(--font-cormorant), Georgia, serif', opacity: refreshingChat ? 0.5 : 1 }}
+              >
+                {refreshingChat ? 'Clearing...' : 'Refresh chat'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   )
 }

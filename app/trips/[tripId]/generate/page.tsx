@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import AvantiLogo from '../../../components/AvantiLogo'
+import { BackLink } from '../../../components/SubpageShell'
 
 const PROCESSING_STEPS = [
   { message: "Reading everyone's preferences...", duration: 3000 },
@@ -92,7 +92,14 @@ export default function GenerateOptions() {
   if (!trip) return null
 
   return (
-    <main style={{ minHeight: '100vh', background: '#0a2a1e', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px', ...s }}>
+    <main style={{ flex: 1, minHeight: '80vh', background: 'var(--forest-deep)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px', position: 'relative', ...s }}>
+      <div style={{ position: 'absolute', top: '24px', right: '24px', left: '24px', maxWidth: '520px', margin: '0 auto' }}>
+        <BackLink
+          href={`/trips/${tripId}`}
+          className="text-white/50 hover:text-white"
+          wrapperClassName="mb-0 flex justify-end"
+        />
+      </div>
       <div style={{ width: '100%', maxWidth: '520px', textAlign: 'center' }}>
 
         <div style={{ marginBottom: '48px' }}>
@@ -145,7 +152,7 @@ export default function GenerateOptions() {
             </div>
 
             {error && (
-              <div style={{ marginTop: '32px', padding: '16px', background: 'rgba(224,74,74,0.15)', borderRadius: '8px', border: '1px solid rgba(224,74,74,0.3)' }}>
+              <div style={{ marginTop: '32px', padding: '16px', background: 'rgba(224,74,74,0.15)', borderRadius: '0', border: '1px solid rgba(224,74,74,0.3)' }}>
                 <p style={{ fontSize: '13px', color: '#f09595', margin: 0 }}>Something went wrong: {error}</p>
                 <button onClick={startGeneration} style={{ marginTop: '12px', border: '1px solid #f09595', background: 'transparent', color: '#f09595', padding: '8px 16px', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', cursor: 'pointer', ...s }}>
                   Try again

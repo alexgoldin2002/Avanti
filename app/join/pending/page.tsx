@@ -1,18 +1,15 @@
 'use client'
 import { useSearchParams } from 'next/navigation'
-import { Suspense, useEffect, useState } from 'react'
+import { Suspense, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import AvantiLogo from '../../components/AvantiLogo'
-import Footer from '../../components/Footer'
+import { BackLink } from '../../components/SubpageShell'
 
 function PendingContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const tripName = searchParams.get('trip') || 'the trip'
   const tripId = searchParams.get('tripId')
-  const [checking, setChecking] = useState(false)
-  const s = { fontFamily: 'var(--font-cormorant), Georgia, serif' }
 
   useEffect(() => {
     const checkApproval = async () => {
@@ -25,15 +22,10 @@ function PendingContent() {
         .eq('user_id', user.id)
         .eq('status', 'approved')
 
-      if (tripId) {
-        query = query.eq('trip_id', tripId)
-      }
+      if (tripId) query = query.eq('trip_id', tripId)
 
       const { data: traveler } = await query.maybeSingle()
-
-      if (traveler) {
-        router.push(`/trips/${traveler.trip_id}`)
-      }
+      if (traveler) router.push(`/trips/${traveler.trip_id}`)
     }
 
     checkApproval()
@@ -42,32 +34,30 @@ function PendingContent() {
   }, [router, tripId])
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: '100%', background: 'var(--cream)', ...s }}>
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
-      <div style={{ width: '100%', maxWidth: '400px', textAlign: 'center' }}>
-        <div style={{ marginBottom: '40px' }}><AvantiLogo size="sm" /></div>
-        <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: '#faeeda', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', fontSize: '24px' }}>⏳</div>
-        <h2 style={{ fontSize: '28px', fontWeight: 300, color: 'var(--foreground)', margin: '0 0 10px', ...s }}>Waiting for approval</h2>
-        <p style={{ fontSize: '14px', color: 'var(--muted-foreground)', lineHeight: 1.7, margin: '0 0 8px' }}>
-          You've requested to join <strong style={{ color: 'var(--foreground)', fontWeight: 400 }}>{tripName}</strong>.
-        </p>
-        <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', lineHeight: 1.7 }}>
-          The trip organizer will approve your request shortly.
-        </p>
-        <div style={{ marginTop: '32px', padding: '16px', background: '#f5f5f0', borderRadius: '10px' }}>
-          <p style={{ fontSize: '12px', color: 'var(--muted-foreground)', margin: 0, lineHeight: 1.6 }}>
-            Checking for approval automatically — this page will update the moment you're approved.
-          </p>
-        </div>
-        <div style={{ marginTop: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-          <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--forest)', animation: 'pulse 1.5s infinite' }} />
-          <p style={{ fontSize: '11px', color: 'var(--muted-foreground)', margin: 0, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Waiting...</p>
-        </div>
+    <main className="mx-auto w-full max-w-md px-6 pt-10 pb-16 flex-1">
+      <BackLink href="/dashboard" />
+      <div className="flex min-h-[50vh] flex-col items-center justify-center text-center">
+      <div className="avanti-box mb-6 grid h-14 w-14 place-items-center rounded-none border border-border bg-forest-pale text-2xl">
+        ⏳
       </div>
-      <style>{`@keyframes pulse { 0%, 100% { opacity: 0.3; transform: scale(0.8); } 50% { opacity: 1; transform: scale(1.2); } }`}</style>
+      <h1 className="font-serif text-3xl font-light text-foreground mb-3">Waiting for approval</h1>
+      <p className="text-sm text-muted-foreground leading-relaxed mb-2">
+        You&apos;ve requested to join <strong className="font-normal text-foreground">{tripName}</strong>.
+      </p>
+      <p className="text-sm text-muted-foreground leading-relaxed">
+        The trip organizer will approve your request shortly.
+      </p>
+      <div className="avanti-box mt-8 w-full rounded-none border border-border bg-forest-mist px-5 py-4">
+        <p className="text-xs text-muted-foreground m-0 leading-relaxed">
+          Checking for approval automatically — this page will update the moment you&apos;re approved.
+        </p>
       </div>
-      <Footer />
-    </div>
+      <div className="mt-6 flex items-center justify-center gap-2">
+        <span className="h-1.5 w-1.5 rounded-full bg-forest animate-pulse" />
+        <p className="eyebrow text-muted-foreground m-0">Waiting...</p>
+      </div>
+      </div>
+    </main>
   )
 }
 

@@ -1,19 +1,84 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import AvantiLogo from '../../components/AvantiLogo'
 import SuitcaseLoader from '../../components/SuitcaseLoader'
-import Footer from '../../components/Footer'
+import { BackLink } from '../../components/SubpageShell'
 
-const STEP_COLORS = [
-  { bg: 'var(--accent-light)', border: '#8aad7a', numBg: '#1a4a0e', titleColor: '#0a2a06', subColor: '#1a5a32' },
-  { bg: '#eaf5e8', border: '#a8d49a', numBg: '#2a7a1e', titleColor: '#143a0a', subColor: '#235a14' },
-  { bg: '#eef5e4', border: '#b8d492', numBg: '#3a7a14', titleColor: '#1e3a08', subColor: '#2e5a10' },
-  { bg: '#f0f5e0', border: '#c8d880', numBg: '#5a7a0a', titleColor: '#2a3a04', subColor: '#3a5a08' },
-  { bg: '#f2f5dc', border: '#d4d878', numBg: '#6a7a10', titleColor: '#343a06', subColor: '#4a5a0c' },
-  { bg: '#f5f4d8', border: '#dcd870', numBg: '#7a7a14', titleColor: '#3a3a04', subColor: '#5a5a0c' },
-]
+type StepState = 'done' | 'active' | 'locked' | 'open'
+
+type StepDef = {
+  key: string
+  number: number
+  title: string
+  subtitle: string
+  icon: string
+  path: string
+  badge?: string | number
+}
+
+function StepCard({
+  step,
+  index,
+  state,
+  onClick,
+}: {
+  step: StepDef
+  index: number
+  state: StepState
+  onClick: () => void
+}) {
+  const isDone = state === 'done'
+  const isActive = state === 'active'
+  const isLocked = state === 'locked'
+
+  return (
+    <button
+      type="button"
+      disabled={isLocked}
+      onClick={onClick}
+      className={`group avanti-box relative flex h-32 flex-col justify-between rounded-none border px-5 py-4 text-left transition-all duration-200 ease-out hover:[box-shadow:var(--shadow-box-hover)] ${
+        isActive
+          ? 'border-forest-deep bg-card [box-shadow:var(--shadow-box-hover)]'
+          : isDone
+          ? 'border-border bg-card hover:-translate-y-px hover:border-forest-deep/30 cursor-pointer'
+          : isLocked
+          ? 'border-border bg-card/60 opacity-60 cursor-not-allowed shadow-none'
+          : 'border-border bg-card hover:-translate-y-0.5 cursor-pointer'
+      }`}
+    >
+      <div className="flex items-start justify-between">
+        <div className="flex items-center gap-2">
+          {isActive && <span className="h-2 w-2 rounded-full bg-forest-deep transition-transform duration-200 group-hover:scale-125" />}
+          <span className={`font-serif text-lg leading-tight transition-colors duration-200 ${!isLocked ? 'group-hover:text-forest-deep' : ''}`}>{step.title}</span>
+        </div>
+        <span
+          className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-[11px] transition-transform duration-200 ${!isLocked ? 'group-hover:scale-110' : ''} ${
+            isDone || isActive
+              ? 'bg-forest-deep text-cream'
+              : 'bg-secondary text-muted-foreground'
+          }`}
+        >
+          {isDone ? (
+            <i className="ti ti-check text-xs" aria-hidden />
+          ) : step.badge !== undefined ? (
+            step.badge
+          ) : (
+            <i className={`ti ${step.icon} text-xs`} aria-hidden />
+          )}
+        </span>
+      </div>
+      <div className="flex items-end justify-between">
+        <span className={`text-xs text-muted-foreground transition-colors duration-200 ${!isLocked ? 'group-hover:text-foreground/70' : ''}`}>{step.subtitle}</span>
+        {isLocked && <i className="ti ti-lock text-sm text-muted-foreground" aria-hidden />}
+      </div>
+      <span className="absolute left-5 top-1/2 -translate-y-1/2 text-[10px] tracking-widest text-muted-foreground/40">
+        {String(index + 1).padStart(2, '0')}
+      </span>
+    </button>
+  )
+}
 
 export default function TripDashboard() {
   const params = useParams()
@@ -27,7 +92,6 @@ export default function TripDashboard() {
   const [userId, setUserId] = useState<string | null>(null)
   const [showEditCover, setShowEditCover] = useState(false)
   const [extractingColors, setExtractingColors] = useState(false)
-  const [stepColors, setStepColors] = useState(STEP_COLORS)
   const [imagePosition, setImagePosition] = useState({ x: 50, y: 50, scale: 1 })
   const [showCropModal, setShowCropModal] = useState(false)
   const [tempPosition, setTempPosition] = useState({ x: 50, y: 50, scale: 1 })
@@ -77,7 +141,6 @@ export default function TripDashboard() {
         .order('created_at', { ascending: false })
       if (tripData) {
         setTrip(tripData)
-        if (tripData.step_colors) setStepColors(tripData.step_colors)
         if (tripData.image_position) setImagePosition(tripData.image_position)
       }
       if (travelerData) setTravelers(travelerData)
@@ -118,10 +181,9 @@ export default function TripDashboard() {
       const res = await fetch('/api/extract-colors', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ imageBase64 }) })
       const data = await res.json()
       if (data.colors && Array.isArray(data.colors) && data.colors.length >= 6) {
-        setStepColors(data.colors)
         await supabase.from('trips').update({ step_colors: data.colors }).eq('id', tripId)
       }
-    } catch (e) {}
+    } catch { /* optional */ }
     setExtractingColors(false)
     setShowEditCover(false)
   }
@@ -136,10 +198,9 @@ export default function TripDashboard() {
       const res = await fetch('/api/extract-colors', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ imageUrl: urlInput }) })
       const data = await res.json()
       if (data.colors && Array.isArray(data.colors) && data.colors.length >= 6) {
-        setStepColors(data.colors)
         await supabase.from('trips').update({ step_colors: data.colors }).eq('id', tripId)
       }
-    } catch (e) {}
+    } catch { /* optional */ }
     setExtractingColors(false)
     setUrlInput('')
   }
@@ -147,11 +208,10 @@ export default function TripDashboard() {
   const handleRemoveImage = async () => {
     await supabase.from('trips').update({ cover_image: null, step_colors: null }).eq('id', tripId)
     setTrip((t: any) => ({ ...t, cover_image: null }))
-    setStepColors(STEP_COLORS)
     setShowEditCover(false)
   }
 
-  const saveImagePosition = async (pos: any) => {
+  const saveImagePosition = async (pos: typeof imagePosition) => {
     await supabase.from('trips').update({ image_position: pos }).eq('id', tripId)
   }
 
@@ -169,26 +229,39 @@ export default function TripDashboard() {
     return 3
   }
 
-  const getStepStatus = (stepNum: number) => {
+  const getStepState = (stepNum: number): StepState => {
     const active = getActiveStep()
-    if (stepNum < active) return 'completed'
+    if (stepNum < active) return 'done'
     if (stepNum === active) return 'active'
+    if (stepNum === active + 1 && stepNum <= 3) return 'open'
     return 'locked'
   }
 
-  const steps = [
-    { number: 1, title: 'Invite guests', description: trip?.invites_closed ? `${travelers.filter(t => t.role !== 'organizer').length} guests · closed` : `${travelers.filter(t => t.role !== 'organizer').length} guests added`, path: `/trips/${tripId}/invite` },
-    { number: 2, title: 'Brainstorm', description: 'Plan with Avanti AI', path: `/trips/${tripId}/step2` },
-    { number: 3, title: 'Itinerary & flights', description: 'Routes and transport', path: `/trips/${tripId}/itinerary` },
-    { number: 4, title: 'Accommodation', description: 'Hotels and Airbnbs', path: `/trips/${tripId}/accommodation` },
-    { number: 5, title: 'Activities', description: 'Things to do', path: `/trips/${tripId}/activities` },
-    { number: 6, title: 'Dining', description: 'Restaurants and reservations', path: `/trips/${tripId}/dining` },
-  ]
+  const guestCount = travelers.filter(t => t.role !== 'organizer').length
 
-  const isStepClickable = (step: (typeof steps)[number], isLocked: boolean) => {
-    if (isLocked || step.disabled) return false
-    return true
-  }
+  const steps: StepDef[] = [
+    {
+      key: 'invite',
+      number: 1,
+      title: 'Invite guests',
+      subtitle: trip?.invites_closed ? `${guestCount} guests · closed` : `${guestCount} guests added`,
+      icon: 'ti-users',
+      path: `/trips/${tripId}/invite`,
+    },
+    {
+      key: 'brainstorm',
+      number: 2,
+      title: 'Brainstorm',
+      subtitle: 'Plan with Avanti AI',
+      icon: 'ti-brain',
+      path: `/trips/${tripId}/step2`,
+      badge: votes.length > 0 ? votes.length : undefined,
+    },
+    { key: 'itinerary', number: 3, title: 'Itinerary & flights', subtitle: 'Routes and transport', icon: 'ti-map', path: `/trips/${tripId}/itinerary` },
+    { key: 'stay', number: 4, title: 'Accommodation', subtitle: 'Hotels and Airbnbs', icon: 'ti-building', path: `/trips/${tripId}/accommodation` },
+    { key: 'activities', number: 5, title: 'Activities', subtitle: 'Things to do', icon: 'ti-compass', path: `/trips/${tripId}/activities` },
+    { key: 'dining', number: 6, title: 'Dining', subtitle: 'Restaurants and reservations', icon: 'ti-tools-kitchen-2', path: `/trips/${tripId}/dining` },
+  ]
 
   const getDaysLeft = (deadline: string) => {
     const diff = new Date(deadline).getTime() - Date.now()
@@ -197,8 +270,6 @@ export default function TripDashboard() {
     if (days === 1) return '1 day left'
     return `${days} days left`
   }
-
-  const s = { fontFamily: 'var(--font-cormorant), Georgia, serif' }
 
   if (loading) return <SuitcaseLoader message="Loading your trip" />
   if (!trip) return null
@@ -213,90 +284,140 @@ export default function TripDashboard() {
     return 'Dates TBD'
   }
 
+  const activeStep = getActiveStep()
+  const readyCount = travelers.filter(t => t.profile_complete).length
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: '100%', background: 'var(--cream)', ...s }}>
-      <div style={{ flex: 1, maxWidth: '720px', margin: '0 auto', padding: '32px 24px', width: '100%' }}>
+    <>
+      <main className="mx-auto w-full max-w-3xl px-6 sm:px-10 pt-24 sm:pt-32 pb-24 flex-1">
+        <BackLink href="/dashboard" />
 
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
-          <AvantiLogo size="sm" />
-          <button onClick={() => router.push('/dashboard')} style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--muted-foreground)', background: 'none', border: 'none', cursor: 'pointer', ...s }}>← All trips</button>
-        </div>
-
-        <div style={{ background: trip.cover_color || 'var(--forest-deep)', borderRadius: '12px', marginBottom: '16px', position: 'relative', overflow: 'hidden', minHeight: '140px', border: 'none', outline: 'none' }}>
+        {/* Hero card */}
+        <section
+          className="relative overflow-hidden rounded-none px-7 py-8 sm:px-10 sm:py-10 bg-forest-deep text-cream transition-shadow duration-300 hover:[box-shadow:var(--shadow-box-hover)]"
+          style={{ boxShadow: 'var(--shadow-elegant)' }}
+        >
           {trip.cover_image && (
             <>
-              <img src={trip.cover_image} alt="" draggable={false} style={{ position: 'absolute', top: '50%', left: '50%', transform: `translate(-50%, -50%) translate(${(50 - imagePosition.x) * 2}px, ${(50 - imagePosition.y) * 2}px) scale(${imagePosition.scale})`, width: '100%', height: '100%', objectFit: 'cover', transformOrigin: 'center center', pointerEvents: 'none' }} />
-              <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.1) 60%, transparent 100%)' }} />
+              <img
+                src={trip.cover_image}
+                alt=""
+                draggable={false}
+                className="absolute inset-0 h-full w-full object-cover pointer-events-none"
+                style={{
+                  transform: `translate(${(50 - imagePosition.x) * 0.5}%, ${(50 - imagePosition.y) * 0.5}%) scale(${imagePosition.scale})`,
+                  transformOrigin: 'center center',
+                }}
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-forest-deep/90 via-forest-deep/40 to-forest-deep/20" />
             </>
           )}
+
           {extractingColors && (
-            <div style={{ position: 'absolute', inset: 0, background: 'rgba(26,58,42,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 20, borderRadius: '12px' }}>
-              <svg width="40" height="34" viewBox="0 0 80 64" fill="none">
+            <div className="absolute inset-0 z-20 flex items-center justify-center bg-forest-deep/80">
+              <svg width="40" height="34" viewBox="0 0 80 64" fill="none" aria-hidden>
                 <style>{`@keyframes dc{0%{stroke-dashoffset:300;opacity:.3}60%{stroke-dashoffset:0;opacity:1}100%{stroke-dashoffset:-300;opacity:.3}}.sc{stroke-dasharray:300;animation:dc 2.4s ease-in-out infinite}`}</style>
                 <rect className="sc" x="6" y="18" width="68" height="40" rx="4" stroke="white" strokeWidth="2" fill="none"/>
                 <rect className="sc" x="26" y="6" width="28" height="14" rx="2" stroke="white" strokeWidth="2" fill="none" style={{ animationDelay: '0.2s' }}/>
-                <line className="sc" x1="6" y1="32" x2="74" y2="32" stroke="white" strokeWidth="1.5" style={{ animationDelay: '0.4s' }}/>
-                <circle cx="18" cy="62" r="3.5" stroke="white" strokeWidth="2" fill="none"/>
-                <circle cx="62" cy="62" r="3.5" stroke="white" strokeWidth="2" fill="none"/>
               </svg>
             </div>
           )}
-          <button onClick={() => setShowEditCover(!showEditCover)} style={{ position: 'absolute', top: '12px', right: '12px', background: 'rgba(255,255,255,0.15)', border: 'none', cursor: 'pointer', borderRadius: '50%', width: '30px', height: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10 }} title="Edit cover">
-            <i className="ti ti-photo-edit" style={{ fontSize: '14px', color: 'rgba(255,255,255,0.6)' }} aria-hidden="true" />
-          </button>
-          <div style={{ position: 'relative', zIndex: 1, padding: '24px 28px' }}>
-            <p style={{ fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', margin: '0 0 8px' }}>{trip.trip_type || 'Trip'}</p>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
-              {editingName ? (
-                <input value={nameInput} onChange={e => setNameInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleSaveName(); if (e.key === 'Escape') setEditingName(false) }} onBlur={handleSaveName} autoFocus style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderBottom: '1px solid rgba(255,255,255,0.5)', color: '#ffffff', fontSize: '32px', fontWeight: 300, outline: 'none', width: '100%', ...s, padding: '4px 0' }} />
-              ) : (
-                <>
-                  <h1 style={{ fontSize: '32px', fontWeight: 300, color: '#ffffff', margin: 0, letterSpacing: '-0.5px', lineHeight: 1.1, ...s }}>{trip.name}</h1>
-                  <button onClick={() => { setEditingName(true); setNameInput(trip.name) }} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', cursor: 'pointer', borderRadius: '50%', width: '26px', height: '26px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <i className="ti ti-pencil" style={{ fontSize: '12px', color: 'rgba(255,255,255,0.55)' }} aria-hidden="true" />
-                  </button>
-                  {isOrganizer && (
-                    <button
-                      onClick={() => router.push(`/trips/${tripId}/settings`)}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}
-                      title="Trip settings"
-                    >
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9a9a8a" strokeWidth="1.5" strokeLinecap="round">
-                        <circle cx="12" cy="12" r="3"/>
-                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-                      </svg>
-                    </button>
-                  )}
-                </>
+
+          <div className="relative flex items-start justify-between gap-6">
+            <div className="min-w-0">
+              <div className="text-[10px] tracking-[0.35em] uppercase text-cream/60">
+                {trip.trip_type || 'Friend group'}
+              </div>
+              <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+                {editingName ? (
+                  <input
+                    value={nameInput}
+                    onChange={e => setNameInput(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') handleSaveName(); if (e.key === 'Escape') setEditingName(false) }}
+                    onBlur={handleSaveName}
+                    autoFocus
+                    className="font-serif text-4xl sm:text-5xl text-cream leading-[1.05] bg-transparent border-b border-cream/50 outline-none w-full max-w-md"
+                  />
+                ) : (
+                  <>
+                    <h1 className="font-serif text-4xl sm:text-5xl text-cream leading-[1.05]">
+                      {trip.name}
+                    </h1>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => { setEditingName(true); setNameInput(trip.name) }}
+                        className="grid h-8 w-8 place-items-center rounded-full bg-cream/10 text-cream/70 transition-all duration-200 hover:bg-cream/25 hover:text-cream hover:scale-105"
+                        aria-label="Edit trip name"
+                      >
+                        <i className="ti ti-pencil text-[15px]" aria-hidden />
+                      </button>
+                      {isOrganizer && (
+                        <button
+                          type="button"
+                          onClick={() => router.push(`/trips/${tripId}/settings`)}
+                          className="grid h-8 w-8 place-items-center rounded-full bg-cream/10 text-cream/70 transition-all duration-200 hover:bg-cream/25 hover:text-cream hover:scale-105"
+                          aria-label="Trip settings"
+                        >
+                          <i className="ti ti-settings text-[15px]" aria-hidden />
+                        </button>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+              <div className="mt-4 inline-flex items-center gap-2 text-xs text-cream/55">
+                <i className="ti ti-calendar text-sm" aria-hidden />
+                {formatDates()}
+              </div>
+              {trip.destination && trip.destination !== 'TBD' && (
+                <p className="mt-2 text-xs text-cream/50">{trip.destination}</p>
               )}
             </div>
-            <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.65)', margin: '0 0 2px' }}>{trip.destination}</p>
-            <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.45)', margin: 0 }}>{formatDates()}</p>
+            <button
+              type="button"
+              onClick={() => setShowEditCover(!showEditCover)}
+              className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-cream/10 text-cream/80 transition-all duration-200 hover:bg-cream/25 hover:text-cream hover:scale-105"
+              aria-label="Edit cover image"
+            >
+              <i className="ti ti-photo text-base" aria-hidden />
+            </button>
           </div>
-        </div>
+        </section>
 
         {showEditCover && (
-          <div style={{ background: '#fff', border: '0.5px solid var(--border)', borderRadius: '12px', padding: '18px', marginBottom: '16px' }}>
-            <p style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--muted-foreground)', margin: '0 0 12px' }}>Change cover image</p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', border: '0.5px solid var(--border)', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', color: 'var(--foreground)', ...s }}>
-                <i className="ti ti-photo" style={{ fontSize: '16px', color: 'var(--muted-foreground)' }} aria-hidden="true" />
+          <div className="mt-4 rounded-none border border-border bg-card px-5 py-4">
+            <p className="text-[10px] tracking-[0.35em] uppercase text-muted-foreground mb-3">Change cover image</p>
+            <div className="flex flex-col gap-2">
+              <label className="flex items-center gap-3 rounded-none border border-border px-4 py-3 text-sm cursor-pointer hover:bg-secondary/50 transition">
+                <i className="ti ti-photo text-muted-foreground" aria-hidden />
                 Choose from photo library
-                <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFileUpload} />
+                <input type="file" accept="image/*" className="hidden" onChange={handleFileUpload} />
               </label>
               {trip.cover_image && (
-                <button onClick={() => { setTempPosition({...imagePosition}); setShowCropModal(true); setShowEditCover(false) }} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', border: '0.5px solid var(--border)', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', color: 'var(--foreground)', background: 'transparent', ...s }}>
-                  <i className="ti ti-arrows-move" style={{ fontSize: '16px', color: 'var(--muted-foreground)' }} aria-hidden="true" />
+                <button
+                  type="button"
+                  onClick={() => { setTempPosition({ ...imagePosition }); setShowCropModal(true); setShowEditCover(false) }}
+                  className="flex items-center gap-3 rounded-none border border-border px-4 py-3 text-sm text-left hover:bg-secondary/50 transition"
+                >
+                  <i className="ti ti-arrows-move text-muted-foreground" aria-hidden />
                   Adjust image position
                 </button>
               )}
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <input type="url" placeholder="Paste an image URL..." value={urlInput} onChange={e => setUrlInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleUrlImage()} style={{ flex: 1, borderBottom: '1px solid var(--border)', background: 'transparent', padding: '8px 0', fontSize: '13px', color: 'var(--foreground)', outline: 'none', ...s }} />
-                <button onClick={handleUrlImage} style={{ padding: '6px 12px', border: '1px solid var(--foreground)', background: 'var(--foreground)', color: 'var(--cream)', cursor: 'pointer', fontSize: '11px', borderRadius: '6px', ...s }}>Use</button>
+              <div className="flex gap-2">
+                <input
+                  type="url"
+                  placeholder="Paste an image URL..."
+                  value={urlInput}
+                  onChange={e => setUrlInput(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleUrlImage()}
+                  className="flex-1 border-b border-border bg-transparent py-2 text-sm outline-none font-serif"
+                />
+                <button type="button" onClick={handleUrlImage} className="rounded-none bg-forest-deep px-3 py-1.5 text-xs text-cream">Use</button>
               </div>
               {trip.cover_image && (
-                <button onClick={handleRemoveImage} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', border: '0.5px solid #f0d4d4', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', color: '#a32d2d', background: 'transparent', ...s }}>
-                  <i className="ti ti-trash" style={{ fontSize: '16px' }} aria-hidden="true" />
+                <button type="button" onClick={handleRemoveImage} className="flex items-center gap-3 rounded-none border border-destructive/30 px-4 py-3 text-sm text-destructive text-left">
+                  <i className="ti ti-trash" aria-hidden />
                   Remove cover image
                 </button>
               )}
@@ -304,161 +425,178 @@ export default function TripDashboard() {
           </div>
         )}
 
-        <div style={{ display: 'flex', gap: '0', marginBottom: '20px', borderBottom: '1px solid #e8e8e0' }}>
-          {[{ key: 'prep', label: 'Prep' }, { key: 'gametime', label: 'Game time' }].map(tab => (
-            <button key={tab.key} onClick={() => setActiveTab(tab.key as any)}
-              style={{ flex: 1, padding: '10px 0', fontSize: '11px', letterSpacing: '0.15em', textTransform: 'uppercase', color: activeTab === tab.key ? 'var(--foreground)' : 'var(--muted-foreground)', background: 'none', border: 'none', borderBottom: `2px solid ${activeTab === tab.key ? 'var(--forest)' : 'transparent'}`, cursor: 'pointer', ...s }}>
-              {tab.label}
+        {/* Tabs */}
+        <div className="mt-8 grid grid-cols-2 border-b border-border">
+          {(['prep', 'gametime'] as const).map(tab => (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => setActiveTab(tab)}
+              className={`group relative pb-3 text-xs tracking-[0.3em] uppercase transition-all duration-200 ${
+                activeTab === tab ? 'text-foreground' : 'text-muted-foreground hover:text-foreground/80'
+              }`}
+            >
+              {tab === 'prep' ? 'Prep' : 'Game time'}
+              <span
+                className={`absolute -bottom-px left-0 right-0 h-0.5 bg-foreground transition-all duration-200 origin-center ${
+                  activeTab === tab ? 'opacity-100 scale-x-100' : 'opacity-0 scale-x-75 group-hover:opacity-35 group-hover:scale-x-100'
+                }`}
+              />
             </button>
           ))}
         </div>
 
         {activeTab === 'prep' && (
           <>
-            <div style={{ marginBottom: '20px' }}>
-              <p style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--muted-foreground)', margin: '0 0 10px' }}>To do</p>
+            {/* To do */}
+            <section className="mt-8">
+              <div className="text-[10px] tracking-[0.35em] uppercase text-muted-foreground">To do</div>
               {votes.length === 0 ? (
-                <div style={{ padding: '14px 18px', background: '#fff', border: '0.5px solid var(--border)', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--border)', flexShrink: 0 }} />
-                  <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', margin: 0, fontStyle: 'italic', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>No actions at this time</p>
+                <div className="avanti-box mt-3 flex items-center gap-3 rounded-none border border-border bg-card px-5 py-4">
+                  <span className="h-2 w-2 rounded-full bg-sage" />
+                  <span className="font-serif italic text-muted-foreground">No actions at this time</span>
                 </div>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {votes.filter(vote => vote.id).map(vote => (
-                    <button key={vote.id} onClick={() => router.push(`/trips/${tripId}/vote/${vote.id}`)}
-                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', background: '#fff', border: '1.5px solid var(--forest)', borderRadius: '10px', cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--forest)' }} />
+                <div className="mt-3 flex flex-col gap-2">
+                  {votes.filter(v => v.id).map(vote => (
+                    <button
+                      key={vote.id}
+                      type="button"
+                      onClick={() => router.push(`/trips/${tripId}/vote/${vote.id}`)}
+                      className="group avanti-box flex items-center justify-between rounded-none border border-forest-deep bg-card px-5 py-4 text-left transition-all duration-200 ease-out hover:-translate-y-px hover:border-forest-deep hover:[box-shadow:var(--shadow-box-hover)]"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="h-2 w-2 rounded-full bg-forest-deep transition-transform duration-200 group-hover:scale-125" />
                         <div>
-                          <p style={{ fontSize: '13px', color: 'var(--foreground)', margin: '0 0 2px' }}>Vote — {vote.vote_type}</p>
-                          <p style={{ fontSize: '11px', color: 'var(--muted-foreground)', margin: 0 }}>{vote.voting_deadline ? getDaysLeft(vote.voting_deadline) : vote.submission_deadline ? getDaysLeft(vote.submission_deadline) : vote.deadline ? getDaysLeft(vote.deadline) : 'No deadline set'} · {(vote.options || []).length} options</p>
+                          <p className="font-serif text-base transition-colors duration-200 group-hover:text-forest-deep">Vote — {vote.vote_type}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {vote.voting_deadline ? getDaysLeft(vote.voting_deadline) : vote.submission_deadline ? getDaysLeft(vote.submission_deadline) : vote.deadline ? getDaysLeft(vote.deadline) : 'No deadline'} · {(vote.options || []).length} options
+                          </p>
                         </div>
                       </div>
-                      <span style={{ fontSize: '18px', color: 'var(--forest)' }}>›</span>
+                      <i className="ti ti-arrow-right text-sm text-muted-foreground transition-all duration-200 group-hover:translate-x-1 group-hover:text-foreground" aria-hidden />
                     </button>
                   ))}
                 </div>
               )}
-            </div>
+            </section>
 
+            {/* Decisions */}
             <button
+              type="button"
               onClick={() => router.push(`/trips/${tripId}/decisions`)}
-              style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', background: '#fff', border: '0.5px solid var(--border)', borderRadius: '10px', cursor: 'pointer', marginBottom: '20px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
-              <span style={{ fontSize: '14px', color: 'var(--foreground)', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>Decisions</span>
-              <span style={{ fontSize: '11px', color: 'var(--muted-foreground)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>View all →</span>
+              className="group avanti-box mt-3 flex w-full items-center justify-between rounded-none border border-border bg-card px-5 py-4 text-left transition-all duration-200 ease-out hover:-translate-y-px hover:border-forest-deep/40 hover:[box-shadow:var(--shadow-box-hover)]"
+            >
+              <span className="font-serif text-lg transition-colors duration-200 group-hover:text-forest-deep">Decisions</span>
+              <span className="inline-flex items-center gap-2 text-[11px] tracking-[0.3em] uppercase text-muted-foreground transition-colors duration-200 group-hover:text-foreground">
+                View all <i className="ti ti-arrow-right text-xs transition-transform duration-200 group-hover:translate-x-1" aria-hidden />
+              </span>
             </button>
 
-            <p style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--muted-foreground)', margin: '0 0 12px' }}>Planning steps</p>
+            {/* Planning steps */}
+            <section className="mt-8">
+              <div className="text-[10px] tracking-[0.35em] uppercase text-muted-foreground">Planning steps</div>
+              <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {steps.map((step, i) => {
+                  const state = getStepState(step.number)
+                  return (
+                    <StepCard
+                      key={step.key}
+                      step={step}
+                      index={i}
+                      state={state}
+                      onClick={() => state !== 'locked' && router.push(step.path)}
+                    />
+                  )
+                })}
+              </div>
+            </section>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginBottom: '10px' }}>
-              {steps.slice(0, 3).map((step, i) => {
-                const status = getStepStatus(step.number)
-                const colors = stepColors[i] || STEP_COLORS[i]
-                const isActive = status === 'active'
-                const isLocked = status === 'locked'
-                const isCompleted = status === 'completed'
-                const isClickable = isStepClickable(step, isLocked)
-                return (
-                  <div key={step.number} onClick={() => isClickable && router.push(step.path)}
-                    style={{ background: colors.bg, border: isActive ? `2px solid ${colors.numBg}` : `0.5px solid ${colors.border}`, borderRadius: '12px', padding: '16px', position: 'relative', cursor: isClickable ? 'pointer' : 'default', opacity: isLocked || step.disabled ? 0.42 : 1, transition: 'all 0.2s', minHeight: '90px', boxShadow: isActive ? `0 0 0 3px ${colors.bg}` : 'none' }}>
-                    <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: isCompleted ? colors.numBg : isLocked ? 'var(--border)' : isActive ? 'var(--forest-deep)' : colors.numBg, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '15px', fontWeight: 300, position: 'absolute', top: '10px', right: '10px', ...s }}>
-                      {isCompleted ? '✓' : step.number}
-                    </div>
-                    {isActive && <div style={{ position: 'absolute', top: '8px', left: '8px', width: '6px', height: '6px', borderRadius: '50%', background: 'var(--forest-deep)' }} />}
-                    <p style={{ fontSize: '14px', fontWeight: 400, color: colors.titleColor, margin: '0 0 4px', lineHeight: 1.2, paddingRight: '38px', ...s }}>{step.title}</p>
-                    <p style={{ fontSize: '11px', color: colors.subColor, margin: 0, lineHeight: 1.4, opacity: 0.85 }}>{step.description}</p>
-                    {isLocked && <i className="ti ti-lock" style={{ position: 'absolute', bottom: '10px', right: '10px', fontSize: '12px', color: 'var(--muted-foreground)', opacity: 0.5 }} aria-hidden="true" />}
-                  </div>
-                )
-              })}
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginBottom: '20px' }}>
-              {steps.slice(3).map((step, i) => {
-                const status = getStepStatus(step.number)
-                const colors = stepColors[i + 3] || STEP_COLORS[i + 3]
-                const isActive = status === 'active'
-                const isLocked = status === 'locked'
-                const isCompleted = status === 'completed'
-                const isClickable = isStepClickable(step, isLocked)
-                return (
-                  <div key={step.number} onClick={() => isClickable && router.push(step.path)}
-                    style={{ background: colors.bg, border: isActive ? `2px solid ${colors.numBg}` : `0.5px solid ${colors.border}`, borderRadius: '12px', padding: '16px', position: 'relative', cursor: isClickable ? 'pointer' : 'default', opacity: isLocked || step.disabled ? 0.42 : 1, transition: 'all 0.2s', minHeight: '90px' }}>
-                    <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: isCompleted ? colors.numBg : isLocked ? 'var(--border)' : isActive ? 'var(--forest-deep)' : colors.numBg, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '15px', fontWeight: 300, position: 'absolute', top: '10px', right: '10px', ...s }}>
-                      {isCompleted ? '✓' : step.number}
-                    </div>
-                    {isActive && <div style={{ position: 'absolute', top: '8px', left: '8px', width: '6px', height: '6px', borderRadius: '50%', background: 'var(--forest-deep)' }} />}
-                    <p style={{ fontSize: '14px', fontWeight: 400, color: colors.titleColor, margin: '0 0 4px', lineHeight: 1.2, paddingRight: '38px', ...s }}>{step.title}</p>
-                    <p style={{ fontSize: '11px', color: colors.subColor, margin: 0, lineHeight: 1.4, opacity: 0.85 }}>{step.description}</p>
-                    {isLocked && <i className="ti ti-lock" style={{ position: 'absolute', bottom: '10px', right: '10px', fontSize: '12px', color: 'var(--muted-foreground)', opacity: 0.5 }} aria-hidden="true" />}
-                  </div>
-                )
-              })}
-            </div>
-
-            <div style={{ borderLeft: '3px solid var(--forest)', borderRadius: '0 8px 8px 0', padding: '12px 16px', border: '0.5px solid #8aad7a', borderLeftColor: 'var(--forest)', borderLeftWidth: '3px', background: 'var(--cream)' }}>
-              <p style={{ fontSize: '12px', color: 'var(--muted-foreground)', margin: 0, ...s }}>
-                {travelers.length} traveler{travelers.length !== 1 ? 's' : ''} ·{' '}
-                {travelers.filter(t => t.profile_complete).length} of {travelers.length} ready ·{' '}
-                <span style={{ color: 'var(--forest)' }}>Step {getActiveStep()} active</span>
+            {/* Status pill */}
+            <div className="avanti-box mt-5 rounded-none border border-forest-deep/25 bg-card px-5 py-3.5">
+              <p className="font-serif italic text-sm text-foreground m-0">
+                {travelers.length} traveler{travelers.length !== 1 ? 's' : ''}
+                {' · '}
+                {readyCount} of {travelers.length} ready
+                {' · '}
+                Step {activeStep} active
               </p>
             </div>
+
           </>
         )}
 
         {activeTab === 'gametime' && (
-          <div style={{ textAlign: 'center', padding: '60px 0' }}>
-            <p style={{ fontSize: '32px', margin: '0 0 12px' }}>✈️</p>
-            <p style={{ fontSize: '18px', fontWeight: 300, color: 'var(--foreground)', margin: '0 0 8px', ...s }}>Game time coming soon</p>
-            <p style={{ fontSize: '13px', color: 'var(--muted-foreground)' }}>Morning briefings, live updates, and bill splitting — unlocks when your trip begins.</p>
+          <div className="mt-16 text-center">
+            <p className="text-4xl mb-4">✈️</p>
+            <p className="font-serif text-xl text-foreground mb-2">Game time coming soon</p>
+            <p className="text-sm text-muted-foreground max-w-sm mx-auto">
+              Morning briefings, live updates, and bill splitting — unlocks when your trip begins.
+            </p>
           </div>
         )}
+      </main>
 
-      </div>
+      <footer className="bg-forest-deep text-cream">
+        <div className="mx-auto max-w-4xl px-6 sm:px-10 py-8">
+          <div className="flex flex-wrap gap-x-8 gap-y-3 text-xs tracking-wider">
+            {[
+              { label: 'How it works', href: '/how-it-works' },
+              { label: 'About', href: '/about' },
+              { label: 'Contact', href: '/contact' },
+              { label: 'Dashboard', href: '/dashboard' },
+            ].map(l => (
+              <Link key={l.label} href={l.href} className="text-cream/70 transition hover:text-cream">
+                {l.label}
+              </Link>
+            ))}
+          </div>
+          <div className="mt-6 text-[11px] text-cream/40">2026 © Avanti. All rights reserved.</div>
+        </div>
+      </footer>
 
       {showCropModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: '24px' }}>
-          <div style={{ background: 'var(--cream)', borderRadius: '16px', padding: '24px', width: '100%', maxWidth: '480px', ...s }}>
-            <p style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--muted-foreground)', margin: '0 0 6px' }}>Adjust image</p>
-            <p style={{ fontSize: '12px', color: 'var(--muted-foreground)', margin: '0 0 12px' }}>Drag to reposition · Scroll to zoom</p>
-            <div style={{ position: 'relative', height: '200px', borderRadius: '10px', overflow: 'hidden', cursor: isTempDragging ? 'grabbing' : 'grab', marginBottom: '16px', userSelect: 'none', touchAction: 'none' }}
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-6">
+          <div className="w-full max-w-md rounded-none bg-background p-6 font-serif">
+            <p className="text-[10px] tracking-[0.35em] uppercase text-muted-foreground mb-1">Adjust image</p>
+            <p className="text-xs text-muted-foreground mb-4">Drag to reposition · Scroll to zoom</p>
+            <div
+              className="relative h-52 rounded-none overflow-hidden mb-4 select-none touch-none"
+              style={{ cursor: isTempDragging ? 'grabbing' : 'grab' }}
               onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); setIsTempDragging(true); setTempDragStart({ x: e.clientX, y: e.clientY, startPosX: tempPosition.x, startPosY: tempPosition.y }) }}
               onPointerMove={e => { if (!isTempDragging) return; const dx = (e.clientX - tempDragStart.x) * 0.15; const dy = (e.clientY - tempDragStart.y) * 0.15; setTempPosition(p => ({ ...p, x: Math.max(0, Math.min(100, tempDragStart.startPosX - dx)), y: Math.max(0, Math.min(100, tempDragStart.startPosY - dy)) })) }}
               onPointerUp={() => setIsTempDragging(false)}
               onPointerCancel={() => setIsTempDragging(false)}
-              onWheel={e => { e.preventDefault(); setTempPosition(p => ({ ...p, scale: Math.max(0.5, Math.min(3, p.scale - e.deltaY * 0.002)) })) }}>
-              <img src={trip.cover_image} draggable={false} style={{ position: 'absolute', top: '50%', left: '50%', transform: `translate(-50%, -50%) translate(${(50 - tempPosition.x) * 2}px, ${(50 - tempPosition.y) * 2}px) scale(${tempPosition.scale})`, width: '100%', height: '100%', objectFit: 'cover', pointerEvents: 'none', transformOrigin: 'center center' }} />
-              <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.4) 0%, transparent 60%)', pointerEvents: 'none' }} />
-              <p style={{ position: 'absolute', bottom: '10px', left: '14px', color: '#fff', fontSize: '13px', fontWeight: 300, margin: 0, ...s, pointerEvents: 'none' }}>{trip.name}</p>
+              onWheel={e => { e.preventDefault(); setTempPosition(p => ({ ...p, scale: Math.max(0.5, Math.min(3, p.scale - e.deltaY * 0.002)) })) }}
+            >
+              <img src={trip.cover_image} alt="" draggable={false} className="absolute inset-0 h-full w-full object-cover pointer-events-none" style={{ transform: `translate(${(50 - tempPosition.x) * 2}px, ${(50 - tempPosition.y) * 2}px) scale(${tempPosition.scale})`, transformOrigin: 'center center' }} />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent pointer-events-none" />
             </div>
-            <div style={{ marginBottom: '14px' }}>
-              <p style={{ fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--muted-foreground)', margin: '0 0 6px' }}>Zoom {Math.round(tempPosition.scale * 100)}%</p>
-              <input type="range" min="50" max="300" step="1" value={Math.round(tempPosition.scale * 100)} onChange={e => setTempPosition(p => ({ ...p, scale: parseInt(e.target.value) / 100 }))} style={{ width: '100%' }} />
+            <div className="mb-4">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">Zoom {Math.round(tempPosition.scale * 100)}%</p>
+              <input type="range" min="50" max="300" step="1" value={Math.round(tempPosition.scale * 100)} onChange={e => setTempPosition(p => ({ ...p, scale: parseInt(e.target.value) / 100 }))} className="w-full" />
             </div>
-            <div style={{ display: 'flex', gap: '10px' }}>
-              <button onClick={() => setShowCropModal(false)} style={{ flex: 1, border: '1px solid var(--border)', padding: '12px', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--muted-foreground)', background: 'transparent', cursor: 'pointer', borderRadius: '6px', ...s }}>Cancel</button>
-              <button onClick={async () => { setImagePosition(tempPosition); await saveImagePosition(tempPosition); setShowCropModal(false) }} style={{ flex: 1, border: '1px solid var(--foreground)', padding: '12px', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--foreground)', background: 'transparent', cursor: 'pointer', borderRadius: '6px', ...s }}>Apply →</button>
+            <div className="flex gap-3">
+              <button type="button" onClick={() => setShowCropModal(false)} className="flex-1 rounded-none border border-border py-3 text-[10px] tracking-[0.2em] uppercase text-muted-foreground">Cancel</button>
+              <button type="button" onClick={async () => { setImagePosition(tempPosition); await saveImagePosition(tempPosition); setShowCropModal(false) }} className="flex-1 rounded-none border border-foreground py-3 text-[10px] tracking-[0.2em] uppercase">Apply →</button>
             </div>
           </div>
         </div>
       )}
+
       {showWelcome && (
         <div
-          style={{ position: 'fixed', inset: 0, background: 'rgba(26,58,42,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '24px', cursor: 'pointer', fontFamily: 'var(--font-cormorant), Georgia, serif' }}
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-forest-deep/85 p-6 cursor-pointer"
           onClick={() => setShowWelcome(false)}
         >
-          <div style={{ textAlign: 'center', color: '#fff' }} onClick={e => e.stopPropagation()}>
-            <p style={{ fontSize: '11px', letterSpacing: '0.3em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', margin: '0 0 12px' }}>You're in</p>
-            <h2 style={{ fontSize: '38px', fontWeight: 300, color: '#ffffff', margin: '0 0 12px', letterSpacing: '-0.5px' }}>
-              Welcome{welcomeName ? `, ${welcomeName}` : ''}
-            </h2>
-            <p style={{ fontSize: '15px', color: 'rgba(255,255,255,0.7)', lineHeight: 1.7, margin: '0 0 32px', maxWidth: '300px' }}>
-              Now we go... Avanti!
-            </p>
-            <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)', letterSpacing: '0.15em', textTransform: 'uppercase' }}>Tap anywhere to continue</p>
+          <div className="text-center text-cream font-serif" onClick={e => e.stopPropagation()}>
+            <p className="text-[11px] tracking-[0.3em] uppercase text-cream/50 mb-3">You&apos;re in</p>
+            <h2 className="text-4xl font-light mb-3">Welcome{welcomeName ? `, ${welcomeName}` : ''}</h2>
+            <p className="text-base text-cream/70 leading-relaxed mb-8 max-w-xs mx-auto">Now we go... Avanti!</p>
+            <p className="text-[11px] text-cream/35 tracking-[0.15em] uppercase">Tap anywhere to continue</p>
           </div>
         </div>
       )}
-      <Footer />
-    </div>
+    </>
   )
 }

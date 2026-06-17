@@ -2,8 +2,8 @@
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import AvantiLogo from '../../../../components/AvantiLogo'
 import SuitcaseLoader from '../../../../components/SuitcaseLoader'
+import { BackLink } from '../../../../components/SubpageShell'
 
 export default function DestinationDeepDive() {
   const { tripId, destinationName } = useParams() as { tripId: string; destinationName: string }
@@ -34,10 +34,10 @@ export default function DestinationDeepDive() {
 
   if (loading) return <SuitcaseLoader message="Loading" />
   if (!card) return (
-    <main style={{ minHeight: '100vh', background: '#fafaf8', ...s }}>
+    <main style={{ minHeight: '100vh', background: 'transparent', ...s }}>
       <div style={{ maxWidth: '600px', margin: '0 auto', padding: '48px 24px' }}>
-        <button onClick={() => router.back()} style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#9a9a8a', background: 'none', border: 'none', cursor: 'pointer', ...s }}>← Back</button>
-        <p style={{ marginTop: '32px', color: '#9a9a8a' }}>Destination not found.</p>
+        <BackLink href={`/trips/${tripId}/destinations`} wrapperClassName="mb-8 flex justify-end" />
+        <p style={{ color: 'var(--muted-foreground)' }}>Destination not found.</p>
       </div>
     </main>
   )
@@ -59,24 +59,16 @@ export default function DestinationDeepDive() {
   ].filter(sec => sec.content?.trim())
 
   return (
-    <main style={{ minHeight: '100vh', background: '#fafaf8', ...s }}>
+    <main style={{ minHeight: '100vh', background: 'transparent', ...s }}>
       <div style={{ maxWidth: '640px', margin: '0 auto', padding: '48px 24px 80px' }}>
 
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '32px' }}>
-          <AvantiLogo size="sm" />
-          <button
-            onClick={() => router.back()}
-            style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#9a9a8a', background: 'none', border: 'none', cursor: 'pointer', ...s }}
-          >
-            ← Back
-          </button>
-        </div>
+        <BackLink href={`/trips/${tripId}/destinations`} wrapperClassName="mb-8 flex justify-end" />
 
-        <p style={{ fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', color: '#9a9a8a', margin: '0 0 6px' }}>{trip?.name}</p>
+        <p style={{ fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', color: 'var(--muted-foreground)', margin: '0 0 6px' }}>{trip?.name}</p>
 
         <div style={{ display: 'flex', gap: '8px', margin: '0 0 12px', flexWrap: 'wrap' }}>
           {card.highlight && (
-            <span style={{ fontSize: '11px', padding: '4px 12px', borderRadius: '20px', background: '#e8f5ee', color: '#1a3a2a', border: '0.5px solid #a8d4b8', ...s }}>
+            <span style={{ fontSize: '11px', padding: '4px 12px', borderRadius: '20px', background: '#e8f5ee', color: 'var(--forest-deep)', border: '0.5px solid #a8d4b8', ...s }}>
               {card.highlight}
             </span>
           )}
@@ -87,9 +79,9 @@ export default function DestinationDeepDive() {
           )}
         </div>
 
-        <h1 style={{ fontSize: '40px', fontWeight: 300, color: '#1a1a1a', margin: '0 0 6px', lineHeight: 1.15 }}>{card.name}</h1>
+        <h1 style={{ fontSize: '40px', fontWeight: 300, color: 'var(--foreground)', margin: '0 0 6px', lineHeight: 1.15 }}>{card.name}</h1>
         {card.cost && (
-          <p style={{ fontSize: '15px', color: '#9a9a8a', margin: '0 0 20px' }}>
+          <p style={{ fontSize: '15px', color: 'var(--muted-foreground)', margin: '0 0 20px' }}>
             {card.cost.match(/\$[\d,]+[–\-]\$?[\d,]+/)?.[0] || card.cost.split('\n')[0].slice(0, 40)} / person
           </p>
         )}
@@ -98,12 +90,12 @@ export default function DestinationDeepDive() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
           {sections.map((section, i) => (
             <div key={i}>
-              <p style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#9a9a8a', margin: '0 0 12px' }}>{section.label}</p>
+              <p style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--muted-foreground)', margin: '0 0 12px' }}>{section.label}</p>
               <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {parseBullets(section.content).map((bullet, bi) => (
                   <li key={bi} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
                     <span style={{ fontSize: '12px', color: '#c4c4b8', flexShrink: 0, marginTop: '3px' }}>—</span>
-                    <span style={{ fontSize: '15px', color: '#1a1a1a', lineHeight: 1.7 }}>{bullet}</span>
+                    <span style={{ fontSize: '15px', color: 'var(--foreground)', lineHeight: 1.7 }}>{bullet}</span>
                   </li>
                 ))}
               </ul>
@@ -114,7 +106,7 @@ export default function DestinationDeepDive() {
         <div style={{ marginTop: '48px' }}>
           <button
             onClick={() => router.push(`/trips/${tripId}/vote`)}
-            style={{ width: '100%', padding: '16px', border: 'none', background: '#1a3a2a', color: '#fafaf8', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', cursor: 'pointer', ...s }}
+            style={{ width: '100%', padding: '16px', border: 'none', background: 'var(--forest-deep)', color: '#fafaf8', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', cursor: 'pointer', ...s }}
           >
             Go to voting →
           </button>

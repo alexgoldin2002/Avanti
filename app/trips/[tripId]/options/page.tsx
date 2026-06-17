@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import AvantiLogo from '../../../components/AvantiLogo'
+import SubpageShell from '../../../components/SubpageShell'
 import SuitcaseLoader from '../../../components/SuitcaseLoader'
 
 export default function TripOptions() {
@@ -108,24 +108,13 @@ export default function TripOptions() {
   const optionList = options.options || []
 
   return (
-    <main style={{ minHeight: '100vh', background: 'var(--cream)', ...s }}>
-      <div style={{ maxWidth: '720px', margin: '0 auto', padding: '48px 24px' }}>
-
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '40px' }}>
-          <AvantiLogo size="sm" />
-          <button onClick={() => router.push(`/trips/${tripId}`)} style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--muted-foreground)', background: 'none', border: 'none', cursor: 'pointer', ...s }}>← Back to trip</button>
-        </div>
-
-        <div style={{ marginBottom: '40px' }}>
-          <p style={{ fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', color: 'var(--muted-foreground)', margin: '0 0 8px' }}>Trip options</p>
-          <h1 style={{ fontSize: '40px', fontWeight: 300, color: 'var(--foreground)', margin: '0 0 12px', letterSpacing: '-0.5px', lineHeight: 1.1 }}>{trip.name}</h1>
+    <SubpageShell backHref={`/trips/${tripId}`} eyebrow="Trip options" title={trip.name} maxWidth="max-w-3xl">
           {options.group_insights && (
-            <div style={{ background: 'var(--accent-light)', border: '0.5px solid #8aad7a', borderRadius: '10px', padding: '16px 20px' }}>
-              <p style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--forest)', margin: '0 0 6px' }}>Avanti noticed</p>
-              <p style={{ fontSize: '13px', color: '#0a2a06', margin: 0, lineHeight: 1.7 }}>{options.group_insights}</p>
+            <div className="avanti-box mb-8 rounded-none border border-forest/30 bg-forest-pale px-5 py-4">
+              <p className="eyebrow text-forest mb-2">Avanti noticed</p>
+              <p className="text-sm text-foreground m-0 leading-relaxed">{options.group_insights}</p>
             </div>
           )}
-        </div>
 
         <div style={{ display: 'flex', gap: '8px', marginBottom: '32px', overflowX: 'auto', paddingBottom: '4px' }}>
           {optionList.map((opt: any, i: number) => (
@@ -133,7 +122,7 @@ export default function TripOptions() {
               style={{ flexShrink: 0, padding: '10px 20px', border: `1.5px solid ${selectedOption === i ? optionColors[i].accent : 'var(--border)'}`, background: selectedOption === i ? optionColors[i].bg : 'transparent', color: selectedOption === i ? optionColors[i].dark : 'var(--muted-foreground)', cursor: 'pointer', borderRadius: '24px', fontSize: '13px', transition: 'all 0.2s', ...s }}>
               {i === (options.recommended_option || 0) && <span style={{ fontSize: '10px', marginRight: '6px' }}>★</span>}
               Option {String.fromCharCode(65 + i)}
-              {getVotesForOption(i) > 0 && <span style={{ marginLeft: '8px', background: optionColors[i].accent, color: '#fff', borderRadius: '10px', padding: '1px 7px', fontSize: '10px' }}>{getVotesForOption(i)}</span>}
+              {getVotesForOption(i) > 0 && <span style={{ marginLeft: '8px', background: optionColors[i].accent, color: '#fff', borderRadius: '0', padding: '1px 7px', fontSize: '10px' }}>{getVotesForOption(i)}</span>}
             </button>
           ))}
         </div>
@@ -144,9 +133,9 @@ export default function TripOptions() {
           const voteCount = getVotesForOption(selectedOption)
           return (
             <div>
-              <div style={{ background: colors.accent, borderRadius: '12px', padding: '28px 32px', marginBottom: '20px', position: 'relative', overflow: 'hidden' }}>
+              <div style={{ background: colors.accent, borderRadius: '0', padding: '28px 32px', marginBottom: '20px', position: 'relative', overflow: 'hidden' }}>
                 {selectedOption === (options.recommended_option || 0) && (
-                  <div style={{ position: 'absolute', top: '16px', right: '16px', background: 'rgba(255,255,255,0.2)', padding: '4px 12px', borderRadius: '12px' }}>
+                  <div style={{ position: 'absolute', top: '16px', right: '16px', background: 'rgba(255,255,255,0.2)', padding: '4px 12px', borderRadius: '0' }}>
                     <span style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.9)' }}>★ Avanti recommends</span>
                   </div>
                 )}
@@ -169,7 +158,7 @@ export default function TripOptions() {
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
-                <div style={{ background: colors.bg, border: `0.5px solid ${colors.border}`, borderRadius: '10px', padding: '18px' }}>
+                <div style={{ background: colors.bg, border: `0.5px solid ${colors.border}`, borderRadius: '0', padding: '18px' }}>
                   <p style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: colors.accent, margin: '0 0 12px' }}>Cost breakdown</p>
                   {Object.entries(opt.cost_breakdown || {}).map(([key, val]: any) => (
                     <div key={key} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
@@ -184,7 +173,7 @@ export default function TripOptions() {
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   {(opt.perks_flagged?.length ?? 0) > 0 && (
-                    <div style={{ background: '#eaf3de', border: '0.5px solid #97c459', borderRadius: '10px', padding: '16px' }}>
+                    <div style={{ background: '#eaf3de', border: '0.5px solid #97c459', borderRadius: '0', padding: '16px' }}>
                       <p style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#3b6d11', margin: '0 0 8px' }}>Perks flagged</p>
                       {opt.perks_flagged.map((perk: string, i: number) => (
                         <p key={i} style={{ fontSize: '11px', color: '#27500a', margin: '0 0 4px', lineHeight: 1.5 }}>✓ {perk}</p>
@@ -192,7 +181,7 @@ export default function TripOptions() {
                     </div>
                   )}
                   {(opt.warnings?.length ?? 0) > 0 && (
-                    <div style={{ background: '#faeeda', border: '0.5px solid #ef9f27', borderRadius: '10px', padding: '16px' }}>
+                    <div style={{ background: '#faeeda', border: '0.5px solid #ef9f27', borderRadius: '0', padding: '16px' }}>
                       <p style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#854f0b', margin: '0 0 8px' }}>Watch out</p>
                       {opt.warnings.map((w: string, i: number) => (
                         <p key={i} style={{ fontSize: '11px', color: '#633806', margin: '0 0 4px', lineHeight: 1.5 }}>⚠ {w}</p>
@@ -203,7 +192,7 @@ export default function TripOptions() {
               </div>
 
               {(opt.sub_group_routing?.length ?? 0) > 0 && (
-                <div style={{ background: '#fff', border: `0.5px solid ${colors.border}`, borderRadius: '10px', padding: '18px', marginBottom: '12px' }}>
+                <div style={{ background: 'var(--card)', border: `0.5px solid ${colors.border}`, borderRadius: '0', padding: '18px', marginBottom: '12px' }}>
                   <p style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: colors.accent, margin: '0 0 12px' }}>Routing by sub-group</p>
                   {opt.sub_group_routing.map((route: string, i: number) => (
                     <p key={i} style={{ fontSize: '12px', color: '#3a3a3a', margin: '0 0 6px', lineHeight: 1.6, paddingLeft: '12px', borderLeft: `2px solid ${colors.border}` }}>{route}</p>
@@ -212,7 +201,7 @@ export default function TripOptions() {
               )}
 
               {(opt.itinerary_highlights?.length ?? 0) > 0 && (
-                <div style={{ background: '#fff', border: `0.5px solid ${colors.border}`, borderRadius: '10px', padding: '18px', marginBottom: '12px' }}>
+                <div style={{ background: 'var(--card)', border: `0.5px solid ${colors.border}`, borderRadius: '0', padding: '18px', marginBottom: '12px' }}>
                   <p style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: colors.accent, margin: '0 0 12px' }}>Itinerary highlights</p>
                   {opt.itinerary_highlights.map((day: string, i: number) => (
                     <p key={i} style={{ fontSize: '12px', color: '#3a3a3a', margin: '0 0 8px', lineHeight: 1.6 }}>{day}</p>
@@ -220,7 +209,7 @@ export default function TripOptions() {
                 </div>
               )}
 
-              <div style={{ background: '#fff', border: `0.5px solid ${colors.border}`, borderRadius: '10px', padding: '18px', marginBottom: '20px' }}>
+              <div style={{ background: 'var(--card)', border: `0.5px solid ${colors.border}`, borderRadius: '0', padding: '18px', marginBottom: '20px' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                   <div>
                     <p style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: colors.accent, margin: '0 0 6px' }}>Best for</p>
@@ -233,7 +222,7 @@ export default function TripOptions() {
                 </div>
               </div>
 
-              <div style={{ background: colors.bg, border: `0.5px solid ${colors.border}`, borderRadius: '10px', padding: '20px', marginBottom: '12px' }}>
+              <div style={{ background: colors.bg, border: `0.5px solid ${colors.border}`, borderRadius: '0', padding: '20px', marginBottom: '12px' }}>
                 <p style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: colors.accent, margin: '0 0 12px' }}>
                   Vote for this option {voteCount > 0 && `· ${voteCount} vote${voteCount !== 1 ? 's' : ''} so far`}
                 </p>
@@ -249,7 +238,7 @@ export default function TripOptions() {
 
               <div style={{ marginBottom: '20px' }}>
                 <button onClick={() => setShowAdjust(showAdjust === selectedOption ? null : selectedOption)}
-                  style={{ width: '100%', border: '0.5px solid var(--border)', padding: '12px', fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--muted-foreground)', background: '#fff', cursor: 'pointer', borderRadius: '8px', ...s }}>
+                  style={{ width: '100%', border: '0.5px solid var(--border)', padding: '12px', fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--muted-foreground)', background: 'var(--card)', cursor: 'pointer', borderRadius: '0', ...s }}>
                   ✦ Ask Avanti to adjust this option
                 </button>
                 {showAdjust === selectedOption && (
@@ -258,7 +247,7 @@ export default function TripOptions() {
                     <textarea value={adjustText} onChange={e => setAdjustText(e.target.value)}
                       placeholder="Can we skip the morning museum and sleep in? Is there a ferry instead of the flight from Athens? What if we added an extra night in Paros?"
                       rows={3}
-                      style={{ width: '100%', border: '0.5px solid var(--border)', background: '#fff', padding: '10px 12px', fontSize: '13px', color: 'var(--foreground)', outline: 'none', resize: 'none', borderRadius: '6px', marginBottom: '10px', ...s }} />
+                      style={{ width: '100%', border: '0.5px solid var(--border)', background: 'var(--card)', padding: '10px 12px', fontSize: '13px', color: 'var(--foreground)', outline: 'none', resize: 'none', borderRadius: '6px', marginBottom: '10px', ...s }} />
                     <div style={{ display: 'flex', gap: '8px' }}>
                       <button onClick={() => setShowAdjust(null)} style={{ flex: 1, border: '0.5px solid var(--border)', padding: '10px', fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--muted-foreground)', background: 'transparent', cursor: 'pointer', ...s }}>Cancel</button>
                       <button onClick={() => handleAdjust(selectedOption)} disabled={adjusting || !adjustText.trim()}
@@ -275,7 +264,7 @@ export default function TripOptions() {
                   <p style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--muted-foreground)', margin: '0 0 12px' }}>Organizer — lock in this option</p>
                   <p style={{ fontSize: '12px', color: 'var(--muted-foreground)', margin: '0 0 14px', lineHeight: 1.6 }}>Once you lock an option, Phase A is complete. The trip details update and Phase B (booking) begins.</p>
                   <button onClick={() => handleLock(selectedOption)} disabled={locking}
-                    style={{ width: '100%', background: 'var(--forest-deep)', border: 'none', padding: '16px', fontSize: '11px', letterSpacing: '0.25em', textTransform: 'uppercase', color: '#ffffff', cursor: 'pointer', borderRadius: '8px', opacity: locking ? 0.6 : 1, ...s }}>
+                    style={{ width: '100%', background: 'var(--forest-deep)', border: 'none', padding: '16px', fontSize: '11px', letterSpacing: '0.25em', textTransform: 'uppercase', color: '#ffffff', cursor: 'pointer', borderRadius: '0', opacity: locking ? 0.6 : 1, ...s }}>
                     {locking ? 'Locking...' : `Lock in Option ${String.fromCharCode(65 + selectedOption)} →`}
                   </button>
                 </div>
@@ -283,7 +272,6 @@ export default function TripOptions() {
             </div>
           )
         })()}
-      </div>
-    </main>
+    </SubpageShell>
   )
 }

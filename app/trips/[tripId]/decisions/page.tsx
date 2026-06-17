@@ -2,9 +2,8 @@
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import AvantiLogo from '../../../components/AvantiLogo'
 import SuitcaseLoader from '../../../components/SuitcaseLoader'
-import Footer from '../../../components/Footer'
+import SubpageShell from '../../../components/SubpageShell'
 
 export default function DecisionsPage() {
   const params = useParams()
@@ -46,87 +45,77 @@ export default function DecisionsPage() {
     return `${mins}m left`
   }
 
-  const statusConfig: Record<string, { label: string, bg: string, color: string, dot: string }> = {
-    pending_setup: { label: 'Not started', bg: '#f5f5f0', color: 'var(--muted-foreground)', dot: 'var(--border)' },
-    submission_open: { label: 'Accepting options', bg: '#faeeda', color: '#854f0b', dot: '#ef9f27' },
-    voting_open: { label: 'Voting open', bg: 'var(--accent-light)', color: 'var(--forest)', dot: 'var(--forest)' },
-    closed: { label: 'Decided', bg: '#f5f5f0', color: 'var(--muted-foreground)', dot: 'var(--muted-foreground)' },
+  const statusConfig: Record<string, { label: string; bg: string; color: string; dot: string }> = {
+    pending_setup: { label: 'Not started', bg: 'var(--forest-mist)', color: 'var(--muted-foreground)', dot: 'var(--border)' },
+    submission_open: { label: 'Accepting options', bg: 'oklch(0.94 0.04 85)', color: 'oklch(0.45 0.08 85)', dot: 'oklch(0.65 0.12 85)' },
+    voting_open: { label: 'Voting open', bg: 'var(--forest-pale)', color: 'var(--forest)', dot: 'var(--forest-deep)' },
+    closed: { label: 'Decided', bg: 'var(--forest-mist)', color: 'var(--muted-foreground)', dot: 'var(--muted-foreground)' },
   }
 
   const currentVotes = votes.filter(v => getVoteStatus(v) !== 'closed')
   const pastVotes = votes.filter(v => getVoteStatus(v) === 'closed')
   const displayVotes = activeTab === 'current' ? currentVotes : pastVotes
 
-  const s = { fontFamily: 'var(--font-cormorant), Georgia, serif' }
-
   if (loading) return <SuitcaseLoader message="Loading decisions" />
   if (!trip) return null
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: '100%', background: 'var(--cream)', ...s }}>
-      <div style={{ flex: 1, maxWidth: '560px', margin: '0 auto', padding: '40px 24px', width: '100%' }}>
-
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '32px' }}>
-          <AvantiLogo size="sm" />
-          <button onClick={() => router.push(`/trips/${tripId}`)} style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--muted-foreground)', background: 'none', border: 'none', cursor: 'pointer', ...s }}>← Back to trip</button>
-        </div>
-
-        <h1 style={{ fontSize: '36px', fontWeight: 300, color: 'var(--foreground)', margin: '0 0 6px', ...s }}>Decisions</h1>
-        <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', margin: '0 0 24px' }}>{trip.name}</p>
-
-        <div style={{ display: 'flex', borderBottom: '1px solid #e8e8e0', marginBottom: '24px' }}>
-          {[{ key: 'current', label: `Current (${currentVotes.length})` }, { key: 'past', label: `Past (${pastVotes.length})` }].map(tab => (
-            <button key={tab.key} onClick={() => setActiveTab(tab.key as any)}
-              style={{ flex: 1, padding: '10px 0', fontSize: '11px', letterSpacing: '0.15em', textTransform: 'uppercase', color: activeTab === tab.key ? 'var(--foreground)' : 'var(--muted-foreground)', background: 'none', border: 'none', borderBottom: `2px solid ${activeTab === tab.key ? 'var(--forest)' : 'transparent'}`, cursor: 'pointer', ...s }}>
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        {displayVotes.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '60px 0' }}>
-            <p style={{ fontSize: '18px', fontWeight: 300, color: 'var(--foreground)', margin: '0 0 8px', ...s }}>
-              {activeTab === 'current' ? 'No active votes' : 'No past votes yet'}
-            </p>
-            <p style={{ fontSize: '13px', color: 'var(--muted-foreground)' }}>
-              {activeTab === 'current' ? 'Votes will appear here when options are sent to the group.' : 'Completed votes will show up here.'}
-            </p>
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {displayVotes.map(vote => {
-              const status = getVoteStatus(vote)
-              const config = statusConfig[status]
-              const relevantDeadline = status === 'submission_open' ? vote.submission_deadline : status === 'voting_open' ? vote.voting_deadline : null
-              const timeLeft = relevantDeadline ? getTimeLeft(relevantDeadline) : null
-
-              return (
-                <button key={vote.id}
-                  onClick={() => router.push(`/trips/${tripId}/vote/${vote.id}`)}
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', background: '#fff', border: '0.5px solid var(--border)', borderRadius: '12px', cursor: 'pointer', textAlign: 'left', transition: 'border-color 0.2s', width: '100%', ...s }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: config.dot, flexShrink: 0 }} />
-                    <div>
-                      <p style={{ fontSize: '16px', color: 'var(--foreground)', margin: '0 0 3px', ...s }}>{vote.vote_type}</p>
-                      {timeLeft && (
-                        <p style={{ fontSize: '11px', color: config.color, margin: 0 }}>{timeLeft}</p>
-                      )}
-                      {status === 'closed' && vote.winner && (
-                        <p style={{ fontSize: '11px', color: 'var(--muted-foreground)', margin: 0 }}>→ {vote.winner.title}</p>
-                      )}
-                    </div>
-                  </div>
-                  <span style={{ fontSize: '11px', color: config.color, background: config.bg, padding: '4px 10px', borderRadius: '20px', letterSpacing: '0.05em', flexShrink: 0, marginLeft: '12px' }}>
-                    {config.label}
-                  </span>
-                </button>
-              )
-            })}
-          </div>
-        )}
-
+    <SubpageShell backHref={`/trips/${tripId}`} title="Decisions" subtitle={trip.name}>
+      <div className="flex border-b border-border mb-6">
+        {[{ key: 'current', label: `Current (${currentVotes.length})` }, { key: 'past', label: `Past (${pastVotes.length})` }].map(tab => (
+          <button
+            key={tab.key}
+            type="button"
+            onClick={() => setActiveTab(tab.key as 'current' | 'past')}
+            className={`avanti-tab ${activeTab === tab.key ? 'avanti-tab-active' : 'avanti-tab-inactive'}`}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
-      <Footer />
-    </div>
+
+      {displayVotes.length === 0 ? (
+        <div className="avanti-box rounded-none border border-border bg-forest-mist px-6 py-12 text-center">
+          <p className="font-serif text-lg text-foreground mb-2">
+            {activeTab === 'current' ? 'No active votes' : 'No past votes yet'}
+          </p>
+          <p className="text-sm text-muted-foreground m-0">
+            {activeTab === 'current' ? 'Votes will appear here when options are sent to the group.' : 'Completed votes will show up here.'}
+          </p>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {displayVotes.map(vote => {
+            const status = getVoteStatus(vote)
+            const config = statusConfig[status]
+            const relevantDeadline = status === 'submission_open' ? vote.submission_deadline : status === 'voting_open' ? vote.voting_deadline : null
+            const timeLeft = relevantDeadline ? getTimeLeft(relevantDeadline) : null
+
+            return (
+              <button
+                key={vote.id}
+                type="button"
+                onClick={() => router.push(`/trips/${tripId}/vote/${vote.id}`)}
+                className="avanti-box group flex w-full items-center justify-between rounded-none border border-border bg-card px-5 py-4 text-left transition-all duration-200 hover:-translate-y-px hover:border-forest-deep/30 hover:[box-shadow:var(--shadow-box-hover)]"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="h-2 w-2 rounded-full shrink-0" style={{ background: config.dot }} />
+                  <div>
+                    <p className="font-serif text-base text-foreground m-0 mb-0.5 transition-colors group-hover:text-forest-deep">{vote.vote_type}</p>
+                    {timeLeft && <p className="text-[11px] m-0" style={{ color: config.color }}>{timeLeft}</p>}
+                    {status === 'closed' && vote.winner && (
+                      <p className="text-[11px] text-muted-foreground m-0">→ {vote.winner.title}</p>
+                    )}
+                  </div>
+                </div>
+                <span className="text-[11px] tracking-wide shrink-0 ml-3 px-2.5 py-1 rounded-none" style={{ color: config.color, background: config.bg }}>
+                  {config.label}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </SubpageShell>
   )
 }

@@ -5,7 +5,7 @@ export default function Footer({ variant = 'app', paddingTop = 48 }: { variant?:
   if (variant === 'marketing') {
     return (
       <footer className="bg-forest-deep text-cream">
-        <div className="px-6 md:px-10 py-16 grid gap-12 md:grid-cols-4 border-b border-cream/15 max-w-[1200px] mx-auto">
+        <div className="px-6 md:px-10 py-16 grid gap-12 md:grid-cols-4 border-b border-cream/15">
           <div className="md:col-span-2">
             <div className="font-serif tracking-[0.45em] text-xl">AVANTI</div>
             <p className="mt-6 font-serif italic text-2xl md:text-3xl max-w-md leading-snug text-cream/90">
@@ -29,7 +29,7 @@ export default function Footer({ variant = 'app', paddingTop = 48 }: { variant?:
             </ul>
           </div>
         </div>
-        <div className="px-6 md:px-10 py-6 flex flex-col md:flex-row justify-between gap-3 text-xs text-cream/60 max-w-[1200px] mx-auto">
+        <div className="px-6 md:px-10 py-6 flex flex-col md:flex-row justify-between gap-3 text-xs text-cream/60">
           <p>2026 © Avanti. All rights reserved.</p>
           <div className="flex gap-6 eyebrow">
             <Link href="/terms" className="hover:opacity-80">Terms</Link>

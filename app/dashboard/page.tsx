@@ -1,193 +1,361 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import AvantiLogo from '../components/AvantiLogo'
-import SuitcaseLoader from '../components/SuitcaseLoader'
-import Footer from '../components/Footer'
 
-const DESTINATION_IMAGES: Record<string, string> = {
-  default: 'https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=800&q=80',
-  greece: 'https://images.unsplash.com/photo-1570077188670-e3a8d69ac5ff?w=800&q=80',
-  mykonos: 'https://images.unsplash.com/photo-1601581875309-fafbf2d3ed3a?w=800&q=80',
-  paris: 'https://images.unsplash.com/photo-1499856871958-5b9627545d1a?w=800&q=80',
-  italy: 'https://images.unsplash.com/photo-1516483638261-f4dbaf036963?w=800&q=80',
-  rome: 'https://images.unsplash.com/photo-1552832230-c0197dd311b5?w=800&q=80',
-  sicily: 'https://images.unsplash.com/photo-1523365154888-8a758819b722?w=800&q=80',
-  tokyo: 'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=800&q=80',
-  dubai: 'https://images.unsplash.com/photo-1512453979798-5ea266f8880c?w=800&q=80',
-  barcelona: 'https://images.unsplash.com/photo-1539037116277-4db20889f2d4?w=800&q=80',
-  london: 'https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?w=800&q=80',
-  croatia: 'https://images.unsplash.com/photo-1555990538-c88f6e05c059?w=800&q=80',
-  florence: 'https://images.unsplash.com/photo-1538935732373-f7a495fea3f6?w=800&q=80',
-  amalfi: 'https://images.unsplash.com/photo-1533587851505-d119e13fa0d7?w=800&q=80',
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+type Trip = {
+  id: string
+  name: string
+  destination: string | null
+  start_date: string | null
+  end_date: string | null
+  cover_image: string | null
+  dates_locked: boolean
 }
 
-function getTripImage(destination: string, coverImage?: string) {
-  if (coverImage) return coverImage
-  const d = destination.toLowerCase()
-  for (const key of Object.keys(DESTINATION_IMAGES)) {
-    if (d.includes(key)) return DESTINATION_IMAGES[key]
-  }
-  return DESTINATION_IMAGES.default
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function getGreeting() {
+  const hour = new Date().getHours()
+  if (hour < 12) return 'Good morning'
+  if (hour < 18) return 'Good afternoon'
+  return 'Good evening'
 }
 
-function getTripColor(index: number): string {
-  const greens = [
-    'var(--forest-deep)',
-    '#2d4a3e',
-    '#1e4a2a',
-    '#3a4a1e',
-    '#2a4a1a',
-    '#1a4a38',
-    '#384a1a',
-    '#1a3a34',
-  ]
-  return greens[index % greens.length]
+// ─── Shared styles ─────────────────────────────────────────────────────────────
+
+const EYEBROW: React.CSSProperties = {
+  fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif',
+  fontSize: '0.7rem',
+  letterSpacing: '0.28em',
+  textTransform: 'uppercase',
+  fontWeight: 400,
 }
 
-export default function Dashboard() {
-  const router = useRouter()
-  const [loading, setLoading] = useState(true)
-  const [profile, setProfile] = useState<any>(null)
-  const [trips, setTrips] = useState<any[]>([])
-  const [dragIndex, setDragIndex] = useState<number | null>(null)
-  const [tripOrder, setTripOrder] = useState<string[]>([])
-  const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [showModal, setShowModal] = useState(false)
+const FOREST_DEEP = 'var(--forest-deep)'
+const FOREST     = 'var(--forest)'
+const CREAM      = 'var(--cream)'
+const CREAM_15   = 'oklch(0.985 0.008 90 / 0.15)'
+const CREAM_40   = 'oklch(0.985 0.008 90 / 0.4)'
+const CREAM_50   = 'oklch(0.985 0.008 90 / 0.5)'
+const CREAM_60   = 'oklch(0.985 0.008 90 / 0.6)'
+const CREAM_80   = 'oklch(0.985 0.008 90 / 0.8)'
+const CREAM_90   = 'oklch(0.985 0.008 90 / 0.9)'
+const CREAM_80_HEX = 'oklch(0.985 0.008 90 / 0.8)'
+const FOREST_DEEP_70 = 'oklch(0.22 0.04 150 / 0.7)'
+const FOREST_DEEP_80 = 'oklch(0.22 0.04 150 / 0.8)'
+
+const PAGE_X = 56
+
+
+function Greeting({ firstName }: { firstName: string }) {
+  const greeting = getGreeting()
+
+  return (
+    <section style={{ padding: `48px ${PAGE_X}px 24px` }}>
+      <h1 style={{
+        fontFamily: 'Cormorant Garamond, ui-serif, Georgia, serif',
+        fontStyle: 'italic',
+        fontWeight: 400,
+        color: CREAM,
+        fontSize: 'clamp(1.25rem, 2vw, 1.5rem)',
+        margin: 0,
+        letterSpacing: '-0.01em',
+      }}>
+        {greeting},{' '}
+        <span style={{ fontStyle: 'normal', letterSpacing: '0.15em' }}>
+          {firstName.toUpperCase()}
+        </span>
+      </h1>
+    </section>
+  )
+}
+
+function TripCard({ trip }: { trip: Trip }) {
+  const [hovered, setHovered] = useState(false)
+  const hasImage = !!trip.cover_image
+
+  return (
+    <Link
+      href={`/trips/${trip.id}`}
+      prefetch
+      className="relative z-10 block"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        position: 'relative',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
+        aspectRatio: '16 / 10',
+        overflow: 'hidden',
+        background: hovered && !hasImage ? CREAM : FOREST,
+        borderRight: `1px solid ${CREAM_15}`,
+        borderBottom: `1px solid ${CREAM_15}`,
+        textDecoration: 'none',
+        transition: 'background 0.3s',
+        cursor: 'pointer',
+      }}
+    >
+      {hasImage && (
+        <>
+          <img
+            src={trip.cover_image!}
+            alt={trip.name}
+            style={{
+              position: 'absolute', inset: 0, width: '100%', height: '100%',
+              objectFit: 'cover',
+              filter: hovered ? 'grayscale(0)' : 'grayscale(100%)',
+              transition: 'filter 0.3s',
+            }}
+          />
+          <div style={{
+            position: 'absolute', inset: 0,
+            background: hovered ? CREAM_80_HEX : FOREST_DEEP_70,
+            transition: 'background 0.3s',
+          }} />
+        </>
+      )}
+
+      <h3 style={{
+        position: 'relative',
+        zIndex: 10,
+        fontFamily: 'Cormorant Garamond, ui-serif, Georgia, serif',
+        fontWeight: 400,
+        color: hovered ? FOREST_DEEP : CREAM,
+        fontSize: 'clamp(1.5rem, 2.4vw, 2.25rem)',
+        letterSpacing: '-0.01em',
+        lineHeight: 1.05,
+        margin: 0,
+        padding: '0 24px',
+        textAlign: 'center',
+        transition: 'color 0.3s',
+      }}>
+        {trip.name}
+      </h3>
+    </Link>
+  )
+}
+
+function TripGrid({ trips, onNewTrip }: { trips: Trip[]; onNewTrip: () => void }) {
+  const [modalHovered, setModalHovered] = useState(false)
+
+  return (
+    <section style={{ flex: 1, padding: `40px ${PAGE_X}px 80px` }}>
+      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 32 }}>
+        <span style={{ ...EYEBROW, color: CREAM_80 }}>MY TRIPS</span>
+        <button
+          onClick={onNewTrip}
+          onMouseEnter={() => setModalHovered(true)}
+          onMouseLeave={() => setModalHovered(false)}
+          style={{
+            ...EYEBROW,
+            color: modalHovered ? FOREST_DEEP : CREAM,
+            background: modalHovered ? CREAM : 'transparent',
+            border: `1px solid ${CREAM_40}`,
+            padding: '10px 20px',
+            cursor: 'pointer',
+            transition: 'all 0.2s',
+            letterSpacing: '0.28em',
+          }}
+        >
+          + NEW TRIP
+        </button>
+      </div>
+
+      {trips.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '80px 0' }}>
+          <p style={{
+            fontFamily: 'Cormorant Garamond, ui-serif, Georgia, serif',
+            fontStyle: 'italic',
+            color: CREAM_50,
+            fontSize: '1.125rem',
+          }}>
+            No trips yet. Create your first one.
+          </p>
+        </div>
+      ) : (
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
+          borderTop: `1px solid ${CREAM_15}`,
+          borderLeft: `1px solid ${CREAM_15}`,
+        }}>
+          {trips.map(trip => (
+            <TripCard key={trip.id} trip={trip} />
+          ))}
+        </div>
+      )}
+    </section>
+  )
+}
+
+function Footer() {
+  return (
+    <footer style={{
+      background: FOREST_DEEP,
+      color: CREAM,
+      borderTop: `1px solid ${CREAM_15}`,
+      fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif',
+    }}>
+      <div style={{
+        padding: `64px ${PAGE_X}px`,
+        display: 'grid',
+        gridTemplateColumns: '2fr 1fr 1fr',
+        gap: 48,
+      }}>
+        {/* Brand column */}
+        <div>
+          <div style={{
+            fontFamily: 'Cormorant Garamond, ui-serif, Georgia, serif',
+            letterSpacing: '0.45em',
+            fontSize: '1.2rem',
+            fontStyle: 'oblique 8deg',
+          }}>
+            AVANTI
+          </div>
+          <p style={{
+            marginTop: 24,
+            fontFamily: 'Cormorant Garamond, ui-serif, Georgia, serif',
+            fontStyle: 'italic',
+            fontSize: 'clamp(1.25rem, 2vw, 1.75rem)',
+            maxWidth: 360,
+            lineHeight: 1.35,
+            color: CREAM_90,
+          }}>
+            You bring the people. Avanti brings the plan.
+          </p>
+        </div>
+
+        {/* Explore */}
+        <div>
+          <div style={{ ...EYEBROW, color: CREAM_60, marginBottom: 16 }}>Explore</div>
+          <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {[
+              { label: 'How it works', href: '/how-it-works' },
+              { label: 'About', href: '/about' },
+              { label: 'Contact', href: '/contact' },
+              { label: 'Dashboard', href: '/dashboard' },
+            ].map(item => (
+              <li key={item.label}>
+                <Link href={item.href}
+                  style={{ color: CREAM, textDecoration: 'none', fontSize: '0.875rem', opacity: 0.85 }}
+                  onMouseEnter={e => (e.currentTarget.style.opacity = '0.5')}
+                  onMouseLeave={e => (e.currentTarget.style.opacity = '0.85')}
+                >
+                  {item.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {/* Connect */}
+        <div>
+          <div style={{ ...EYEBROW, color: CREAM_60, marginBottom: 16 }}>Connect</div>
+          <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {['Instagram', 'TikTok'].map(label => (
+              <li key={label}>
+                <a href="#" style={{ color: CREAM, textDecoration: 'none', fontSize: '0.875rem', opacity: 0.85 }}
+                  onMouseEnter={e => (e.currentTarget.style.opacity = '0.5')}
+                  onMouseLeave={e => (e.currentTarget.style.opacity = '0.85')}
+                >
+                  {label}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+
+      {/* Bottom bar */}
+      <div style={{
+        padding: `24px ${PAGE_X}px`,
+        borderTop: `1px solid ${CREAM_15}`,
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+      }}>
+        <p style={{ fontSize: '0.75rem', color: CREAM_60, margin: 0 }}>
+          2026 © Avanti. All rights reserved.
+        </p>
+        <div style={{ display: 'flex', gap: 24 }}>
+          {[
+            { label: 'Terms', href: '/terms' },
+            { label: 'Privacy', href: '/privacy' },
+            { label: 'Cookies', href: '/cookies' },
+          ].map(item => (
+            <Link key={item.label} href={item.href}
+              style={{ ...EYEBROW, color: CREAM_60, textDecoration: 'none', fontSize: '0.7rem' }}
+              onMouseEnter={e => (e.currentTarget.style.opacity = '0.5')}
+              onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+            >
+              {item.label}
+            </Link>
+          ))}
+        </div>
+      </div>
+    </footer>
+  )
+}
+
+// ─── Create Trip Modal ─────────────────────────────────────────────────────────
+
+function CreateTripModal({ onClose, onCreated, profile }: {
+  onClose: () => void
+  onCreated: () => void
+  profile: any
+}) {
+  const [form, setForm] = useState({
+    name: '',
+    date_type: 'exact',
+    start_date: '',
+    end_date: '',
+    date_range_start: '',
+    date_range_end: '',
+    destination_type: 'single',
+    destination: '',
+  })
   const [creating, setCreating] = useState(false)
   const [showErrors, setShowErrors] = useState(false)
-  const [showNameHelper, setShowNameHelper] = useState(false)
-  const [nameHelperInput, setNameHelperInput] = useState('')
-  const [nameSuggestions, setNameSuggestions] = useState<string[]>([])
-  const [loadingNames, setLoadingNames] = useState(false)
-  const defaultForm = {
-    name: '',
-    cover_image: '',
-  }
-  const [form, setForm] = useState(defaultForm)
-  const [tripType, setTripType] = useState('')
-  const [isEventCentered, setIsEventCentered] = useState(false)
-  const [eventName, setEventName] = useState('')
-  const [eventDate, setEventDate] = useState('')
-  const [eventLocation, setEventLocation] = useState('')
-
-  const resetModalState = () => {
-    setShowErrors(false)
-    setTripType('')
-    setIsEventCentered(false)
-    setEventName('')
-    setEventDate('')
-    setEventLocation('')
-  }
-
-  const closeModal = () => {
-    setShowModal(false)
-    setForm(defaultForm)
-    resetModalState()
-  }
-
-  const setFormAndDraft = (updater: typeof defaultForm | ((f: typeof defaultForm) => typeof defaultForm)) => {
-    setForm(f => {
-      const updated = typeof updater === 'function' ? updater(f) : updater
-      localStorage.setItem('avanti_new_trip_draft', JSON.stringify(updated))
-      return updated
-    })
-  }
-
-  useEffect(() => {
-    if (showModal) {
-      const draft = localStorage.getItem('avanti_new_trip_draft')
-      if (draft) {
-        try {
-          setForm({ ...defaultForm, ...JSON.parse(draft) })
-        } catch {}
-      }
-    }
-  }, [showModal])
-
-  useEffect(() => {
-    const load = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/'); return }
-      const { data: prof } = await supabase.from('user_profiles').select('*').eq('user_id', user.id).maybeSingle()
-      if (!prof?.profile_complete) { router.push('/profile'); return }
-      setProfile(prof)
-
-      const { data: organizerTrips } = await supabase
-        .from('trips')
-        .select('*')
-        .eq('organizer_id', user.id)
-
-      const { data: memberTravelers } = await supabase
-        .from('travelers')
-        .select('trip_id')
-        .eq('user_id', user.id)
-        .eq('status', 'approved')
-
-      const memberTripIds = memberTravelers?.map(t => t.trip_id) || []
-
-      let memberTrips: any[] = []
-      if (memberTripIds.length > 0) {
-        const { data } = await supabase
-          .from('trips')
-          .select('*')
-          .in('id', memberTripIds)
-        memberTrips = data || []
-      }
-
-      const allTrips = [...(organizerTrips || []), ...memberTrips]
-      allTrips.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-      const uniqueTrips = allTrips.filter((trip, index, self) =>
-        index === self.findIndex(t => t.id === trip.id)
-      )
-      setTrips(uniqueTrips)
-      setTripOrder(uniqueTrips.map((t: any) => t.id))
-      setLoading(false)
-    }
-    load()
-  }, [router])
-
-  const handleSignOut = async () => {
-    await supabase.auth.signOut()
-    router.push('/')
-  }
 
   const canCreate = () => {
-    return form.name.trim().length > 0 && tripType.length > 0
-  }
-
-  const getNameSuggestions = async () => {
-    if (!nameHelperInput.trim()) return
-    setLoadingNames(true)
-    try {
-      const res = await fetch('/api/suggest-names', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ description: nameHelperInput })
-      })
-      const { names } = await res.json()
-      setNameSuggestions(names)
-    } catch (e) {}
-    setLoadingNames(false)
+    if (!form.name.trim()) return false
+    if (form.date_type === 'exact' && (!form.start_date || !form.end_date)) return false
+    if (form.date_type === 'range' && (!form.date_range_start || !form.date_range_end)) return false
+    return true
   }
 
   const handleCreate = async () => {
-    if (!canCreate()) return
+    if (!canCreate()) { setShowErrors(true); return }
     setCreating(true)
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
+    const destination = form.destination_type === 'flexible' ? 'Flexible' : form.destination
+
     const tripData: any = {
       name: form.name,
-      trip_type: tripType,
-      is_event_centered: isEventCentered,
-      event_name: isEventCentered ? eventName : null,
-      event_date: isEventCentered ? eventDate : null,
-      event_location: isEventCentered ? eventLocation : null,
-      cover_image: form.cover_image || null,
+      destination: destination || 'TBD',
+      destination_type: form.destination_type,
+      date_type: form.date_type,
+      cover_color: 'oklch(0.22 0.04 150)',
       organizer_id: user.id,
       status: 'planning',
+    }
+
+    if (form.date_type === 'exact') {
+      tripData.start_date = form.start_date
+      tripData.end_date = form.end_date
+      tripData.dates_locked = true
+    } else {
+      tripData.date_range_start = form.date_range_start
+      tripData.date_range_end = form.date_range_end
+      tripData.dates_locked = false
     }
 
     const { data: trip, error } = await supabase.from('trips').insert(tripData).select().single()
@@ -202,273 +370,240 @@ export default function Dashboard() {
       profile_complete: true,
     })
 
-    localStorage.removeItem('avanti_new_trip_draft')
-    closeModal()
-    router.push(`/trips/${trip.id}`)
+    setCreating(false)
+    onCreated()
+  }
+
+  const inputStyle: React.CSSProperties = {
+    width: '100%',
+    borderBottom: '1px solid #d4d4c8',
+    background: 'transparent',
+    padding: '8px 0',
+    fontSize: '14px',
+    color: FOREST_DEEP,
+    outline: 'none',
+    fontFamily: 'Cormorant Garamond, ui-serif, Georgia, serif',
+    boxSizing: 'border-box',
+  }
+  const labelStyle: React.CSSProperties = {
+    ...EYEBROW,
+    color: '#9a9a8a',
+    display: 'block',
+    marginBottom: 6,
+  }
+  const toggleBtn = (active: boolean): React.CSSProperties => ({
+    flex: 1, padding: '8px', fontSize: '11px',
+    letterSpacing: '0.08em', textTransform: 'uppercase',
+    border: `1px solid ${active ? FOREST_DEEP : '#d4d4c8'}`,
+    background: active ? FOREST_DEEP : 'transparent',
+    color: active ? CREAM : '#6a6a6a',
+    cursor: 'pointer',
+    fontFamily: 'Cormorant Garamond, ui-serif, Georgia, serif',
+  })
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0,
+      background: 'rgba(0,0,0,0.6)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      zIndex: 50, padding: 24,
+    }}>
+      <div style={{
+        background: '#fafaf8', width: '100%', maxWidth: 520,
+        maxHeight: '90vh', overflowY: 'auto', padding: 40,
+        position: 'relative',
+        fontFamily: 'Cormorant Garamond, ui-serif, Georgia, serif',
+      }}>
+        <button onClick={onClose} style={{
+          position: 'absolute', top: 16, right: 20,
+          background: 'none', border: 'none', cursor: 'pointer',
+          fontSize: 22, color: '#9a9a8a',
+        }}>×</button>
+
+        <p style={{ ...EYEBROW, color: '#9a9a8a', marginBottom: 8 }}>New trip</p>
+        <h2 style={{ fontSize: 28, fontWeight: 300, color: FOREST_DEEP, margin: '0 0 32px' }}>
+          Where are we going?
+        </h2>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+          {/* Name */}
+          <div>
+            <label style={labelStyle}>Trip name</label>
+            <input
+              style={inputStyle}
+              value={form.name}
+              onChange={e => setForm({ ...form, name: e.target.value })}
+              placeholder="Mama Mia Summer"
+              autoFocus
+            />
+            {showErrors && !form.name.trim() && (
+              <p style={{ fontSize: 11, color: '#c0392b', margin: '4px 0 0' }}>Please enter a trip name</p>
+            )}
+          </div>
+
+          {/* Dates */}
+          <div>
+            <label style={labelStyle}>Dates</label>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+              <button style={toggleBtn(form.date_type === 'exact')} onClick={() => setForm({ ...form, date_type: 'exact' })}>Exact dates</button>
+              <button style={toggleBtn(form.date_type === 'range')} onClick={() => setForm({ ...form, date_type: 'range' })}>Flexible range</button>
+            </div>
+            {form.date_type === 'exact' ? (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label style={{ ...labelStyle, fontSize: '9px' }}>Start date</label>
+                  <input type="date" style={inputStyle} value={form.start_date} onChange={e => setForm({ ...form, start_date: e.target.value })} />
+                </div>
+                <div>
+                  <label style={{ ...labelStyle, fontSize: '9px' }}>End date</label>
+                  <input type="date" style={inputStyle} value={form.end_date} onChange={e => setForm({ ...form, end_date: e.target.value })} />
+                </div>
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label style={{ ...labelStyle, fontSize: '9px' }}>Earliest start</label>
+                  <input type="date" style={inputStyle} value={form.date_range_start} onChange={e => setForm({ ...form, date_range_start: e.target.value })} />
+                </div>
+                <div>
+                  <label style={{ ...labelStyle, fontSize: '9px' }}>Latest end</label>
+                  <input type="date" style={inputStyle} value={form.date_range_end} onChange={e => setForm({ ...form, date_range_end: e.target.value })} />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Destination */}
+          <div>
+            <label style={labelStyle}>Destination</label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
+              {[
+                { value: 'single', label: 'Single city' },
+                { value: 'multi', label: 'Multi-city' },
+                { value: 'flexible', label: 'Still deciding' },
+              ].map(opt => (
+                <button
+                  key={opt.value}
+                  onClick={() => setForm({ ...form, destination_type: opt.value })}
+                  style={{
+                    textAlign: 'left', padding: '10px 14px', fontSize: 12,
+                    border: `1px solid ${form.destination_type === opt.value ? FOREST_DEEP : '#d4d4c8'}`,
+                    background: form.destination_type === opt.value ? '#f5f5f0' : 'transparent',
+                    color: FOREST_DEEP, cursor: 'pointer',
+                    fontFamily: 'Cormorant Garamond, ui-serif, Georgia, serif',
+                  }}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            {form.destination_type !== 'flexible' && (
+              <input
+                style={inputStyle}
+                value={form.destination}
+                onChange={e => setForm({ ...form, destination: e.target.value })}
+                placeholder="Mykonos, Greece"
+              />
+            )}
+          </div>
+
+          {/* Submit */}
+          <button
+            onClick={handleCreate}
+            disabled={creating}
+            style={{
+              width: '100%',
+              border: `1px solid ${FOREST_DEEP}`,
+              padding: 16,
+              ...EYEBROW,
+              fontSize: '10px',
+              color: FOREST_DEEP,
+              background: 'transparent',
+              cursor: canCreate() ? 'pointer' : 'default',
+              opacity: canCreate() && !creating ? 1 : 0.4,
+              transition: 'all 0.2s',
+            }}
+          >
+            {creating ? 'Creating...' : 'Create trip →'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Main page ─────────────────────────────────────────────────────────────────
+
+export default function Dashboard() {
+  const router = useRouter()
+  const [loading, setLoading] = useState(true)
+  const [profile, setProfile] = useState<any>(null)
+  const [trips, setTrips] = useState<Trip[]>([])
+  const [showModal, setShowModal] = useState(false)
+
+  const loadData = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { router.push('/'); return }
+
+    const { data: prof } = await supabase
+      .from('user_profiles').select('*').eq('user_id', user.id).maybeSingle()
+    if (!prof?.profile_complete) { router.push('/profile'); return }
+    setProfile(prof)
+
+    const { data: tripData } = await supabase
+      .from('trips').select('*').eq('organizer_id', user.id)
+      .order('created_at', { ascending: false })
+    setTrips(tripData || [])
+    setLoading(false)
+  }
+
+  useEffect(() => { loadData() }, [])
+
+  if (loading) {
+    return (
+      <div style={{
+        minHeight: '100vh', background: FOREST_DEEP,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>
+        <svg width="48" height="40" viewBox="0 0 80 64" fill="none">
+          <style>{`
+            @keyframes drawCase {
+              0%   { stroke-dashoffset: 300; opacity: 0.2; }
+              60%  { stroke-dashoffset: 0;   opacity: 1;   }
+              100% { stroke-dashoffset: -300; opacity: 0.2; }
+            }
+            .sc { stroke-dasharray: 300; animation: drawCase 2.4s ease-in-out infinite; }
+          `}</style>
+          <rect className="sc" x="6" y="18" width="68" height="40" rx="4" stroke={CREAM} strokeWidth="1.5" fill="none"/>
+          <rect className="sc" x="26" y="6" width="28" height="14" rx="2" stroke={CREAM} strokeWidth="1.5" fill="none" style={{ animationDelay: '0.2s' }}/>
+          <line className="sc" x1="6" y1="32" x2="74" y2="32" stroke={CREAM} strokeWidth="1" style={{ animationDelay: '0.4s' }}/>
+          <circle cx="18" cy="62" r="3.5" stroke={CREAM} strokeWidth="1.5" fill="none"/>
+          <circle cx="62" cy="62" r="3.5" stroke={CREAM} strokeWidth="1.5" fill="none"/>
+        </svg>
+      </div>
+    )
   }
 
   const firstName = profile?.full_name?.split(' ')[0] || 'there'
-  const hour = new Date().getHours()
-  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
-
-  const s = { fontFamily: 'var(--font-cormorant), Georgia, serif' }
-  const inputStyle = { width: '100%', borderBottom: '1px solid var(--border)', background: 'transparent', padding: '8px 0', fontSize: '14px', color: 'var(--foreground)', outline: 'none', ...s }
-  const labelStyle = { fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase' as const, color: 'var(--muted-foreground)', display: 'block', marginBottom: '6px' }
-
-  if (loading) return <SuitcaseLoader message="Welcome back" />
-
-  const orderedTrips = tripOrder.map((id: string) => trips.find((t: any) => t.id === id)).filter(Boolean)
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: '100%', background: 'var(--cream)', ...s }}>
-      <div style={{ display: 'flex', flex: 1 }}>
-        <div style={{ flex: 1, padding: '48px 40px' }}>
-
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '48px' }}>
-            <AvantiLogo size="sm" />
-            <button onClick={() => router.push('/features')} style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--muted-foreground)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
-              Features
-            </button>
-            <button onClick={() => setSidebarOpen(!sidebarOpen)}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--forest-deep)', ...s }}>
-              {sidebarOpen ? 'Close ×' : `${firstName} ☰`}
-            </button>
-          </div>
-
-          <div style={{ marginBottom: '48px' }}>
-            <p style={{ fontSize: '13px', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--muted-foreground)', marginBottom: '8px' }}>{greeting}</p>
-            <h1 style={{ fontSize: '48px', fontWeight: 300, color: 'var(--forest-deep)', letterSpacing: '-0.01em', lineHeight: 1.1, margin: 0 }}>{firstName}</h1>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
-            <p style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--muted-foreground)', margin: 0 }}>My trips</p>
-            <button onClick={() => setShowModal(true)}
-              style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--forest)', background: 'none', border: '1px solid var(--forest)', padding: '8px 16px', cursor: 'pointer', ...s }}>
-              + New trip
-            </button>
-          </div>
-
-          {trips.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '80px 0' }}>
-              <p style={{ fontSize: '40px', margin: '0 0 16px' }}>✈️</p>
-              <p style={{ fontSize: '20px', fontWeight: 300, color: 'var(--foreground)', marginBottom: '8px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>No trips yet</p>
-              <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', marginBottom: '24px', lineHeight: 1.7 }}>Create your first trip and Avanti handles the rest.<br/>Or ask a friend to send you an invite link.</p>
-              <button onClick={() => setShowModal(true)}
-                style={{ border: '1px solid var(--forest-deep)', background: 'var(--forest-deep)', color: '#fff', padding: '14px 28px', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '8px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
-                Create your first trip →
-              </button>
-            </div>
-          ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }}>
-              {orderedTrips.map((trip: any, i: number) => (
-                <div key={trip.id} onClick={() => router.push(`/trips/${trip.id}`)}
-                  draggable={true}
-                  onDragStart={() => setDragIndex(i)}
-                  onDragOver={e => e.preventDefault()}
-                  onDrop={() => {
-                    if (dragIndex === null || dragIndex === i) return
-                    const newOrder = [...tripOrder]
-                    const [moved] = newOrder.splice(dragIndex, 1)
-                    newOrder.splice(i, 0, moved)
-                    setTripOrder(newOrder)
-                    setDragIndex(null)
-                  }}
-                  style={{ position: 'relative', height: '200px', cursor: 'grab', overflow: 'hidden', borderRadius: '8px', opacity: dragIndex === i ? 0.5 : 1 }}>
-                  <>
-                    {trip.cover_image ? (
-                      <>
-                        <img src={trip.cover_image} alt={trip.destination} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.1) 60%, transparent 100%)' }} />
-                      </>
-                    ) : (
-                      <div style={{ width: '100%', height: '100%', background: getTripColor(i) }} />
-                    )}
-                    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '20px' }}>
-                      <p style={{ fontSize: '18px', fontWeight: 400, color: '#ffffff', margin: '0 0 4px', letterSpacing: '0.02em' }}>{trip.name}</p>
-                      <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.7)', margin: 0, letterSpacing: '0.1em', textTransform: 'uppercase' }}>{trip.destination}</p>
-                      <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.6)', margin: '4px 0 0' }}>
-                        {trip.start_date ? `${trip.start_date} → ${trip.end_date}` : 'Dates flexible'}
-                      </p>
-                    </div>
-                  </>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {sidebarOpen && (
-          <div style={{ width: '320px', background: '#f0f0e8', borderLeft: '1px solid var(--border)', padding: '48px 32px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <div style={{ marginBottom: '32px' }}>
-              <p style={{ fontSize: '11px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--muted-foreground)', marginBottom: '4px' }}>Signed in as</p>
-              <p style={{ fontSize: '15px', color: 'var(--foreground)', margin: '0 0 2px' }}>{profile?.full_name}</p>
-              <p style={{ fontSize: '12px', color: 'var(--muted-foreground)', margin: 0 }}>{profile?.email}</p>
-            </div>
-            {[
-              { label: 'My profile', path: '/profile' },
-              { label: 'My travelers', path: '/profile' },
-              { label: 'Wallet', path: '/wallet' },
-              { label: 'Settings', path: '/settings' },
-            ].map(item => (
-              <button key={item.label} onClick={() => item.label === 'My travelers' ? router.push('/profile?tab=travelers') : router.push(item.path)}
-                style={{ textAlign: 'left', padding: '14px 0', fontSize: '13px', letterSpacing: '0.1em', color: 'var(--foreground)', background: 'none', border: 'none', borderBottom: '1px solid var(--border)', cursor: 'pointer', ...s }}>
-                {item.label}
-              </button>
-            ))}
-            <button onClick={handleSignOut}
-              style={{ textAlign: 'left', padding: '14px 0', fontSize: '13px', letterSpacing: '0.1em', color: 'var(--muted-foreground)', background: 'none', border: 'none', cursor: 'pointer', marginTop: '16px', ...s }}>
-              Sign out
-            </button>
-          </div>
-        )}
-      </div>
+    <>
+      <main style={{ flex: 1, background: FOREST_DEEP, color: CREAM }}>
+        <Greeting firstName={firstName} />
+        <TripGrid
+          trips={trips}
+          onNewTrip={() => setShowModal(true)}
+        />
+      </main>
+      <Footer />
 
       {showModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: '24px' }}>
-          <div style={{ background: 'var(--cream)', width: '100%', maxWidth: '560px', maxHeight: '90vh', overflowY: 'auto', padding: '40px', position: 'relative', ...s }}>
-            <button onClick={closeModal}
-              style={{ position: 'absolute', top: '20px', right: '20px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '18px', color: 'var(--muted-foreground)' }}>×</button>
-
-            <p style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--muted-foreground)', marginBottom: '8px' }}>New trip</p>
-            <h2 style={{ fontSize: '28px', fontWeight: 300, color: 'var(--foreground)', margin: '0 0 32px' }}>Create a trip</h2>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-
-              <div>
-                <label style={labelStyle}>Trip name</label>
-                <input style={inputStyle} value={form.name} onChange={e => setFormAndDraft({...form, name: e.target.value})} placeholder="Mama Mia Summer" autoFocus />
-                {showErrors && !form.name.trim() && <p style={{ fontSize: '11px', color: '#c0392b', margin: '4px 0 0' }}>Please enter a trip name</p>}
-                <button onClick={() => setShowNameHelper(!showNameHelper)} style={{ fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--muted-foreground)', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 0', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
-                  ✦ Need help naming it?
-                </button>
-                {showNameHelper && (
-                  <div style={{ background: '#f5f5f0', padding: '16px', marginTop: '4px' }}>
-                    <p style={{ fontSize: '11px', color: 'var(--muted-foreground)', margin: '0 0 8px' }}>Describe your trip in a few words</p>
-                    <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
-                      <input value={nameHelperInput} onChange={e => setNameHelperInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && getNameSuggestions()} placeholder="e.g. girls trip to greece in july" style={{ flex: 1, borderBottom: '1px solid var(--border)', background: 'transparent', padding: '8px 0', fontSize: '13px', color: 'var(--foreground)', outline: 'none', fontFamily: 'var(--font-cormorant), Georgia, serif' }} />
-                      <button onClick={getNameSuggestions} disabled={loadingNames} style={{ padding: '6px 12px', border: '1px solid var(--foreground)', background: 'var(--foreground)', color: 'var(--cream)', cursor: 'pointer', fontSize: '11px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
-                        {loadingNames ? '...' : 'Go'}
-                      </button>
-                    </div>
-                    {nameSuggestions.length > 0 && (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        {nameSuggestions.map((name, i) => (
-                          <button key={i} onClick={() => { setFormAndDraft(f => ({...f, name})); setShowNameHelper(false); setNameSuggestions([]) }}
-                            style={{ textAlign: 'left', padding: '8px 12px', border: '1px solid var(--border)', background: '#fff', cursor: 'pointer', fontSize: '13px', color: 'var(--foreground)', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
-                            {name}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <p style={labelStyle}>Type of trip</p>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                  {['Bachelorette', 'Bachelor', 'Wedding', 'Birthday', 'Friend group', 'Family reunion', 'Corporate', 'Honeymoon', 'Other'].map(type => (
-                    <button
-                      key={type}
-                      onClick={() => setTripType(type)}
-                      style={{
-                        padding: '8px 16px', fontSize: '13px', cursor: 'pointer',
-                        border: `1px solid ${tripType === type ? '#1a3a2a' : '#d4d4c8'}`,
-                        background: tripType === type ? '#e8f5ee' : 'transparent',
-                        color: tripType === type ? '#1a3a2a' : '#6a6a6a',
-                        borderRadius: '24px', fontFamily: 'var(--font-cormorant), Georgia, serif',
-                      }}
-                    >
-                      {type}
-                    </button>
-                  ))}
-                </div>
-                {showErrors && !tripType && <p style={{ fontSize: '11px', color: '#c0392b', margin: '8px 0 0' }}>Please choose a trip type</p>}
-              </div>
-
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 0', borderBottom: '0.5px solid #e4e4d8' }}>
-                  <div>
-                    <p style={{ fontSize: '14px', color: '#1a1a1a', margin: '0 0 2px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>Centered around an event?</p>
-                    <p style={{ fontSize: '12px', color: '#9a9a8a', margin: 0 }}>e.g. a wedding, concert, conference</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setIsEventCentered(!isEventCentered)}
-                    style={{
-                      width: '44px', height: '24px', borderRadius: '12px', border: 'none', cursor: 'pointer',
-                      background: isEventCentered ? '#1a3a2a' : '#d4d4c8', position: 'relative', transition: 'background 0.2s',
-                    }}
-                  >
-                    <div style={{
-                      width: '18px', height: '18px', borderRadius: '50%', background: '#fff',
-                      position: 'absolute', top: '3px',
-                      left: isEventCentered ? '23px' : '3px', transition: 'left 0.2s',
-                    }} />
-                  </button>
-                </div>
-                {isEventCentered && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingTop: '16px' }}>
-                    <div>
-                      <label style={labelStyle}>Event name</label>
-                      <input style={inputStyle} value={eventName} onChange={e => setEventName(e.target.value)} placeholder="e.g. Sarah's Wedding" />
-                    </div>
-                    <div>
-                      <label style={labelStyle}>Event date</label>
-                      <input type="date" style={inputStyle} value={eventDate} onChange={e => setEventDate(e.target.value)} />
-                    </div>
-                    <div>
-                      <label style={labelStyle}>Event location</label>
-                      <input style={inputStyle} value={eventLocation} onChange={e => setEventLocation(e.target.value)} placeholder="City, venue, or address" />
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <label style={labelStyle}>Trip cover image <span style={{ textTransform: 'none', letterSpacing: 0, fontSize: '11px' }}>(optional)</span></label>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <label style={{ flex: 1, border: '1px solid var(--border)', padding: '10px 14px', fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--muted-foreground)', cursor: 'pointer', textAlign: 'center', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
-                      Upload from device
-                      <input type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={e => {
-                        const file = e.target.files?.[0]
-                        if (!file) return
-                        const reader = new FileReader()
-                        reader.onload = (ev) => setFormAndDraft(f => ({...f, cover_image: ev.target?.result as string}))
-                        reader.readAsDataURL(file)
-                      }} />
-                    </label>
-                    <label style={{ flex: 1, border: '1px solid var(--border)', padding: '10px 14px', fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--muted-foreground)', cursor: 'pointer', textAlign: 'center', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
-                      Take photo
-                      <input type="file" accept="image/*" capture="user" style={{ display: 'none' }} onChange={e => {
-                        const file = e.target.files?.[0]
-                        if (!file) return
-                        const reader = new FileReader()
-                        reader.onload = (ev) => setFormAndDraft(f => ({...f, cover_image: ev.target?.result as string}))
-                        reader.readAsDataURL(file)
-                      }} />
-                    </label>
-                  </div>
-                  <input type="url" style={inputStyle} value={form.cover_image.startsWith('data:') ? '' : form.cover_image} onChange={e => setFormAndDraft({...form, cover_image: e.target.value})} placeholder="Or paste an image URL" />
-                  {form.cover_image && (
-                    <div style={{ position: 'relative', height: '80px', borderRadius: '6px', overflow: 'hidden' }}>
-                      <img src={form.cover_image} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      <button onClick={() => setFormAndDraft({...form, cover_image: ''})} style={{ position: 'absolute', top: '6px', right: '6px', background: 'rgba(0,0,0,0.5)', border: 'none', color: '#fff', width: '22px', height: '22px', borderRadius: '50%', cursor: 'pointer', fontSize: '12px' }}>×</button>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <button onClick={() => { if (!canCreate()) { setShowErrors(true); return } handleCreate() }} disabled={creating}
-                style={{ width: '100%', border: '1px solid var(--foreground)', padding: '16px', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', color: 'var(--foreground)', background: 'transparent', cursor: creating ? 'default' : 'pointer', opacity: creating ? 0.4 : 1, ...s }}>
-                {creating ? 'Creating...' : 'Create trip →'}
-              </button>
-            </div>
-          </div>
-        </div>
+        <CreateTripModal
+          onClose={() => setShowModal(false)}
+          onCreated={() => { setShowModal(false); loadData() }}
+          profile={profile}
+        />
       )}
-      <Footer />
-    </div>
+    </>
   )
 }

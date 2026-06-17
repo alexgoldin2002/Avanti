@@ -2,9 +2,9 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import AvantiLogo from '../components/AvantiLogo'
 import SuitcaseLoader from '../components/SuitcaseLoader'
-import Footer from '../components/Footer'
+import SubpageShell, { BackLink } from '../components/SubpageShell'
+import AvantiCard from '../components/AvantiCard'
 
 export default function Wallet() {
   const router = useRouter()
@@ -72,50 +72,39 @@ export default function Wallet() {
   if (loading) return <SuitcaseLoader message="Opening your wallet" />
 
   if (!pinSet || !pinEntered) return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: '100%', background: 'var(--cream)', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
-      <div style={{ width: '100%', maxWidth: '320px', textAlign: 'center' }}>
-        <AvantiLogo size="sm" />
-        <p style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--muted-foreground)', margin: '20px 0 8px' }}>Wallet</p>
-        <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', marginBottom: '40px', lineHeight: 1.7 }}>{pinSet ? 'Enter your wallet PIN to continue' : 'Set a PIN to secure your wallet'}</p>
-        {pinError && <p style={{ fontSize: '12px', color: '#c0392b', marginBottom: '16px' }}>{pinError}</p>}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '24px' }}>
+    <main className="mx-auto w-full max-w-xl px-6 sm:px-10 pt-10 pb-24 flex-1">
+      <BackLink href="/dashboard" />
+      <div className="mx-auto flex min-h-[60vh] max-w-sm flex-col items-center justify-center px-6 py-8">
+      <AvantiCard shade="ivory" className="w-full !px-8 !py-10 text-center">
+        <p className="eyebrow text-muted-foreground mb-2">Wallet</p>
+        <p className="text-sm text-muted-foreground mb-8 leading-relaxed font-serif italic">
+          {pinSet ? 'Enter your wallet PIN to continue' : 'Set a PIN to secure your wallet'}
+        </p>
+        {pinError && <p className="text-xs text-destructive mb-4">{pinError}</p>}
+        <div className="flex flex-col gap-4 mb-6 text-left">
           <div>
-            <label style={labelStyle}>{pinSet ? 'Enter PIN' : 'Create PIN (4+ digits)'}</label>
+            <label className="eyebrow text-muted-foreground block mb-2">{pinSet ? 'Enter PIN' : 'Create PIN (4+ digits)'}</label>
             <input type="password" value={pin} onChange={e => setPin(e.target.value)} placeholder="••••" maxLength={8}
-              style={{ ...inputStyle, textAlign: 'center', fontSize: '24px', letterSpacing: '0.3em' }} />
+              className="avanti-input text-center text-2xl tracking-[0.3em]" />
           </div>
           {!pinSet && (
             <div>
-              <label style={labelStyle}>Confirm PIN</label>
+              <label className="eyebrow text-muted-foreground block mb-2">Confirm PIN</label>
               <input type="password" value={pinConfirm} onChange={e => setPinConfirm(e.target.value)} placeholder="••••" maxLength={8}
-                style={{ ...inputStyle, textAlign: 'center', fontSize: '24px', letterSpacing: '0.3em' }} />
+                className="avanti-input text-center text-2xl tracking-[0.3em]" />
             </div>
           )}
         </div>
-        <button onClick={pinSet ? handleEnterPin : handleSetPin}
-          style={{ width: '100%', border: '1px solid var(--foreground)', padding: '14px', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', color: 'var(--foreground)', background: 'transparent', cursor: 'pointer', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+        <button type="button" onClick={pinSet ? handleEnterPin : handleSetPin} className="avanti-btn-primary w-full">
           {pinSet ? 'Unlock wallet →' : 'Set PIN & continue →'}
         </button>
-        <button onClick={() => router.push('/dashboard')}
-          style={{ width: '100%', marginTop: '12px', fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--muted-foreground)', background: 'none', border: 'none', cursor: 'pointer' }}>
-          ← Back to dashboard
-        </button>
+      </AvantiCard>
       </div>
-      </div>
-      <Footer />
-    </div>
+    </main>
   )
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: '100%', background: 'var(--cream)', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
-      <div style={{ maxWidth: '560px', margin: '0 auto', padding: '48px 24px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '48px' }}>
-          <AvantiLogo size="sm" />
-          <button onClick={() => router.push('/dashboard')} style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--muted-foreground)', background: 'none', border: 'none', cursor: 'pointer' }}>← Dashboard</button>
-        </div>
-        <h2 style={{ fontSize: '32px', fontWeight: 300, color: 'var(--foreground)', marginBottom: '8px' }}>Wallet</h2>
-        <p style={{ fontSize: '12px', color: 'var(--muted-foreground)', marginBottom: '48px' }}>Payment methods and linked accounts. PIN required for any transaction.</p>
+    <SubpageShell backHref="/dashboard" title="Wallet" subtitle="Payment methods and linked accounts. PIN required for any transaction." maxWidth="max-w-xl">
 
         <div style={{ marginBottom: '40px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
@@ -127,7 +116,7 @@ export default function Wallet() {
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {(wallet?.payment_methods || []).map((card: any) => (
-                <div key={card.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', border: '1px solid var(--border)', background: '#fff' }}>
+                <div key={card.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', border: '1px solid var(--border)', background: 'var(--card)' }}>
                   <div>
                     <p style={{ fontSize: '14px', color: 'var(--foreground)', margin: '0 0 2px' }}>{card.nickname}</p>
                     <p style={{ fontSize: '11px', color: 'var(--muted-foreground)', margin: 0, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{card.type} •••• {card.last_four}</p>
@@ -150,7 +139,7 @@ export default function Wallet() {
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {(wallet?.linked_accounts || []).map((acc: any) => (
-                <div key={acc.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', border: '1px solid var(--border)', background: '#fff' }}>
+                <div key={acc.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', border: '1px solid var(--border)', background: 'var(--card)' }}>
                   <div>
                     <p style={{ fontSize: '14px', color: 'var(--foreground)', margin: '0 0 2px', textTransform: 'capitalize' }}>{acc.platform}</p>
                     <p style={{ fontSize: '11px', color: 'var(--muted-foreground)', margin: 0 }}>{acc.handle}</p>
@@ -161,7 +150,6 @@ export default function Wallet() {
             </div>
           )}
         </div>
-      </div>
 
       {showAddCard && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
@@ -203,7 +191,6 @@ export default function Wallet() {
           </div>
         </div>
       )}
-      <Footer />
-    </div>
+    </SubpageShell>
   )
 }

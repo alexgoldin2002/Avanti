@@ -5,11 +5,15 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import Footer from './components/Footer'
 
+const HERO_VIDEO =
+  process.env.NEXT_PUBLIC_HERO_VIDEO ??
+  'https://radiant-refresh-design-30.lovable.app/__l5e/assets-v1/7aaa17b5-80f7-4f76-85a8-32a437479648/hero-bg.mp4'
+
 const panels = [
   {
     eyebrow: '1',
     title: 'The People',
-    body: 'You bring the group. We bring the rhythm that keeps them together.',
+    body: 'You bring the group. We bring the rhythm that keeps them together.\u00a0',
     label: 'PEOPLE',
   },
   {
@@ -100,7 +104,7 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
       <header className="relative inset-x-0 top-0 z-30 bg-forest-deep">
-        <div className="grid grid-cols-3 items-center px-6 md:px-10 py-6 max-w-[1400px] mx-auto">
+        <div className="grid grid-cols-3 items-center px-6 md:px-10 py-6">
           <div className="flex items-center">
             <button
               className="md:hidden flex flex-col gap-1.5 p-2 -ml-2"
@@ -125,13 +129,13 @@ export default function Home() {
           </div>
 
           <div className="flex justify-end items-center gap-6 eyebrow text-cream/90">
-            <button type="button" onClick={() => openAuth('signin')} className="hidden md:inline hover:opacity-70 transition">
+            <button type="button" onClick={() => openAuth('signin')} className="hidden md:inline eyebrow text-cream/90 hover:opacity-70 transition bg-transparent border-0 p-0 cursor-pointer">
               Sign in
             </button>
             <button
               type="button"
               onClick={() => openAuth('signup')}
-              className="border border-cream/60 px-4 py-2 hover:bg-cream hover:text-forest-deep transition"
+              className="eyebrow text-cream/90 border border-cream/60 px-4 py-2 hover:bg-cream hover:text-forest-deep transition bg-transparent cursor-pointer"
             >
               Create account
             </button>
@@ -150,19 +154,15 @@ export default function Home() {
         )}
       </header>
 
-      <section className="relative flex-1 bg-forest-deep">
-        <div
-          className="relative z-10 pt-32 md:pt-40 pb-24 md:pb-32 flex flex-col items-center text-center px-6 justify-center"
-          style={{ position: 'relative', width: '100%', height: '100vh', overflow: 'hidden' }}
-        >
+      <section className="relative flex-1 min-h-screen bg-forest-deep">
+        <div className="relative z-10 pt-32 md:pt-40 pb-24 md:pb-32 flex flex-col items-center text-center px-6 min-h-screen justify-center overflow-hidden">
           <video
-            src="https://res.cloudinary.com/dyzhzd5h2/video/upload/v1781584118/Video_uudexh.mp4"
+            src={HERO_VIDEO}
             autoPlay
             muted
             loop
             playsInline
-            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
-            className="grayscale"
+            className="absolute inset-0 w-full h-full object-cover grayscale"
             aria-hidden
           />
           <div className="absolute inset-0 bg-cream/70" aria-hidden />
@@ -179,13 +179,13 @@ export default function Home() {
                 </span>
               ))}
             </h1>
-            <p className="mt-8 font-serif italic text-forest-deep/85 text-xl md:text-2xl max-w-md leading-snug mx-auto">
+            <p className="mt-8 font-serif italic text-forest-deep/85 text-xl md:text-2xl max-w-md leading-snug">
               All the dream. None of the nightmare.
             </p>
             <button
               type="button"
               onClick={() => openAuth('signup')}
-              className="mt-10 inline-block bg-forest-deep text-cream eyebrow px-10 py-4 hover:opacity-90 transition"
+              className="mt-10 inline-block bg-forest-deep text-cream eyebrow px-10 py-4 hover:bg-forest-deep/90 transition"
             >
               Let&apos;s get planning
             </button>
@@ -193,18 +193,19 @@ export default function Home() {
         </div>
 
         <div className="relative z-10 border-t border-cream/15 bg-forest-deep">
-          <div className="grid grid-cols-1 md:grid-cols-3 max-w-[1400px] mx-auto">
+          <div className="relative grid grid-cols-1 md:grid-cols-3">
             {panels.map((p, i) => (
               <button
                 key={p.label}
                 type="button"
                 onClick={() => openAuth('signup')}
-                className={`group relative flex flex-col justify-between p-8 md:p-10 min-h-[50vh] md:min-h-[60vh] border-cream/15 text-left w-full ${
+                className={`group relative flex flex-col justify-between p-8 md:p-10 min-h-[60vh] md:min-h-[70vh] border-cream/15 text-left w-full ${
                   i > 0 ? 'md:border-l' : ''
                 } ${i < panels.length - 1 ? 'border-b md:border-b-0' : ''} transition-colors hover:bg-cream/90 hover:text-forest-deep`}
               >
                 <div className="flex items-start justify-between text-cream/70 group-hover:text-forest-deep/70 transition-colors">
                   <span className="eyebrow">{p.eyebrow}</span>
+                  <span className="eyebrow" />
                 </div>
                 <div className="py-12">
                   <h2
@@ -217,16 +218,17 @@ export default function Home() {
                     {p.body}
                   </p>
                 </div>
-                <span className="eyebrow text-cream/60 group-hover:text-forest-deep/60 transition-colors">{p.label}</span>
+                <div className="flex items-end justify-between">
+                  <span className="eyebrow text-cream/60 group-hover:text-forest-deep/60 transition-colors">{p.label}</span>
+                  <span className="text-cream group-hover:text-forest-deep text-2xl font-serif transition-transform group-hover:translate-x-1" />
+                </div>
               </button>
             ))}
           </div>
         </div>
 
-        <div className="relative z-10 border-t border-cream/15 px-6 md:px-10 py-10 flex flex-col md:flex-row items-center justify-between gap-6 bg-forest-deep max-w-[1400px] mx-auto w-full">
-          <p className="eyebrow text-cream/70 text-center md:text-left">
-            THE ONLY TRAVEL APP THAT THINKS FOR EVERYONE AND OF EVERYTHING
-          </p>
+        <div className="relative z-10 border-t border-cream/15 px-6 md:px-10 py-10 flex flex-col md:flex-row items-center justify-between gap-6 bg-forest-deep">
+          <p className="eyebrow text-cream/70">&nbsp;THE ONLY TRAVEL APP THAT THINKS FOR EVERYONE AND OF EVERYTHING</p>
           <div className="flex items-center gap-6">
             <button
               type="button"

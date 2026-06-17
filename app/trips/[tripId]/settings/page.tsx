@@ -2,8 +2,65 @@
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import AvantiLogo from '../../../components/AvantiLogo'
+import { deleteTripPermanently, leaveTripAsMember } from '@/lib/trip-lifecycle'
 import SuitcaseLoader from '../../../components/SuitcaseLoader'
+import SubpageShell from '../../../components/SubpageShell'
+import AvantiCard from '../../../components/AvantiCard'
+import DangerConfirmModal from '../../../components/DangerConfirmModal'
+
+const DELETE_STEPS = [
+  {
+    title: 'Delete this trip?',
+    body: (
+      <>
+        <p className="m-0 mb-3">
+          This cannot be undone. This trip will be deleted for everyone. This is not the same as leaving the trip.
+        </p>
+      </>
+    ),
+    confirmLabel: 'Continue',
+  },
+  {
+    title: 'Permanently erase all data?',
+    body: (
+      <>
+        <p className="m-0 mb-3">
+          All data from this trip will be permanently erased. We are not responsible for anything that you may want to get back — including trip cards or any data that was saved.
+        </p>
+      </>
+    ),
+    confirmLabel: 'Delete trip forever',
+  },
+]
+
+const LEAVE_STEPS = [
+  {
+    title: 'Leave this trip?',
+    body: (
+      <>
+        <p className="m-0 mb-3">
+          Once you leave, everything will be recalculated and changed for the remaining group.
+        </p>
+        <p className="m-0">
+          You cannot rejoin this trip — absolutely no exceptions.
+        </p>
+      </>
+    ),
+    confirmLabel: 'Continue',
+  },
+  {
+    title: 'Are you sure?',
+    body: (
+      <>
+        <p className="m-0 mb-3">
+          You will be removed from this trip and it will disappear from your dashboard.
+        </p>
+        <p className="m-0">This cannot be undone.</p>
+      </>
+    ),
+    confirmLabel: 'Leave trip',
+  },
+]
 
 export default function TripSettings() {
   const { tripId } = useParams() as { tripId: string }
@@ -14,23 +71,39 @@ export default function TripSettings() {
   const [trip, setTrip] = useState<any>(null)
   const [maxVotes, setMaxVotes] = useState(2)
   const [travelerCount, setTravelerCount] = useState(0)
+  const [isOrganizer, setIsOrganizer] = useState(false)
+  const [userId, setUserId] = useState<string | null>(null)
+  const [isMember, setIsMember] = useState(false)
 
-  const s = { fontFamily: 'var(--font-cormorant), Georgia, serif' }
-  const labelStyle = { fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase' as const, color: '#9a9a8a', display: 'block', marginBottom: '6px' }
+  const [deleteStep, setDeleteStep] = useState<number | null>(null)
+  const [leaveStep, setLeaveStep] = useState<number | null>(null)
+  const [actionLoading, setActionLoading] = useState(false)
+  const [actionError, setActionError] = useState('')
 
   useEffect(() => {
     const load = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/'); return }
+      setUserId(user.id)
 
       const { data: tripData } = await supabase.from('trips').select('*').eq('id', tripId).single()
       if (tripData) {
         setTrip(tripData)
+        setIsOrganizer(tripData.organizer_id === user.id)
         const { count } = await supabase.from('travelers').select('*', { count: 'exact', head: true }).eq('trip_id', tripId)
         const tc = count || 0
         setTravelerCount(tc)
         setMaxVotes(tripData.max_votes ?? (tc <= 8 ? 2 : 1))
       }
+
+      const { data: myTraveler } = await supabase
+        .from('travelers')
+        .select('id, role')
+        .eq('trip_id', tripId)
+        .eq('user_id', user.id)
+        .maybeSingle()
+      setIsMember(!!myTraveler && myTraveler.role !== 'organizer')
+
       setLoading(false)
     }
     load()
@@ -44,67 +117,137 @@ export default function TripSettings() {
     setTimeout(() => setSaved(false), 2000)
   }
 
+  const handleDeleteContinue = async () => {
+    if (deleteStep === null) return
+    if (deleteStep < DELETE_STEPS.length - 1) {
+      setDeleteStep(deleteStep + 1)
+      return
+    }
+    setActionLoading(true)
+    setActionError('')
+    const { error } = await deleteTripPermanently(tripId)
+    setActionLoading(false)
+    if (error) {
+      setActionError(error)
+      return
+    }
+    router.push('/dashboard')
+  }
+
+  const handleLeaveContinue = async () => {
+    if (leaveStep === null || !userId) return
+    if (leaveStep < LEAVE_STEPS.length - 1) {
+      setLeaveStep(leaveStep + 1)
+      return
+    }
+    setActionLoading(true)
+    setActionError('')
+    const { error } = await leaveTripAsMember(tripId, userId)
+    setActionLoading(false)
+    if (error) {
+      setActionError(error)
+      return
+    }
+    router.push('/dashboard')
+  }
+
   if (loading) return <SuitcaseLoader message="Loading settings" />
 
   return (
-    <main style={{ minHeight: '100vh', background: '#fafaf8', ...s }}>
-      <div style={{ maxWidth: '560px', margin: '0 auto', padding: '48px 24px 80px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '32px' }}>
-          <AvantiLogo size="sm" />
-          <button onClick={() => router.push(`/trips/${tripId}`)} style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#9a9a8a', background: 'none', border: 'none', cursor: 'pointer', ...s }}>
-            ← Back
-          </button>
-        </div>
-
-        <p style={{ fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', color: '#9a9a8a', margin: '0 0 6px' }}>
-          {trip?.name}
-        </p>
-        <h1 style={{ fontSize: '36px', fontWeight: 300, color: '#1a1a1a', margin: '0 0 40px' }}>Trip settings</h1>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
-          <div style={{ background: '#fff', border: '0.5px solid #e4e4d8', borderRadius: '12px', padding: '24px' }}>
-            <label style={labelStyle}>Max votes per traveler</label>
-            <p style={{ fontSize: '12px', color: '#9a9a8a', margin: '0 0 16px', lineHeight: 1.6 }}>
-              How many destination cards each traveler can vote for.
-              {travelerCount > 0 && ` Auto-set to ${travelerCount <= 8 ? '2' : '1'} based on your group size of ${travelerCount}.`}
-            </p>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              {[1, 2, 3, 4].map(n => (
-                <button
-                  key={n}
-                  onClick={() => setMaxVotes(n)}
-                  style={{
-                    width: '48px', height: '48px', borderRadius: '50%', fontSize: '16px',
-                    border: `1.5px solid ${maxVotes === n ? '#1a3a2a' : '#d4d4c8'}`,
-                    background: maxVotes === n ? '#e8f5ee' : 'transparent',
-                    color: maxVotes === n ? '#1a3a2a' : '#6a6a6a',
-                    cursor: 'pointer', fontWeight: maxVotes === n ? 500 : 400, ...s,
-                  }}
-                >
-                  {n}
-                </button>
-              ))}
-            </div>
+    <>
+      <SubpageShell
+        backHref={`/trips/${tripId}`}
+        eyebrow={trip?.name}
+        title="Trip settings"
+      >
+        <AvantiCard shade="ivory" className="!px-6 !py-6">
+          <label className="eyebrow text-muted-foreground block mb-2">Max votes per traveler</label>
+          <p className="text-xs text-muted-foreground mb-5 leading-relaxed">
+            How many destination cards each traveler can vote for.
+            {travelerCount > 0 && ` Auto-set to ${travelerCount <= 8 ? '2' : '1'} based on your group size of ${travelerCount}.`}
+          </p>
+          <div className="flex gap-2 mb-6">
+            {[1, 2, 3, 4].map(n => (
+              <button
+                key={n}
+                type="button"
+                onClick={() => setMaxVotes(n)}
+                className={`grid h-12 w-12 place-items-center rounded-none border text-base font-serif transition-all duration-200 ${
+                  maxVotes === n
+                    ? 'border-forest-deep bg-forest-pale text-forest-deep scale-105'
+                    : 'border-border bg-card text-muted-foreground hover:border-forest-deep/40 hover:bg-forest-mist'
+                }`}
+              >
+                {n}
+              </button>
+            ))}
           </div>
-
-          <div style={{ padding: '20px', border: '0.5px dashed #d4d4c8', borderRadius: '12px', textAlign: 'center' }}>
-            <p style={{ fontSize: '13px', color: '#b4b4a8', margin: 0, fontStyle: 'italic' }}>More settings coming soon</p>
-          </div>
-
           <button
+            type="button"
             onClick={save}
             disabled={saving}
-            style={{
-              width: '100%', border: '1px solid #1a3a2a', padding: '16px',
-              fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase',
-              color: '#fafaf8', background: saved ? '#2d6a4f' : '#1a3a2a',
-              cursor: 'pointer', opacity: saving ? 0.6 : 1, transition: 'background 0.3s', ...s,
-            }}
+            className="avanti-btn-primary w-full disabled:opacity-50"
           >
-            {saving ? 'Saving...' : saved ? 'Saved ✓' : 'Save settings →'}
+            {saved ? 'Saved ✓' : saving ? 'Saving...' : 'Save settings →'}
           </button>
-        </div>
-      </div>
-    </main>
+        </AvantiCard>
+
+        {(isOrganizer || isMember) && (
+          <AvantiCard shade="ivory" className="!px-6 !py-6 mt-8 !border-destructive/25">
+            <p className="eyebrow text-destructive block mb-2">Danger zone</p>
+            <p className="text-xs text-muted-foreground mb-6 leading-relaxed">
+              {isOrganizer
+                ? 'Deleting a trip permanently removes it for every traveler. This cannot be undone.'
+                : 'Leaving removes you from this trip permanently. You will not be able to rejoin.'}
+            </p>
+
+            {actionError && (
+              <p className="text-xs text-destructive mb-4">{actionError}</p>
+            )}
+
+            {isOrganizer && (
+              <button
+                type="button"
+                onClick={() => { setActionError(''); setDeleteStep(0) }}
+                className="group flex w-full items-center justify-center gap-2 rounded-none border border-destructive/40 bg-transparent px-4 py-3.5 text-[10px] tracking-[0.2em] uppercase text-destructive transition-all duration-200 hover:border-destructive hover:bg-destructive/5"
+              >
+                <i className="ti ti-trash text-base text-destructive" aria-hidden />
+                Delete trip
+              </button>
+            )}
+
+            {isMember && (
+              <button
+                type="button"
+                onClick={() => { setActionError(''); setLeaveStep(0) }}
+                className="w-full rounded-none border border-destructive/40 bg-transparent px-4 py-3.5 text-[10px] tracking-[0.2em] uppercase text-destructive transition-all duration-200 hover:border-destructive hover:bg-destructive/5"
+              >
+                Leave trip
+              </button>
+            )}
+          </AvantiCard>
+        )}
+      </SubpageShell>
+
+      {deleteStep !== null && (
+        <DangerConfirmModal
+          steps={DELETE_STEPS}
+          stepIndex={deleteStep}
+          onCancel={() => { if (!actionLoading) setDeleteStep(null) }}
+          onContinue={handleDeleteContinue}
+          processing={actionLoading}
+        />
+      )}
+
+      {leaveStep !== null && (
+        <DangerConfirmModal
+          steps={LEAVE_STEPS}
+          stepIndex={leaveStep}
+          onCancel={() => { if (!actionLoading) setLeaveStep(null) }}
+          onContinue={handleLeaveContinue}
+          processing={actionLoading}
+        />
+      )}
+    </>
   )
 }

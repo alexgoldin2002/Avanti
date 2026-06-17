@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import AvantiLogo from '../components/AvantiLogo'
+import SubpageShell from '../components/SubpageShell'
 
 const COLORS = [
   { name: 'Midnight', value: 'var(--foreground)' },
@@ -95,7 +95,7 @@ export default function CreateTrip() {
       profile_complete: true,
     })
 
-    router.push(`/trip/${trip.id}/invite`)
+    router.push(`/trips/${trip.id}/invite`)
   }
 
   const s = { fontFamily: 'var(--font-cormorant), Georgia, serif' }
@@ -116,14 +116,7 @@ export default function CreateTrip() {
   }
 
   return (
-    <main style={{ minHeight: '100vh', background: 'var(--cream)', ...s }}>
-      <div style={{ maxWidth: '520px', margin: '0 auto', padding: '48px 24px' }}>
-
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '48px' }}>
-          <AvantiLogo size="sm" />
-          <button onClick={() => router.push('/dashboard')} style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--muted-foreground)', background: 'none', border: 'none', cursor: 'pointer', ...s }}>← Back</button>
-        </div>
-
+    <SubpageShell backHref="/dashboard" maxWidth="max-w-xl" className="!pt-6">
         <div style={{ display: 'flex', gap: '4px', marginBottom: '40px' }}>
           {Array.from({ length: totalSteps }).map((_, i) => (
             <div key={i} style={{ flex: 1, height: '2px', background: i < step ? 'var(--foreground)' : 'var(--border)', transition: 'background 0.3s' }} />
@@ -393,7 +386,6 @@ export default function CreateTrip() {
             </div>
           </div>
         )}
-      </div>
-    </main>
+    </SubpageShell>
   )
 }

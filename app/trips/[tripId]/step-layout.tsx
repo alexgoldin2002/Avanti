@@ -1,8 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import AvantiLogo from '../../components/AvantiLogo'
+import { BackLink } from '../../components/SubpageShell'
 
 interface StepLayoutProps {
   tripId: string
@@ -23,7 +22,6 @@ const DEFAULT_COLORS = [
 ]
 
 export default function StepLayout({ tripId, stepNumber, stepTitle, stepDescription, autoSaved, children }: StepLayoutProps) {
-  const router = useRouter()
   const [colors, setColors] = useState(DEFAULT_COLORS)
   const [trip, setTrip] = useState<any>(null)
 
@@ -88,8 +86,7 @@ export default function StepLayout({ tripId, stepNumber, stepTitle, stepDescript
 
       <div style={{ position: 'relative', zIndex: 1, maxWidth: '600px', margin: '0 auto', padding: '48px 24px' }}>
 
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '40px' }}>
-          <AvantiLogo size="sm" />
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginBottom: '40px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
             {autoSaved && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -97,10 +94,7 @@ export default function StepLayout({ tripId, stepNumber, stepTitle, stepDescript
                 <span style={{ fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--forest)' }}>Saved</span>
               </div>
             )}
-            <button onClick={() => router.push(`/trips/${tripId}`)}
-              style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--muted-foreground)', background: 'none', border: 'none', cursor: 'pointer', ...s }}>
-              ← Back to trip
-            </button>
+            <BackLink href={`/trips/${tripId}`} wrapperClassName="mb-0 flex justify-end" />
           </div>
         </div>
 

@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import AvantiLogo from '../../../components/AvantiLogo'
+import SubpageShell from '../../../components/SubpageShell'
 import SuitcaseLoader from '../../../components/SuitcaseLoader'
 
 export default function VotePage() {
@@ -70,19 +70,8 @@ export default function VotePage() {
   if (loading) return <SuitcaseLoader message="Loading" />
 
   return (
-    <main style={{ minHeight: '100vh', background: '#fafaf8', ...s }}>
-      <div style={{ maxWidth: '600px', margin: '0 auto', padding: '48px 24px 80px' }}>
-
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '32px' }}>
-          <AvantiLogo size="sm" />
-          <button onClick={() => router.back()} style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#9a9a8a', background: 'none', border: 'none', cursor: 'pointer', ...s }}>
-            ← Back
-          </button>
-        </div>
-
-        <p style={{ fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', color: '#9a9a8a', margin: '0 0 6px' }}>{trip?.name}</p>
-        <h1 style={{ fontSize: '36px', fontWeight: 300, color: '#1a1a1a', margin: '0 0 8px' }}>Vote</h1>
-        <p style={{ fontSize: '14px', color: '#9a9a8a', margin: '0 0 32px', lineHeight: 1.6 }}>
+    <SubpageShell backHref={`/trips/${tripId}/destinations`} eyebrow={trip?.name} title="Vote" maxWidth="max-w-xl">
+        <p className="text-sm text-muted-foreground mb-8 leading-relaxed font-serif italic">
           {submitted
             ? 'Your votes are in. The host will see results when everyone has voted.'
             : `Pick up to ${maxVotes} destination${maxVotes > 1 ? 's' : ''} you'd be happy with.`}
@@ -108,32 +97,33 @@ export default function VotePage() {
                 style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                   padding: '18px 20px',
-                  border: `1.5px solid ${isVoted ? '#1a3a2a' : '#e4e4d8'}`,
-                  borderRadius: '12px',
+                  border: `1.5px solid ${isVoted ? 'var(--forest-deep)' : '#e4e4d8'}`,
+                  borderRadius: '0',
                   background: isVoted ? '#e8f5ee' : '#fff',
                   cursor: submitted ? 'default' : (!isVoted && !canVote) ? 'default' : 'pointer',
                   opacity: (!isVoted && !canVote && !submitted) ? 0.4 : 1,
                   textAlign: 'left',
                   width: '100%',
-                  transition: 'all 0.15s',
+                  transition: 'all 0.2s ease',
+                  boxShadow: isVoted ? 'var(--shadow-box-hover)' : 'var(--shadow-box)',
                 }}
               >
                 <div style={{ flex: 1 }}>
-                  <p style={{ fontSize: '18px', fontWeight: 400, color: isVoted ? '#1a3a2a' : '#1a1a1a', margin: '0 0 4px', ...s }}>{card.name}</p>
+                  <p style={{ fontSize: '18px', fontWeight: 400, color: isVoted ? 'var(--forest-deep)' : '#1a1a1a', margin: '0 0 4px', ...s }}>{card.name}</p>
                   <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                     {card.highlight && (
-                      <span style={{ fontSize: '10px', color: '#2d6a4f', background: '#e8f5ee', padding: '2px 8px', borderRadius: '10px', border: '0.5px solid #a8d4b8' }}>
+                      <span style={{ fontSize: '10px', color: '#2d6a4f', background: '#e8f5ee', padding: '2px 8px', borderRadius: '0', border: '0.5px solid #a8d4b8' }}>
                         {card.highlight}
                       </span>
                     )}
                     {card.consider && (
-                      <span style={{ fontSize: '10px', color: '#8a6a10', background: '#fef9ec', padding: '2px 8px', borderRadius: '10px', border: '0.5px solid #f0c040' }}>
+                      <span style={{ fontSize: '10px', color: '#8a6a10', background: '#fef9ec', padding: '2px 8px', borderRadius: '0', border: '0.5px solid #f0c040' }}>
                         {card.consider}
                       </span>
                     )}
                   </div>
                 </div>
-                <div style={{ width: '24px', height: '24px', borderRadius: '50%', border: `2px solid ${isVoted ? '#1a3a2a' : '#d4d4c8'}`, background: isVoted ? '#1a3a2a' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginLeft: '16px' }}>
+                <div style={{ width: '24px', height: '24px', borderRadius: '50%', border: `2px solid ${isVoted ? 'var(--forest-deep)' : '#d4d4c8'}`, background: isVoted ? 'var(--forest-deep)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginLeft: '16px' }}>
                   {isVoted && (
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3">
                       <polyline points="20 6 9 17 4 12"/>
@@ -151,8 +141,8 @@ export default function VotePage() {
             disabled={voteCount === 0 || saving}
             style={{
               width: '100%', padding: '16px',
-              border: '1px solid #1a3a2a',
-              background: voteCount > 0 ? '#1a3a2a' : 'transparent',
+              border: '1px solid var(--forest-deep)',
+              background: voteCount > 0 ? 'var(--forest-deep)' : 'transparent',
               color: voteCount > 0 ? '#fafaf8' : '#d4d4c8',
               fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase',
               cursor: voteCount > 0 ? 'pointer' : 'default',
@@ -162,20 +152,12 @@ export default function VotePage() {
             {saving ? 'Submitting...' : 'Submit votes →'}
           </button>
         ) : (
-          <div style={{ background: '#e8f5ee', border: '0.5px solid #a8d4b8', borderRadius: '12px', padding: '20px', textAlign: 'center' }}>
-            <p style={{ fontSize: '16px', color: '#1a3a2a', margin: '0 0 4px', ...s }}>Votes submitted ✓</p>
+          <div style={{ background: '#e8f5ee', border: '0.5px solid #a8d4b8', borderRadius: '0', padding: '20px', textAlign: 'center' }}>
+            <p style={{ fontSize: '16px', color: 'var(--forest-deep)', margin: '0 0 4px', ...s }}>Votes submitted ✓</p>
             <p style={{ fontSize: '13px', color: '#2d6a4f', margin: 0 }}>The host will see results once everyone has voted.</p>
           </div>
         )}
 
-        <button
-          onClick={() => router.push(`/trips/${tripId}/step2`)}
-          style={{ width: '100%', padding: '14px', border: '0.5px solid #d4d4c8', background: 'transparent', color: '#9a9a8a', fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', cursor: 'pointer', marginTop: '10px', ...s }}
-        >
-          ← Back to destinations
-        </button>
-
-      </div>
-    </main>
+    </SubpageShell>
   )
 }

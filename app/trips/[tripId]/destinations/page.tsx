@@ -2,8 +2,10 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import AvantiLogo from '../../../components/AvantiLogo'
 import SuitcaseLoader from '../../../components/SuitcaseLoader'
+import { BackLink } from '../../../components/SubpageShell'
+import { parseDestinationCards } from '@/lib/parse-destination-cards'
+import { dedupeCardsByCountry } from '@/lib/generate-destinations-core'
 
 interface DestCard {
   name: string
@@ -81,63 +83,6 @@ export default function Destinations() {
     }
   }, [loading, answers])
 
-  const parseCards = (text: string): { cards: DestCard[]; closing: string } => {
-    const cards: DestCard[] = []
-    let closing = ''
-    const endIdx = text.indexOf('AVANTI_CARDS_END')
-    const cardsBlock = endIdx !== -1 ? text.slice(0, endIdx) : text
-    if (endIdx !== -1) {
-      closing = text.slice(endIdx + 'AVANTI_CARDS_END'.length).trim()
-    }
-
-    const sections = cardsBlock.split('---').map(s => s.trim()).filter(s => s)
-
-    for (const section of sections) {
-      if (!section.includes('NAME:')) continue
-      const isWildcard = section.startsWith('WILDCARD:') || section.includes('\nWILDCARD:')
-      const clean = section.replace(/^WILDCARD:\s*/m, '').replace(/^DESTINATIONS:\s*/m, '').trim()
-
-      const get = (field: string): string => {
-        const lines = clean.split('\n')
-        let value = ''
-        let capturing = false
-        for (const line of lines) {
-          const trimmed = line.trim()
-          if (trimmed.startsWith(field + ':')) {
-            value = trimmed.slice(field.length + 1).trim()
-            capturing = true
-          } else if (capturing) {
-            if (/^[A-Z_]+:/.test(trimmed) && !trimmed.startsWith('-')) {
-              capturing = false
-            } else {
-              value += '\n' + line
-            }
-          }
-        }
-        return value.trim()
-      }
-
-      const name = get('NAME')
-      if (!name) continue
-
-      cards.push({
-        name,
-        synopsis: get('SYNOPSIS'),
-        logistics: get('LOGISTICS'),
-        cost: get('COST'),
-        weather: get('WEATHER'),
-        activities: get('ACTIVITIES'),
-        groupFit: get('GROUP FIT'),
-        vibeCheck: get('VIBE CHECK'),
-        footnotes: get('FOOTNOTES') || undefined,
-        tradeoff: get('TRADEOFF') || undefined,
-        isWildcard,
-      })
-    }
-
-    return { cards, closing }
-  }
-
   const generateCards = async (existingMessages: typeof messages) => {
     if (!answers) return
     setGenerating(true)
@@ -145,12 +90,14 @@ export default function Destinations() {
       const res = await fetch('/api/generate-destinations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tripId, answers, messages: existingMessages }),
+        body: JSON.stringify({ tripId, answers, messages: existingMessages, stream: false }),
       })
       const data = await res.json()
       if (data.error) { setGenerating(false); return }
 
-      const { cards: parsed, closing } = parseCards(data.message)
+      const rawParsed = data.cards?.length ? data.cards : parseDestinationCards(data.message).cards
+      const parsed = dedupeCardsByCountry(rawParsed)
+      const closing = data.closing ?? parseDestinationCards(data.message).closing
       setCards(parsed)
       setClosingLine(closing)
       const newMessages = [...existingMessages, { role: 'assistant' as const, content: data.message }]
@@ -191,33 +138,25 @@ export default function Destinations() {
   if (loading) return <SuitcaseLoader message="Loading your trip ideas" />
 
   return (
-    <main style={{ minHeight: '100vh', background: '#fafaf8', paddingBottom: '140px', ...s }}>
+    <main style={{ minHeight: '100vh', background: 'transparent', paddingBottom: '140px', ...s }}>
       <div style={{ maxWidth: '680px', margin: '0 auto', padding: '48px 24px 0' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '32px' }}>
-          <AvantiLogo size="sm" />
-          <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-            <button
-              onClick={() => router.push(`/trips/${tripId}/step2`)}
-              style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#9a9a8a', background: 'none', border: 'none', cursor: 'pointer', ...s }}
-            >
-              ← Edit answers
-            </button>
-            <button
-              onClick={() => router.push(`/trips/${tripId}`)}
-              style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#9a9a8a', background: 'none', border: 'none', cursor: 'pointer', ...s }}
-            >
-              Trip →
-            </button>
-          </div>
-        </div>
+        <BackLink href={`/trips/${tripId}`} wrapperClassName="mb-8 flex justify-end" />
 
-        <p style={{ fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', color: '#9a9a8a', margin: '0 0 6px' }}>{trip?.name}</p>
-        <h1 style={{ fontSize: '40px', fontWeight: 300, color: '#1a1a1a', margin: '0 0 8px' }}>Destination ideas</h1>
-        {closingLine && <p style={{ fontSize: '14px', color: '#9a9a8a', margin: '0 0 32px', lineHeight: 1.6 }}>{closingLine}</p>}
+        <p style={{ fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', color: 'var(--muted-foreground)', margin: '0 0 6px' }}>{trip?.name}</p>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', marginBottom: '8px' }}>
+          <h1 style={{ fontSize: '40px', fontWeight: 300, color: 'var(--foreground)', margin: 0 }}>Destination ideas</h1>
+          <button
+            onClick={() => router.push(`/trips/${tripId}/step2`)}
+            style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--muted-foreground)', background: 'none', border: 'none', cursor: 'pointer', flexShrink: 0, marginTop: '8px', ...s }}
+          >
+            Edit answers →
+          </button>
+        </div>
+        {closingLine && <p style={{ fontSize: '14px', color: 'var(--muted-foreground)', margin: '0 0 32px', lineHeight: 1.6 }}>{closingLine}</p>}
 
         {cards.length > 0 && (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
-            <p style={{ fontSize: '12px', color: '#9a9a8a', margin: 0 }}>
+            <p style={{ fontSize: '12px', color: 'var(--muted-foreground)', margin: 0 }}>
               {Object.values(votes).filter(Boolean).length} of {maxVotes} votes used
             </p>
             {Object.values(votes).filter(Boolean).length > 0 && (
@@ -243,7 +182,7 @@ export default function Destinations() {
             <p style={{ fontSize: '11px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#2d6a4f' }}>
               {messages.length > 1 ? 'Updating your suggestions...' : 'Avanti is thinking...'}
             </p>
-            <p style={{ fontSize: '13px', color: '#9a9a8a', textAlign: 'center', maxWidth: '300px', lineHeight: 1.6 }}>
+            <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', textAlign: 'center', maxWidth: '300px', lineHeight: 1.6 }}>
               Weighing destinations against your group&apos;s vibe, budget, and deal breakers
             </p>
           </div>
@@ -268,7 +207,7 @@ export default function Destinations() {
 
       <div style={{
         position: 'fixed', bottom: 0, left: 0, right: 0,
-        background: '#fff', borderTop: '0.5px solid #e4e4d8',
+        background: 'var(--card)', borderTop: '0.5px solid #e4e4d8',
         padding: '12px 24px 20px', zIndex: 50,
       }}>
         <div style={{ maxWidth: '680px', margin: '0 auto' }}>
@@ -276,7 +215,7 @@ export default function Destinations() {
             <div style={{ maxHeight: '120px', overflowY: 'auto', marginBottom: '10px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
               {messages.filter(m => m.role === 'user').map((msg, i) => (
                 <div key={i} style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                  <div style={{ maxWidth: '80%', padding: '7px 12px', borderRadius: '12px', fontSize: '13px', background: '#1a3a2a', color: '#fff', lineHeight: 1.5 }}>
+                  <div style={{ maxWidth: '80%', padding: '7px 12px', borderRadius: '0', fontSize: '13px', background: 'var(--forest-deep)', color: '#fff', lineHeight: 1.5 }}>
                     {msg.content}
                   </div>
                 </div>
@@ -289,12 +228,12 @@ export default function Destinations() {
               onChange={e => setChatInput(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && sendChat()}
               placeholder="Too far, wrong vibe, swap one out, make it cheaper..."
-              style={{ flex: 1, border: 'none', borderBottom: '1px solid #d4d4c8', background: 'transparent', padding: '8px 0', fontSize: '14px', color: '#1a1a1a', outline: 'none', ...s }}
+              style={{ flex: 1, border: 'none', borderBottom: '1px solid #d4d4c8', background: 'transparent', padding: '8px 0', fontSize: '14px', color: 'var(--foreground)', outline: 'none', ...s }}
             />
             <button
               onClick={sendChat}
               disabled={!chatInput.trim() || chatLoading || generating}
-              style={{ padding: '8px 18px', background: '#1a3a2a', border: 'none', color: '#fff', fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', cursor: 'pointer', opacity: chatInput.trim() ? 1 : 0.4, borderRadius: '6px', ...s }}
+              style={{ padding: '8px 18px', background: 'var(--forest-deep)', border: 'none', color: '#fff', fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', cursor: 'pointer', opacity: chatInput.trim() ? 1 : 0.4, borderRadius: '6px', ...s }}
             >
               {chatLoading ? '...' : 'Send'}
             </button>
@@ -329,15 +268,15 @@ function DestCardComponent({ card, voted, canVote, onVote }: { card: DestCard; v
   return (
     <div style={{
       border: '1.5px solid #1a1a1a',
-      borderRadius: '16px',
+      borderRadius: '0',
       overflow: 'hidden',
-      background: card.isWildcard ? '#1a3a2a' : '#fff',
+      background: card.isWildcard ? 'var(--forest-deep)' : '#fff',
       display: 'flex',
       flexDirection: 'column',
     }}>
       {card.isWildcard && (
         <div style={{ padding: '12px 20px 0' }}>
-          <span style={{ fontSize: '9px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.45)', background: 'rgba(255,255,255,0.08)', padding: '3px 10px', borderRadius: '10px' }}>
+          <span style={{ fontSize: '9px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.45)', background: 'rgba(255,255,255,0.08)', padding: '3px 10px', borderRadius: '0' }}>
             Wildcard
           </span>
         </div>
@@ -394,11 +333,11 @@ function DestCardComponent({ card, voted, canVote, onVote }: { card: DestCard; v
             width: '100%', padding: '11px',
             border: `1px solid ${voted ? '#2d6a4f' : card.isWildcard ? 'rgba(255,255,255,0.2)' : '#1a1a1a'}`,
             background: voted ? '#e8f5ee' : 'transparent',
-            color: voted ? '#1a3a2a' : card.isWildcard ? 'rgba(255,255,255,0.65)' : '#1a1a1a',
+            color: voted ? 'var(--forest-deep)' : card.isWildcard ? 'rgba(255,255,255,0.65)' : '#1a1a1a',
             fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase',
             cursor: voted || canVote ? 'pointer' : 'default',
             opacity: !voted && !canVote ? 0.4 : 1,
-            borderRadius: '8px', transition: 'all 0.15s', ...s,
+            borderRadius: '0', transition: 'all 0.15s', ...s,
           }}
         >
           {voted ? '✓ Voted' : 'Add to vote'}

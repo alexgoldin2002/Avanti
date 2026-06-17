@@ -2,9 +2,9 @@
 import { useState, useEffect, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import AvantiLogo from '../components/AvantiLogo'
 import SuitcaseLoader from '../components/SuitcaseLoader'
 import Footer from '../components/Footer'
+import { BackLink } from '../components/SubpageShell'
 
 const COUNTRIES = ["Afghanistan","Albania","Algeria","Andorra","Angola","Antigua and Barbuda","Argentina","Armenia","Australia","Austria","Azerbaijan","Bahamas","Bahrain","Bangladesh","Barbados","Belarus","Belgium","Belize","Benin","Bhutan","Bolivia","Bosnia and Herzegovina","Botswana","Brazil","Brunei","Bulgaria","Burkina Faso","Burundi","Cabo Verde","Cambodia","Cameroon","Canada","Central African Republic","Chad","Chile","China","Colombia","Comoros","Congo","Costa Rica","Croatia","Cuba","Cyprus","Czech Republic","Denmark","Djibouti","Dominica","Dominican Republic","Ecuador","Egypt","El Salvador","Equatorial Guinea","Eritrea","Estonia","Eswatini","Ethiopia","Fiji","Finland","France","Gabon","Gambia","Georgia","Germany","Ghana","Greece","Grenada","Guatemala","Guinea","Guinea-Bissau","Guyana","Haiti","Honduras","Hungary","Iceland","India","Indonesia","Iran","Iraq","Ireland","Israel","Italy","Jamaica","Japan","Jordan","Kazakhstan","Kenya","Kiribati","Kuwait","Kyrgyzstan","Laos","Latvia","Lebanon","Lesotho","Liberia","Libya","Liechtenstein","Lithuania","Luxembourg","Madagascar","Malawi","Malaysia","Maldives","Mali","Malta","Marshall Islands","Mauritania","Mauritius","Mexico","Micronesia","Moldova","Monaco","Mongolia","Montenegro","Morocco","Mozambique","Myanmar","Namibia","Nauru","Nepal","Netherlands","New Zealand","Nicaragua","Niger","Nigeria","North Korea","North Macedonia","Norway","Oman","Pakistan","Palau","Palestine","Panama","Papua New Guinea","Paraguay","Peru","Philippines","Poland","Portugal","Qatar","Romania","Russia","Rwanda","Saint Kitts and Nevis","Saint Lucia","Saint Vincent and the Grenadines","Samoa","San Marino","Sao Tome and Principe","Saudi Arabia","Senegal","Serbia","Seychelles","Sierra Leone","Singapore","Slovakia","Slovenia","Solomon Islands","Somalia","South Africa","South Korea","South Sudan","Spain","Sri Lanka","Sudan","Suriname","Sweden","Switzerland","Syria","Taiwan","Tajikistan","Tanzania","Thailand","Timor-Leste","Togo","Tonga","Trinidad and Tobago","Tunisia","Turkey","Turkmenistan","Tuvalu","Uganda","Ukraine","United Arab Emirates","United Kingdom","United States","Uruguay","Uzbekistan","Vanuatu","Vatican City","Venezuela","Vietnam","Yemen","Zambia","Zimbabwe"]
 
@@ -152,20 +152,22 @@ function ProfileSetupInner() {
   }
 
   const s = { fontFamily: 'var(--font-cormorant), Georgia, serif' }
-  const inputStyle = { width: '100%', borderBottom: '1px solid #d4d4c8', background: 'transparent', padding: '10px 0', fontSize: '15px', color: '#1a1a1a', outline: 'none', ...s }
-  const labelStyle = { fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase' as const, color: '#9a9a8a', display: 'block', marginBottom: '6px' }
+  const inputStyle = { width: '100%', borderBottom: '1px solid #d4d4c8', background: 'transparent', padding: '10px 0', fontSize: '15px', color: 'var(--foreground)', outline: 'none', ...s }
+  const labelStyle = { fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase' as const, color: 'var(--muted-foreground)', display: 'block', marginBottom: '6px' }
   const selectStyle = { ...inputStyle, cursor: 'pointer', appearance: 'none' as const, backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%239a9a8a' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 4px center', paddingRight: '24px' }
-  const sectionStyle = { fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase' as const, color: '#9a9a8a', borderBottom: '1px solid #e8e8e0', paddingBottom: '8px', marginBottom: '20px' }
+  const sectionStyle = { fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase' as const, color: 'var(--muted-foreground)', borderBottom: '1px solid #e8e8e0', paddingBottom: '8px', marginBottom: '20px' }
 
   if (loading) return <SuitcaseLoader message="Loading your profile" />
 
   if (showWelcome) return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: '100%', background: '#fafaf8', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: '100%', background: 'transparent', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+      <div style={{ maxWidth: '560px', margin: '0 auto', padding: '48px 24px 0', width: '100%' }}>
+        <BackLink href="/dashboard" wrapperClassName="mb-8 flex justify-end" />
+      </div>
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
       <div style={{ width: '100%', maxWidth: '400px', textAlign: 'center' }}>
-        <div style={{ marginBottom: '40px' }}><AvantiLogo size="md" /></div>
-        <h1 style={{ fontSize: '36px', fontWeight: 300, color: '#1a1a1a', margin: '0 0 12px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>Welcome to Avanti</h1>
-        <p style={{ fontSize: '14px', color: '#9a9a8a', lineHeight: 1.8, marginBottom: '40px' }}>
+        <h1 style={{ fontSize: '36px', fontWeight: 300, color: 'var(--foreground)', margin: '0 0 12px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>Welcome to Avanti</h1>
+        <p style={{ fontSize: '14px', color: 'var(--muted-foreground)', lineHeight: 1.8, marginBottom: '40px' }}>
           Avanti handles everything — you just show up.<br />
           First, let's set up your traveler profile.<br />
           <span style={{ fontSize: '12px', color: '#b4b4a8' }}>Takes about 2 minutes. Fill in what you know.</span>
@@ -175,14 +177,14 @@ function ProfileSetupInner() {
             { icon: '🛂', text: 'Your passport and travel documents' },
             { icon: '✈️', text: 'Credit cards and benefits' },
           ].map(item => (
-            <div key={item.text} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', background: '#fff', border: '0.5px solid #e4e4d8', borderRadius: '10px', textAlign: 'left' }}>
+            <div key={item.text} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '0', textAlign: 'left' }}>
               <span style={{ fontSize: '20px' }}>{item.icon}</span>
               <p style={{ fontSize: '13px', color: '#3a3a3a', margin: 0 }}>{item.text}</p>
             </div>
           ))}
         </div>
         <button onClick={() => setShowWelcome(false)}
-          style={{ width: '100%', border: '1px solid #182D09', background: '#182D09', color: '#fff', padding: '16px', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '8px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+          style={{ width: '100%', border: '1px solid #182D09', background: '#182D09', color: '#fff', padding: '16px', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '0', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
           Let's get started →
         </button>
       </div>
@@ -192,13 +194,9 @@ function ProfileSetupInner() {
   )
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: '100%', background: '#fafaf8', paddingBottom: '80px', ...s }}>
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: '100%', background: 'transparent', paddingBottom: '80px', ...s }}>
       <div style={{ maxWidth: '560px', margin: '0 auto', padding: '48px 24px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '40px' }}>
-          <AvantiLogo size="sm" />
-          <button onClick={() => router.push('/dashboard')} style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#9a9a8a', background: 'none', border: 'none', cursor: 'pointer', ...s }}>← Dashboard</button>
-        </div>
-
+        <BackLink href="/dashboard" wrapperClassName="mb-8 flex justify-end" />
         <h1 style={{ fontSize: '36px', fontWeight: 300, color: '#083807', margin: '0 0 32px', ...s }}>My profile</h1>
 
         <div style={{ display: 'flex', borderBottom: '1px solid #e8e8e0', marginBottom: '32px' }}>
@@ -279,7 +277,7 @@ function ProfileSetupInner() {
 
           <div>
             <p style={sectionStyle}>Credit cards</p>
-            <p style={{ fontSize: '12px', color: '#9a9a8a', marginBottom: '16px', lineHeight: 1.7 }}>Avanti flags free bag benefits, lounge access, and travel credits automatically.</p>
+            <p style={{ fontSize: '12px', color: 'var(--muted-foreground)', marginBottom: '16px', lineHeight: 1.7 }}>Avanti flags free bag benefits, lounge access, and travel credits automatically.</p>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
               {CARDS.map(card => (
                 <button key={card} onClick={() => toggle('credit_cards', card)}
@@ -311,7 +309,7 @@ function ProfileSetupInner() {
 
       <div style={{ maxWidth: '560px', margin: '0 auto', padding: '0 24px 48px', textAlign: 'center' }}>
         <button onClick={async () => { await supabase.auth.signOut(); router.push('/') }}
-          style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#9a9a8a', background: 'none', border: 'none', cursor: 'pointer', ...s }}>
+          style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--muted-foreground)', background: 'none', border: 'none', cursor: 'pointer', ...s }}>
           Sign out
         </button>
       </div>
