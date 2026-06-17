@@ -310,23 +310,31 @@ function CreateTripModal({ onClose, onCreated, profile }: {
   onCreated: () => void
   profile: any
 }) {
+  const GROUP_TYPES = ['Friends', 'Bachelorette', 'Family friendly'] as const
+  const EVENT_TYPES = [
+    { value: 'none', label: 'No' },
+    { value: 'Meeting', label: 'Meeting' },
+    { value: 'Wedding', label: 'Wedding' },
+    { value: 'Party', label: 'Party' },
+  ] as const
+
   const [form, setForm] = useState({
     name: '',
-    date_type: 'exact',
-    start_date: '',
-    end_date: '',
-    date_range_start: '',
-    date_range_end: '',
-    destination_type: 'single',
-    destination: '',
+    groupType: '' as '' | typeof GROUP_TYPES[number],
+    eventType: '' as '' | 'none' | 'Meeting' | 'Wedding' | 'Party',
+    event_date: '',
+    event_location: '',
   })
   const [creating, setCreating] = useState(false)
   const [showErrors, setShowErrors] = useState(false)
 
+  const hasEvent = form.eventType !== '' && form.eventType !== 'none'
+
   const canCreate = () => {
     if (!form.name.trim()) return false
-    if (form.date_type === 'exact' && (!form.start_date || !form.end_date)) return false
-    if (form.date_type === 'range' && (!form.date_range_start || !form.date_range_end)) return false
+    if (!form.groupType) return false
+    if (!form.eventType) return false
+    if (hasEvent && (!form.event_date || !form.event_location.trim())) return false
     return true
   }
 
@@ -336,26 +344,22 @@ function CreateTripModal({ onClose, onCreated, profile }: {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
-    const destination = form.destination_type === 'flexible' ? 'Flexible' : form.destination
-
-    const tripData: any = {
-      name: form.name,
-      destination: destination || 'TBD',
-      destination_type: form.destination_type,
-      date_type: form.date_type,
+    const tripData: Record<string, unknown> = {
+      name: form.name.trim(),
+      trip_type: form.groupType,
+      destination: 'TBD',
+      destination_type: 'flexible',
+      date_type: 'flexible',
       cover_color: 'oklch(0.22 0.04 150)',
       organizer_id: user.id,
       status: 'planning',
+      is_event_centered: hasEvent,
     }
 
-    if (form.date_type === 'exact') {
-      tripData.start_date = form.start_date
-      tripData.end_date = form.end_date
-      tripData.dates_locked = true
-    } else {
-      tripData.date_range_start = form.date_range_start
-      tripData.date_range_end = form.date_range_end
-      tripData.dates_locked = false
+    if (hasEvent) {
+      tripData.event_name = form.eventType
+      tripData.event_date = form.event_date
+      tripData.event_location = form.event_location.trim()
     }
 
     const { data: trip, error } = await supabase.from('trips').insert(tripData).select().single()
@@ -391,14 +395,17 @@ function CreateTripModal({ onClose, onCreated, profile }: {
     display: 'block',
     marginBottom: 6,
   }
-  const toggleBtn = (active: boolean): React.CSSProperties => ({
-    flex: 1, padding: '8px', fontSize: '11px',
-    letterSpacing: '0.08em', textTransform: 'uppercase',
+  const optionBtn = (active: boolean): React.CSSProperties => ({
+    padding: '10px 14px',
+    fontSize: '12px',
+    letterSpacing: '0.06em',
+    textTransform: 'uppercase',
     border: `1px solid ${active ? FOREST_DEEP : '#d4d4c8'}`,
-    background: active ? FOREST_DEEP : 'transparent',
-    color: active ? CREAM : '#6a6a6a',
+    background: active ? '#f5f5f0' : 'transparent',
+    color: active ? FOREST_DEEP : '#6a6a6a',
     cursor: 'pointer',
     fontFamily: 'Cormorant Garamond, ui-serif, Georgia, serif',
+    textAlign: 'left',
   })
 
   return (
@@ -422,18 +429,16 @@ function CreateTripModal({ onClose, onCreated, profile }: {
 
         <p style={{ ...EYEBROW, color: '#9a9a8a', marginBottom: 8 }}>New trip</p>
         <h2 style={{ fontSize: 28, fontWeight: 300, color: FOREST_DEEP, margin: '0 0 32px' }}>
-          Where are we going?
+          Create a trip
         </h2>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-          {/* Name */}
           <div>
             <label style={labelStyle}>Trip name</label>
             <input
               style={inputStyle}
               value={form.name}
               onChange={e => setForm({ ...form, name: e.target.value })}
-              placeholder="Mama Mia Summer"
               autoFocus
             />
             {showErrors && !form.name.trim() && (
@@ -441,73 +446,76 @@ function CreateTripModal({ onClose, onCreated, profile }: {
             )}
           </div>
 
-          {/* Dates */}
           <div>
-            <label style={labelStyle}>Dates</label>
-            <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-              <button style={toggleBtn(form.date_type === 'exact')} onClick={() => setForm({ ...form, date_type: 'exact' })}>Exact dates</button>
-              <button style={toggleBtn(form.date_type === 'range')} onClick={() => setForm({ ...form, date_type: 'range' })}>Flexible range</button>
+            <label style={labelStyle}>Who&apos;s traveling?</label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {GROUP_TYPES.map(type => (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => setForm({ ...form, groupType: type })}
+                  style={optionBtn(form.groupType === type)}
+                >
+                  {type}
+                </button>
+              ))}
             </div>
-            {form.date_type === 'exact' ? (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                <div>
-                  <label style={{ ...labelStyle, fontSize: '9px' }}>Start date</label>
-                  <input type="date" style={inputStyle} value={form.start_date} onChange={e => setForm({ ...form, start_date: e.target.value })} />
-                </div>
-                <div>
-                  <label style={{ ...labelStyle, fontSize: '9px' }}>End date</label>
-                  <input type="date" style={inputStyle} value={form.end_date} onChange={e => setForm({ ...form, end_date: e.target.value })} />
-                </div>
-              </div>
-            ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                <div>
-                  <label style={{ ...labelStyle, fontSize: '9px' }}>Earliest start</label>
-                  <input type="date" style={inputStyle} value={form.date_range_start} onChange={e => setForm({ ...form, date_range_start: e.target.value })} />
-                </div>
-                <div>
-                  <label style={{ ...labelStyle, fontSize: '9px' }}>Latest end</label>
-                  <input type="date" style={inputStyle} value={form.date_range_end} onChange={e => setForm({ ...form, date_range_end: e.target.value })} />
-                </div>
-              </div>
+            {showErrors && !form.groupType && (
+              <p style={{ fontSize: 11, color: '#c0392b', margin: '4px 0 0' }}>Please select a group type</p>
             )}
           </div>
 
-          {/* Destination */}
           <div>
-            <label style={labelStyle}>Destination</label>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
-              {[
-                { value: 'single', label: 'Single city' },
-                { value: 'multi', label: 'Multi-city' },
-                { value: 'flexible', label: 'Still deciding' },
-              ].map(opt => (
+            <label style={labelStyle}>Does this trip revolve around an event?</label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {EVENT_TYPES.map(opt => (
                 <button
                   key={opt.value}
-                  onClick={() => setForm({ ...form, destination_type: opt.value })}
-                  style={{
-                    textAlign: 'left', padding: '10px 14px', fontSize: 12,
-                    border: `1px solid ${form.destination_type === opt.value ? FOREST_DEEP : '#d4d4c8'}`,
-                    background: form.destination_type === opt.value ? '#f5f5f0' : 'transparent',
-                    color: FOREST_DEEP, cursor: 'pointer',
-                    fontFamily: 'Cormorant Garamond, ui-serif, Georgia, serif',
-                  }}
+                  type="button"
+                  onClick={() => setForm({
+                    ...form,
+                    eventType: opt.value,
+                    ...(opt.value === 'none' ? { event_date: '', event_location: '' } : {}),
+                  })}
+                  style={optionBtn(form.eventType === opt.value)}
                 >
                   {opt.label}
                 </button>
               ))}
             </div>
-            {form.destination_type !== 'flexible' && (
-              <input
-                style={inputStyle}
-                value={form.destination}
-                onChange={e => setForm({ ...form, destination: e.target.value })}
-                placeholder="Mykonos, Greece"
-              />
+            {showErrors && !form.eventType && (
+              <p style={{ fontSize: 11, color: '#c0392b', margin: '4px 0 0' }}>Please select an option</p>
             )}
           </div>
 
-          {/* Submit */}
+          {hasEvent && (
+            <>
+              <div>
+                <label style={labelStyle}>Event date</label>
+                <input
+                  type="date"
+                  style={inputStyle}
+                  value={form.event_date}
+                  onChange={e => setForm({ ...form, event_date: e.target.value })}
+                />
+                {showErrors && !form.event_date && (
+                  <p style={{ fontSize: 11, color: '#c0392b', margin: '4px 0 0' }}>Please enter the event date</p>
+                )}
+              </div>
+              <div>
+                <label style={labelStyle}>Event location</label>
+                <input
+                  style={inputStyle}
+                  value={form.event_location}
+                  onChange={e => setForm({ ...form, event_location: e.target.value })}
+                />
+                {showErrors && !form.event_location.trim() && (
+                  <p style={{ fontSize: 11, color: '#c0392b', margin: '4px 0 0' }}>Please enter the event location</p>
+                )}
+              </div>
+            </>
+          )}
+
           <button
             onClick={handleCreate}
             disabled={creating}
