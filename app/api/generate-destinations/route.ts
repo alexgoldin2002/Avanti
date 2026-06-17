@@ -5,10 +5,12 @@ import Anthropic from '@anthropic-ai/sdk'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import {
+  appendBatchInstructions,
   buildDestinationUserMessage,
+  createDestinationCards,
   dedupeCardsByCountry,
   DESTINATION_SYSTEM_PROMPT,
-  generateValidatedDestinationText,
+  type DestinationBatch,
 } from '@/lib/generate-destinations-core'
 import { parseDestinationCards } from '@/lib/parse-destination-cards'
 
@@ -20,7 +22,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'AI service is not configured' }, { status: 500 })
     }
 
-    const { tripId, answers, messages, stream: useStream = true } = await request.json()
+    const {
+      tripId,
+      answers,
+      messages,
+      stream: useStream = true,
+      batch = 'all' as DestinationBatch,
+      excludeCountries = [] as string[],
+    } = await request.json()
 
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -31,40 +40,22 @@ export async function POST(request: NextRequest) {
     const { data: travelers } = await supabase.from('travelers').select('*').eq('trip_id', tripId)
     const travelerCount = travelers?.length || 0
 
-    const userMessage = buildDestinationUserMessage(trip, travelerCount, answers)
+    const baseUserMessage = buildDestinationUserMessage(trip, travelerCount, answers)
+    const userMessage = appendBatchInstructions(baseUserMessage, batch, excludeCountries)
     const conversationMessages =
       messages?.length > 0
         ? [...messages, { role: 'user' as const, content: userMessage }]
         : [{ role: 'user' as const, content: userMessage }]
 
     if (!useStream) {
-      const response = await client.messages.create({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 4096,
-        system: DESTINATION_SYSTEM_PROMPT,
-        messages: conversationMessages,
-      })
-      const fullText = response.content[0].type === 'text' ? response.content[0].text : ''
-      let { cards, closing } = parseDestinationCards(fullText)
-      cards = dedupeCardsByCountry(cards)
-
-      if (cards.length < 4) {
-        const retried = await generateValidatedDestinationText(client, conversationMessages, 1)
-        const reparsed = parseDestinationCards(retried)
-        cards = dedupeCardsByCountry(reparsed.cards)
-        return NextResponse.json({
-          message: retried,
-          cards,
-          closing: reparsed.closing,
-        })
-      }
-
-      return NextResponse.json({ message: fullText, cards, closing })
+      const maxTokens = batch === 'all' ? 3200 : 2200
+      const result = await createDestinationCards(client, conversationMessages, maxTokens)
+      return NextResponse.json(result)
     }
 
     const anthropicStream = client.messages.stream({
       model: 'claude-sonnet-4-6',
-      max_tokens: 4096,
+      max_tokens: batch === 'all' ? 3200 : 2200,
       system: DESTINATION_SYSTEM_PROMPT,
       messages: conversationMessages,
     })
@@ -82,7 +73,6 @@ export async function POST(request: NextRequest) {
             }
           }
 
-          // Return parsed cards from the server so the client never has to re-parse SSE.
           const parsed = dedupeCardsByCountry(parseDestinationCards(streamedText).cards)
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({
             done: true,

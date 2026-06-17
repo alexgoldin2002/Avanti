@@ -106,7 +106,9 @@ TRADEOFF: [1 honest sentence — do not soften]
 FOOTNOTES: [If triggered]
 ---
 
-AVANTI_CARDS_END`
+AVANTI_CARDS_END
+
+BREVITY: One short line per bullet (under 15 words). Skip FOOTNOTES unless critical. No preamble — start with DESTINATIONS: immediately.`
 
 export function buildDestinationUserMessage(
   trip: Record<string, unknown> | null,
@@ -148,6 +150,49 @@ Popularity preference: ${answers.popularity || 'No preference'}
 Deal breakers: ${answers.q3 || 'None stated'}
 
 Generate 4 destination cards now (3 main + 1 wildcard). Remember: only ONE card per country (United States excepted).`
+}
+
+export type DestinationBatch = 'all' | 'half1' | 'half2'
+
+export function appendBatchInstructions(
+  userMessage: string,
+  batch: DestinationBatch,
+  excludeCountries: string[] = [],
+): string {
+  if (batch === 'half1') {
+    return `${userMessage}
+
+Generate ONLY the first TWO main destination cards. Do NOT write a third main card or WILDCARD yet. Stop after the second card's closing --- line.`
+  }
+  if (batch === 'half2') {
+    const exclude = excludeCountries.filter(Boolean)
+    return `${userMessage}
+
+Generate ONE more main destination card PLUS the WILDCARD card (2 cards total).
+${exclude.length ? `Do NOT use these countries: ${exclude.join(', ')}.` : ''}
+Use the exact format including the WILDCARD: block.`
+  }
+  return userMessage
+}
+
+export async function createDestinationCards(
+  client: Anthropic,
+  conversationMessages: MessageParam[],
+  maxTokens = 3200,
+) {
+  const response = await client.messages.create({
+    model: 'claude-sonnet-4-6',
+    max_tokens: maxTokens,
+    system: DESTINATION_SYSTEM_PROMPT,
+    messages: conversationMessages,
+  })
+  const fullText = response.content[0].type === 'text' ? response.content[0].text : ''
+  const { cards, closing } = parseDestinationCards(fullText)
+  return {
+    message: fullText,
+    cards: dedupeCardsByCountry(cards),
+    closing,
+  }
 }
 
 function buildCorrectionMessage(violations: ReturnType<typeof getCountryDuplicateViolations>): string {

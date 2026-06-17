@@ -6,6 +6,7 @@ import SuitcaseLoader from '../../../components/SuitcaseLoader'
 import { BackLink } from '../../../components/SubpageShell'
 import { parseDestinationCards } from '@/lib/parse-destination-cards'
 import { dedupeCardsByCountry } from '@/lib/generate-destinations-core'
+import { extractCountryFromDestinationName } from '@/lib/destination-country-rules'
 
 function StepTwoDestCard({ card, tripId, isVoted, onVote }: { card: any; tripId: string; isVoted: boolean; onVote: () => void }) {
   const [open, setOpen] = useState<string | null>(null)
@@ -174,6 +175,7 @@ export default function Step2() {
   const [refreshingChat, setRefreshingChat] = useState(false)
   const [generating, setGenerating] = useState(false)
   const [generateError, setGenerateError] = useState<string | null>(null)
+  const [generateStatus, setGenerateStatus] = useState<string | null>(null)
   const [cards, setCards] = useState<any[]>([])
   const [whyNot, setWhyNot] = useState<{ name: string; reasons: string[] }[]>([])
   const [editMode, setEditMode] = useState(false)
@@ -413,36 +415,42 @@ export default function Step2() {
   const generateDestinations = async () => {
     setGenerating(true)
     setGenerateError(null)
+    setGenerateStatus('Finding your first destinations…')
     setCards([])
     await saveProgress('done')
-    try {
+
+    const answerPayload = {
+      q1,
+      departureCities,
+      departureCity: departureCities.join(', '),
+      dates,
+      fixedDates,
+      flexLength,
+      domestic,
+      regions,
+      stops,
+      stopsOther,
+      activities,
+      vibe,
+      vibeOther,
+      accommodation,
+      budget,
+      budgetOther,
+      popularity,
+      q3,
+    }
+
+    const fetchBatch = async (batch: 'half1' | 'half2', excludeCountries: string[] = []) => {
       const res = await fetch('/api/generate-destinations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           tripId,
-          answers: {
-            q1,
-            departureCities,
-            departureCity: departureCities.join(', '),
-            dates,
-            fixedDates,
-            flexLength,
-            domestic,
-            regions,
-            stops,
-            stopsOther,
-            activities,
-            vibe,
-            vibeOther,
-            accommodation,
-            budget,
-            budgetOther,
-            popularity,
-            q3,
-          },
+          answers: answerPayload,
           messages: [],
           stream: false,
+          batch,
+          excludeCountries,
         }),
       })
 
@@ -457,9 +465,25 @@ export default function Step2() {
       const data = await res.json()
       if (data.error) throw new Error(data.error)
 
-      const parsed = dedupeCardsByCountry(
+      return dedupeCardsByCountry(
         data.cards?.length ? data.cards : parseDestinationCards(data.message || '').cards,
       )
+    }
+
+    try {
+      const firstBatch = await fetchBatch('half1')
+      if (firstBatch.length === 0) {
+        throw new Error('No destination cards were returned. Please try again.')
+      }
+
+      setGenerateStatus('Adding final picks and a wildcard…')
+      const usedCountries = firstBatch
+        .map(card => extractCountryFromDestinationName(card.name))
+        .filter(Boolean) as string[]
+
+      const secondBatch = await fetchBatch('half2', usedCountries)
+      const parsed = dedupeCardsByCountry([...firstBatch, ...secondBatch])
+
       if (parsed.length === 0) {
         throw new Error('No destination cards were returned. Please try again.')
       }
@@ -477,6 +501,7 @@ export default function Step2() {
       setGenerateError(message)
     } finally {
       setGenerating(false)
+      setGenerateStatus(null)
     }
   }
 
@@ -904,7 +929,7 @@ export default function Step2() {
             </svg>
             <p style={{ fontSize: '11px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#2d6a4f', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>Avanti is thinking...</p>
             <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', textAlign: 'center', maxWidth: '280px', lineHeight: 1.6, fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
-              Based on what you&apos;ve shared — weighing destinations against your vibe, budget, and deal breakers
+              {generateStatus || 'Based on what you\'ve shared — weighing destinations against your vibe, budget, and deal breakers'}
             </p>
           </div>
         )}
