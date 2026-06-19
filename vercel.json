@@ -3,6 +3,10 @@
     {
       "path": "/api/destinations/decision/cron",
       "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/trip-companion/briefings/cron",
+      "schedule": "0 * * * *"
     }
   ]
 }

@@ -1,10 +1,14 @@
 'use client'
-import { useState, useEffect } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useState, useEffect, useCallback } from 'react'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import SuitcaseLoader from '../../components/SuitcaseLoader'
 import { BackLink } from '../../components/SubpageShell'
+import GameTimeItinerary from '../../components/GameTimeItinerary'
+import { mergeBookingsIntoItinerary } from '@/lib/bookings/merge-itinerary'
+import { fetchTripBookings } from '@/lib/bookings/client-api'
+import type { ItineraryData, TripBooking } from '@/lib/bookings/types'
 
 type StepState = 'done' | 'active' | 'locked' | 'open'
 
@@ -83,6 +87,7 @@ function StepCard({
 export default function TripDashboard() {
   const params = useParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const tripId = params.tripId as string
   const [trip, setTrip] = useState<any>(null)
   const [travelers, setTravelers] = useState<any[]>([])
@@ -104,6 +109,34 @@ export default function TripDashboard() {
   const [showWelcome, setShowWelcome] = useState(false)
   const [welcomeName, setWelcomeName] = useState('')
   const [isOrganizer, setIsOrganizer] = useState(false)
+  const [gameTimeItinerary, setGameTimeItinerary] = useState<ItineraryData | null>(null)
+  const [gameTimeBookings, setGameTimeBookings] = useState<TripBooking[]>([])
+  const [gameTimeLoading, setGameTimeLoading] = useState(false)
+
+  const loadGameTimeData = useCallback(async () => {
+    if (!trip?.destination || trip.destination === 'TBD') return
+    setGameTimeLoading(true)
+    try {
+      const { bookings } = await fetchTripBookings(tripId)
+      const list = bookings as TripBooking[]
+      setGameTimeBookings(list)
+      const base = (trip.options?.itinerary as ItineraryData) || { summary: 'Your trip', days: [] }
+      setGameTimeItinerary(mergeBookingsIntoItinerary(base, list))
+    } catch {
+      const base = (trip.options?.itinerary as ItineraryData) || null
+      setGameTimeItinerary(base)
+    } finally {
+      setGameTimeLoading(false)
+    }
+  }, [trip, tripId])
+
+  useEffect(() => {
+    if (activeTab === 'gametime' && trip) loadGameTimeData()
+  }, [activeTab, trip, loadGameTimeData])
+
+  useEffect(() => {
+    if (searchParams.get('tab') === 'gametime') setActiveTab('gametime')
+  }, [searchParams])
 
   useEffect(() => {
     const load = async () => {
@@ -572,29 +605,57 @@ export default function TripDashboard() {
         )}
 
         {activeTab === 'gametime' && (
-          <div className="mt-8 space-y-3">
-            <button
-              type="button"
-              onClick={() => router.push(`/trips/${tripId}/bookings`)}
-              className="group avanti-box flex w-full items-center justify-between rounded-none border border-forest-deep bg-card px-5 py-4 text-left transition-all duration-200 hover:-translate-y-px hover:[box-shadow:var(--shadow-box-hover)]"
-            >
-              <div>
-                <p className="font-serif text-lg group-hover:text-forest-deep">Bookings & confirmations</p>
-                <p className="text-xs text-muted-foreground mt-0.5">Forward emails · drop screenshots · all QR codes & PDFs</p>
+          <div className="mt-8 space-y-8">
+            {!trip?.destination || trip.destination === 'TBD' ? (
+              <div className="avanti-box border border-border bg-card px-5 py-8 text-center">
+                <p className="font-serif text-lg mb-2">Game time unlocks after destination</p>
+                <p className="text-xs text-muted-foreground mb-4">Lock your destination in Prep to see your full itinerary here.</p>
+                <button type="button" onClick={() => router.push(`/trips/${tripId}/choose`)} className="text-[10px] uppercase tracking-wider text-forest-deep hover:underline">
+                  Choose destination →
+                </button>
               </div>
-              <i className="ti ti-chevron-right text-muted-foreground" aria-hidden />
-            </button>
-            <button
-              type="button"
-              onClick={() => router.push(`/trips/${tripId}/itinerary`)}
-              className="group avanti-box flex w-full items-center justify-between rounded-none border border-border bg-card px-5 py-4 text-left transition-all duration-200 hover:-translate-y-px hover:border-forest-deep/30"
-            >
-              <div>
-                <p className="font-serif text-lg group-hover:text-forest-deep">Daily itinerary</p>
-                <p className="text-xs text-muted-foreground mt-0.5">Day-by-day plan with linked confirmations</p>
-              </div>
-              <i className="ti ti-chevron-right text-muted-foreground" aria-hidden />
-            </button>
+            ) : (
+              <>
+                <section>
+                  <div className="flex items-center justify-between mb-4">
+                    <p className="text-[10px] tracking-[0.35em] uppercase text-muted-foreground m-0">Your trip · {trip.destination}</p>
+                    <button type="button" onClick={() => router.push(`/trips/${tripId}/itinerary`)} className="text-[10px] uppercase tracking-wider text-forest-deep hover:underline">
+                      Full view →
+                    </button>
+                  </div>
+                  {gameTimeLoading ? (
+                    <p className="text-sm text-muted-foreground italic">Loading itinerary…</p>
+                  ) : (
+                    <GameTimeItinerary tripId={tripId} itinerary={gameTimeItinerary} bookings={gameTimeBookings} />
+                  )}
+                </section>
+
+                <section>
+                  <p className="text-[10px] tracking-[0.35em] uppercase text-muted-foreground mb-3">Trip tools</p>
+                  <div className="space-y-2">
+                    {[
+                      { label: 'Saved places', sub: 'TikTok · Instagram · links · screenshots', path: 'saves' },
+                      { label: 'Bookings & confirmations', sub: 'Flights · hotels · QR codes & PDFs', path: 'bookings' },
+                      { label: 'Destination essentials', sub: 'Emergency · hospital · embassy · local apps', path: 'essentials' },
+                      { label: 'Daily briefings', sub: 'Night preview · morning schedule · SMS', path: 'briefings' },
+                    ].map(item => (
+                      <button
+                        key={item.path}
+                        type="button"
+                        onClick={() => router.push(`/trips/${tripId}/${item.path}`)}
+                        className="group avanti-box flex w-full items-center justify-between rounded-none border border-border bg-card px-5 py-4 text-left transition-all duration-200 hover:-translate-y-px hover:border-forest-deep/30"
+                      >
+                        <div>
+                          <p className="font-serif text-lg group-hover:text-forest-deep m-0">{item.label}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5 m-0">{item.sub}</p>
+                        </div>
+                        <i className="ti ti-chevron-right text-muted-foreground" aria-hidden />
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              </>
+            )}
           </div>
         )}
       </main>
