@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { fetchUserTrips, filterTripsWithDestination } from '@/lib/user-trips'
 import AvantiLogo from '../../components/AvantiLogo'
 import SuitcaseLoader from '../../components/SuitcaseLoader'
 
@@ -41,24 +42,8 @@ export default function TripFeatureHub({
         router.push('/')
         return
       }
-      const { data: profile } = await supabase.from('user_profiles').select('email').eq('user_id', user.id).single()
-      const { data: travelerRows } = await supabase
-        .from('travelers')
-        .select('trip_id')
-        .eq('email', profile?.email || '')
-      const tripIds = travelerRows?.map(t => t.trip_id) || []
-      if (tripIds.length === 0) {
-        setLoading(false)
-        return
-      }
-      const { data: tripData } = await supabase
-        .from('trips')
-        .select('*')
-        .in('id', tripIds)
-        .order('created_at', { ascending: false })
-      const filtered = requireDestination
-        ? (tripData || []).filter(t => t.destination && t.destination !== 'TBD')
-        : tripData || []
+      const all = await fetchUserTrips(supabase, user.id)
+      const filtered = requireDestination ? filterTripsWithDestination(all) : all
       setTrips(filtered)
       setLoading(false)
     }

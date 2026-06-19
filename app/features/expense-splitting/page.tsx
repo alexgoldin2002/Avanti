@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { fetchUserTrips } from '@/lib/user-trips'
 import AvantiLogo from '../../components/AvantiLogo'
 import SuitcaseLoader from '../../components/SuitcaseLoader'
 
@@ -15,19 +16,8 @@ export default function ExpenseSplittingHome() {
     const load = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/'); return }
-      const { data: profile } = await supabase.from('user_profiles').select('email').eq('user_id', user.id).single()
-      const { data: travelerRows } = await supabase
-        .from('travelers')
-        .select('trip_id')
-        .eq('email', profile?.email || '')
-      const tripIds = travelerRows?.map(t => t.trip_id) || []
-      if (tripIds.length === 0) { setLoading(false); return }
-      const { data: tripData } = await supabase
-        .from('trips')
-        .select('*')
-        .in('id', tripIds)
-        .order('created_at', { ascending: false })
-      setTrips(tripData || [])
+      const tripData = await fetchUserTrips(supabase, user.id)
+      setTrips(tripData)
       setLoading(false)
     }
     load()

@@ -112,6 +112,7 @@ export default function CreateTrip() {
 
     await supabase.from('travelers').insert({
       trip_id: trip.id,
+      user_id: user.id,
       full_name: profile?.full_name || '',
       email: travelerEmail,
       nickname: profile?.full_name?.split(' ')[0] || '',

@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import { fetchUserTrips } from '@/lib/user-trips'
 import { INSTAGRAM_URL, TIKTOK_URL } from '@/lib/social-links'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -318,31 +319,65 @@ function CreateTripModal({ onClose, onCreated, profile }: {
   onCreated: () => void
   profile: any
 }) {
-  const GROUP_TYPES = ['Friends', 'Bachelorette', 'Family friendly'] as const
-  const EVENT_TYPES = [
-    { value: 'none', label: 'No' },
-    { value: 'Meeting', label: 'Meeting' },
-    { value: 'Wedding', label: 'Wedding' },
-    { value: 'Party', label: 'Party' },
+  const GROUP_TYPES = [
+    'Friends',
+    'Couples',
+    'Family without kids',
+    'Multigenerational',
+    'Family with kids',
+    'Bachelorette',
+    'Bachelor party',
+    'Girls trip',
+    'Guys trip',
+    'Reunion',
+    'Coworkers',
+    'Organization',
+  ] as const
+
+  const EVENT_KINDS = [
+    'Wedding',
+    'Bachelorette',
+    'Bachelor party',
+    'Birthday',
+    'Anniversary',
+    'Graduation',
+    'Reunion',
+    'Conference',
+    'Meeting',
+    'Festival',
+    'Concert',
+    'Sporting event',
+    'Retreat',
+    'Party',
+    'Other',
   ] as const
 
   const [form, setForm] = useState({
     name: '',
     groupType: '' as '' | typeof GROUP_TYPES[number],
-    eventType: '' as '' | 'none' | 'Meeting' | 'Wedding' | 'Party',
+    eventCentered: '' as '' | 'no' | 'yes',
+    eventKind: '' as '' | typeof EVENT_KINDS[number],
+    eventOther: '',
+    eventDateMode: 'single' as 'single' | 'range',
     event_date: '',
+    event_date_end: '',
     event_location: '',
   })
   const [creating, setCreating] = useState(false)
   const [showErrors, setShowErrors] = useState(false)
 
-  const hasEvent = form.eventType !== '' && form.eventType !== 'none'
+  const hasEvent = form.eventCentered === 'yes'
+  const eventName = form.eventKind === 'Other' ? form.eventOther.trim() : form.eventKind
 
   const canCreate = () => {
     if (!form.name.trim()) return false
     if (!form.groupType) return false
-    if (!form.eventType) return false
-    if (hasEvent && (!form.event_date || !form.event_location.trim())) return false
+    if (!form.eventCentered) return false
+    if (!hasEvent) return true
+    if (!form.eventKind) return false
+    if (form.eventKind === 'Other' && !form.eventOther.trim()) return false
+    if (!form.event_date || !form.event_location.trim()) return false
+    if (form.eventDateMode === 'range' && !form.event_date_end) return false
     return true
   }
 
@@ -365,8 +400,9 @@ function CreateTripModal({ onClose, onCreated, profile }: {
     }
 
     if (hasEvent) {
-      tripData.event_name = form.eventType
+      tripData.event_name = eventName
       tripData.event_date = form.event_date
+      tripData.event_date_end = form.eventDateMode === 'range' ? form.event_date_end : null
       tripData.event_location = form.event_location.trim()
     }
 
@@ -375,6 +411,7 @@ function CreateTripModal({ onClose, onCreated, profile }: {
 
     await supabase.from('travelers').insert({
       trip_id: trip.id,
+      user_id: user.id,
       full_name: profile?.full_name || '',
       email: profile?.email || '',
       nickname: profile?.full_name?.split(' ')[0] || '',
@@ -403,18 +440,24 @@ function CreateTripModal({ onClose, onCreated, profile }: {
     display: 'block',
     marginBottom: 6,
   }
-  const optionBtn = (active: boolean): React.CSSProperties => ({
-    padding: '10px 14px',
-    fontSize: '12px',
-    letterSpacing: '0.06em',
+  const chipBtn = (active: boolean): React.CSSProperties => ({
+    padding: '7px 11px',
+    fontSize: '10px',
+    letterSpacing: '0.07em',
     textTransform: 'uppercase',
     border: `1px solid ${active ? FOREST_DEEP : '#d4d4c8'}`,
-    background: active ? '#f5f5f0' : 'transparent',
+    background: active ? '#e8f5ee' : '#fff',
     color: active ? FOREST_DEEP : '#6a6a6a',
     cursor: 'pointer',
     fontFamily: 'Cormorant Garamond, ui-serif, Georgia, serif',
-    textAlign: 'left',
+    borderRadius: '6px',
+    lineHeight: 1.2,
   })
+  const chipWrap: React.CSSProperties = {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: 6,
+  }
 
   return (
     <div style={{
@@ -456,13 +499,13 @@ function CreateTripModal({ onClose, onCreated, profile }: {
 
           <div>
             <label style={labelStyle}>Who&apos;s traveling?</label>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div style={chipWrap}>
               {GROUP_TYPES.map(type => (
                 <button
                   key={type}
                   type="button"
                   onClick={() => setForm({ ...form, groupType: type })}
-                  style={optionBtn(form.groupType === type)}
+                  style={chipBtn(form.groupType === type)}
                 >
                   {type}
                 </button>
@@ -475,23 +518,25 @@ function CreateTripModal({ onClose, onCreated, profile }: {
 
           <div>
             <label style={labelStyle}>Does this trip revolve around an event?</label>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {EVENT_TYPES.map(opt => (
+            <div style={chipWrap}>
+              {(['no', 'yes'] as const).map(value => (
                 <button
-                  key={opt.value}
+                  key={value}
                   type="button"
                   onClick={() => setForm({
                     ...form,
-                    eventType: opt.value,
-                    ...(opt.value === 'none' ? { event_date: '', event_location: '' } : {}),
+                    eventCentered: value,
+                    ...(value === 'no'
+                      ? { eventKind: '', eventOther: '', eventDateMode: 'single', event_date: '', event_date_end: '', event_location: '' }
+                      : {}),
                   })}
-                  style={optionBtn(form.eventType === opt.value)}
+                  style={chipBtn(form.eventCentered === value)}
                 >
-                  {opt.label}
+                  {value === 'no' ? 'No' : 'Yes'}
                 </button>
               ))}
             </div>
-            {showErrors && !form.eventType && (
+            {showErrors && !form.eventCentered && (
               <p style={{ fontSize: 11, color: '#c0392b', margin: '4px 0 0' }}>Please select an option</p>
             )}
           </div>
@@ -499,28 +544,115 @@ function CreateTripModal({ onClose, onCreated, profile }: {
           {hasEvent && (
             <>
               <div>
-                <label style={labelStyle}>Event date</label>
-                <input
-                  type="date"
-                  style={inputStyle}
-                  value={form.event_date}
-                  onChange={e => setForm({ ...form, event_date: e.target.value })}
-                />
-                {showErrors && !form.event_date && (
-                  <p style={{ fontSize: 11, color: '#c0392b', margin: '4px 0 0' }}>Please enter the event date</p>
+                <label style={labelStyle}>What kind of event?</label>
+                <div style={chipWrap}>
+                  {EVENT_KINDS.map(kind => (
+                    <button
+                      key={kind}
+                      type="button"
+                      onClick={() => setForm({
+                        ...form,
+                        eventKind: kind,
+                        ...(kind !== 'Other' ? { eventOther: '' } : {}),
+                      })}
+                      style={chipBtn(form.eventKind === kind)}
+                    >
+                      {kind}
+                    </button>
+                  ))}
+                </div>
+                {showErrors && !form.eventKind && (
+                  <p style={{ fontSize: 11, color: '#c0392b', margin: '4px 0 0' }}>Please select an event type</p>
                 )}
               </div>
-              <div>
-                <label style={labelStyle}>Event location</label>
-                <input
-                  style={inputStyle}
-                  value={form.event_location}
-                  onChange={e => setForm({ ...form, event_location: e.target.value })}
-                />
-                {showErrors && !form.event_location.trim() && (
-                  <p style={{ fontSize: 11, color: '#c0392b', margin: '4px 0 0' }}>Please enter the event location</p>
-                )}
-              </div>
+
+              {form.eventKind === 'Other' && (
+                <div>
+                  <label style={labelStyle}>Describe the event</label>
+                  <input
+                    style={inputStyle}
+                    value={form.eventOther}
+                    onChange={e => setForm({ ...form, eventOther: e.target.value })}
+                    placeholder="e.g. Product launch, family reunion dinner..."
+                  />
+                  {showErrors && !form.eventOther.trim() && (
+                    <p style={{ fontSize: 11, color: '#c0392b', margin: '4px 0 0' }}>Please describe the event</p>
+                  )}
+                </div>
+              )}
+
+              {form.eventKind && (form.eventKind !== 'Other' || form.eventOther.trim()) && (
+                <>
+                  <div>
+                    <label style={labelStyle}>Event date or range</label>
+                    <div style={{ ...chipWrap, marginBottom: 10 }}>
+                      {(['single', 'range'] as const).map(mode => (
+                        <button
+                          key={mode}
+                          type="button"
+                          onClick={() => setForm({
+                            ...form,
+                            eventDateMode: mode,
+                            ...(mode === 'single' ? { event_date_end: '' } : {}),
+                          })}
+                          style={chipBtn(form.eventDateMode === mode)}
+                        >
+                          {mode === 'single' ? 'Single date' : 'Date range'}
+                        </button>
+                      ))}
+                    </div>
+                    {form.eventDateMode === 'single' ? (
+                      <input
+                        type="date"
+                        style={inputStyle}
+                        value={form.event_date}
+                        onChange={e => setForm({ ...form, event_date: e.target.value })}
+                      />
+                    ) : (
+                      <div style={{ display: 'flex', gap: 16 }}>
+                        <div style={{ flex: 1 }}>
+                          <span style={{ ...labelStyle, fontSize: '9px', marginBottom: 4 }}>Start</span>
+                          <input
+                            type="date"
+                            style={inputStyle}
+                            value={form.event_date}
+                            onChange={e => setForm({ ...form, event_date: e.target.value })}
+                          />
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <span style={{ ...labelStyle, fontSize: '9px', marginBottom: 4 }}>End</span>
+                          <input
+                            type="date"
+                            style={inputStyle}
+                            min={form.event_date || undefined}
+                            value={form.event_date_end}
+                            onChange={e => setForm({ ...form, event_date_end: e.target.value })}
+                          />
+                        </div>
+                      </div>
+                    )}
+                    {showErrors && !form.event_date && (
+                      <p style={{ fontSize: 11, color: '#c0392b', margin: '4px 0 0' }}>
+                        {form.eventDateMode === 'single' ? 'Please enter the event date' : 'Please enter the start date'}
+                      </p>
+                    )}
+                    {showErrors && form.eventDateMode === 'range' && form.event_date && !form.event_date_end && (
+                      <p style={{ fontSize: 11, color: '#c0392b', margin: '4px 0 0' }}>Please enter the end date</p>
+                    )}
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Event location</label>
+                    <input
+                      style={inputStyle}
+                      value={form.event_location}
+                      onChange={e => setForm({ ...form, event_location: e.target.value })}
+                    />
+                    {showErrors && !form.event_location.trim() && (
+                      <p style={{ fontSize: 11, color: '#c0392b', margin: '4px 0 0' }}>Please enter the event location</p>
+                    )}
+                  </div>
+                </>
+              )}
             </>
           )}
 
@@ -566,10 +698,8 @@ export default function Dashboard() {
     if (!prof?.profile_complete) { router.push('/profile'); return }
     setProfile(prof)
 
-    const { data: tripData } = await supabase
-      .from('trips').select('*').eq('organizer_id', user.id)
-      .order('created_at', { ascending: false })
-    setTrips(tripData || [])
+    const tripData = await fetchUserTrips(supabase, user.id)
+    setTrips(tripData as Trip[])
     setLoading(false)
   }
 
