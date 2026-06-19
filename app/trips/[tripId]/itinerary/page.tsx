@@ -8,19 +8,10 @@ import SuitcaseLoader from '../../../components/SuitcaseLoader'
 import { formatCost, TIER_LABELS } from '@/lib/destination-decision/client-api'
 import { personalCostFromScenarios } from '@/lib/destination-decision/scenario-utils'
 import type { FlightToggle, DateToggle } from '@/lib/destination-decision/types'
-
-type ItineraryDay = {
-  date: string
-  title: string
-  items: { time: string; name: string; detail: string; type: string }[]
-  morning_briefing?: string
-  evening_note?: string
-}
-
-type ItineraryData = {
-  summary: string
-  days: ItineraryDay[]
-}
+import { mergeBookingsIntoItinerary } from '@/lib/bookings/merge-itinerary'
+import { fetchTripBookings } from '@/lib/bookings/client-api'
+import type { ItineraryData, TripBooking } from '@/lib/bookings/types'
+import Link from 'next/link'
 
 const DRIFT_THRESHOLD = 0.15
 
@@ -38,6 +29,10 @@ export default function ItineraryPage() {
   const [flightQuote, setFlightQuote] = useState<number | null>(null)
   const [checkingFlights, setCheckingFlights] = useState(false)
   const [driftWarning, setDriftWarning] = useState<string | null>(null)
+  const [bookings, setBookings] = useState<TripBooking[]>([])
+
+  const applyBookingsToItinerary = (base: ItineraryData, bookingList: TripBooking[]) =>
+    mergeBookingsIntoItinerary(base, bookingList)
 
   const load = useCallback(async () => {
     const { data: tripData } = await supabase.from('trips').select('*').eq('id', tripId).single()
@@ -48,7 +43,21 @@ export default function ItineraryPage() {
     setTrip(tripData)
 
     if (tripData.options?.itinerary) {
-      setItinerary(tripData.options.itinerary)
+      try {
+        const { bookings: bookingList } = await fetchTripBookings(tripId)
+        setBookings(bookingList as TripBooking[])
+        setItinerary(applyBookingsToItinerary(tripData.options.itinerary, bookingList as TripBooking[]))
+      } catch {
+        setItinerary(tripData.options.itinerary)
+      }
+    } else {
+      try {
+        const { bookings: bookingList } = await fetchTripBookings(tripId)
+        setBookings(bookingList as TripBooking[])
+        if (bookingList.length > 0) {
+          setItinerary(applyBookingsToItinerary({ summary: 'Your confirmed bookings', days: [] }, bookingList as TripBooking[]))
+        }
+      } catch { /* no bookings yet */ }
     }
 
     const { data: travelerData } = await supabase.from('travelers').select('*').eq('trip_id', tripId)
@@ -133,10 +142,18 @@ export default function ItineraryPage() {
       const data = await res.json()
       if (data.error) throw new Error(data.error)
 
-      setItinerary(data.itinerary)
+      let bookingList = bookings
+      try {
+        const fresh = await fetchTripBookings(tripId)
+        bookingList = fresh.bookings as TripBooking[]
+        setBookings(bookingList)
+      } catch { /* use cached */ }
+
+      const merged = applyBookingsToItinerary(data.itinerary, bookingList)
+      setItinerary(merged)
       setActiveDay(0)
 
-      const mergedOptions = { ...(trip.options || {}), itinerary: data.itinerary }
+      const mergedOptions = { ...(trip.options || {}), itinerary: merged }
       await supabase.from('trips').update({ options: mergedOptions, options_generated: true }).eq('id', tripId)
       setTrip((t: any) => ({ ...t, options: mergedOptions, options_generated: true }))
     } catch (e) {
@@ -318,6 +335,14 @@ export default function ItineraryPage() {
                       <div className="flex-1">
                         <p className="text-sm font-medium m-0">{item.name}</p>
                         <p className="text-xs text-muted-foreground mt-0.5 m-0">{item.detail}</p>
+                        {item.booking_id && (
+                          <Link
+                            href={`/trips/${tripId}/bookings/${item.booking_id}`}
+                            className="text-[10px] uppercase tracking-wider text-forest-deep hover:underline mt-1 inline-block"
+                          >
+                            View confirmation →
+                          </Link>
+                        )}
                       </div>
                       <span className="text-[10px] uppercase tracking-wider text-muted-foreground h-fit">{item.type}</span>
                     </div>
@@ -343,8 +368,9 @@ export default function ItineraryPage() {
         )}
       </section>
 
-      <div className="mt-10 grid sm:grid-cols-3 gap-3">
+      <div className="mt-10 grid sm:grid-cols-2 gap-3">
         {[
+          { label: 'Bookings & confirmations', path: 'bookings' },
           { label: 'Accommodation', path: 'accommodation' },
           { label: 'Activities', path: 'activities' },
           { label: 'Dining', path: 'dining' },

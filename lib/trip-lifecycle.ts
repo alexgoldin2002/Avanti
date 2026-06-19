@@ -85,6 +85,7 @@ export async function deleteTripPermanently(tripId: string): Promise<{ error?: s
   if (expenseResult.error) return expenseResult
 
   await supabase.from('destination_decisions').delete().eq('trip_id', tripId)
+  await supabase.from('trip_booking_inbox').delete().eq('trip_id', tripId)
 
   await Promise.all([
     supabase.from('group_votes').delete().eq('trip_id', tripId),

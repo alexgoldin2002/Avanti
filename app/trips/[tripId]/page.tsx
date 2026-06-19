@@ -572,12 +572,29 @@ export default function TripDashboard() {
         )}
 
         {activeTab === 'gametime' && (
-          <div className="mt-16 text-center">
-            <p className="text-4xl mb-4">✈️</p>
-            <p className="font-serif text-xl text-foreground mb-2">Game time coming soon</p>
-            <p className="text-sm text-muted-foreground max-w-sm mx-auto">
-              Morning briefings, live updates, and bill splitting — unlocks when your trip begins.
-            </p>
+          <div className="mt-8 space-y-3">
+            <button
+              type="button"
+              onClick={() => router.push(`/trips/${tripId}/bookings`)}
+              className="group avanti-box flex w-full items-center justify-between rounded-none border border-forest-deep bg-card px-5 py-4 text-left transition-all duration-200 hover:-translate-y-px hover:[box-shadow:var(--shadow-box-hover)]"
+            >
+              <div>
+                <p className="font-serif text-lg group-hover:text-forest-deep">Bookings & confirmations</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Forward emails · drop screenshots · all QR codes & PDFs</p>
+              </div>
+              <i className="ti ti-chevron-right text-muted-foreground" aria-hidden />
+            </button>
+            <button
+              type="button"
+              onClick={() => router.push(`/trips/${tripId}/itinerary`)}
+              className="group avanti-box flex w-full items-center justify-between rounded-none border border-border bg-card px-5 py-4 text-left transition-all duration-200 hover:-translate-y-px hover:border-forest-deep/30"
+            >
+              <div>
+                <p className="font-serif text-lg group-hover:text-forest-deep">Daily itinerary</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Day-by-day plan with linked confirmations</p>
+              </div>
+              <i className="ti ti-chevron-right text-muted-foreground" aria-hidden />
+            </button>
           </div>
         )}
       </main>
