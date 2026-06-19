@@ -46,6 +46,7 @@ export async function POST(request: NextRequest) {
       destination_type: 'set',
       locked_date_start: trip?.start_date || trip?.date_range_start || null,
       locked_date_end: trip?.end_date || trip?.date_range_end || null,
+      options_generated: true,
     }).eq('id', decision.trip_id)
 
     return NextResponse.json({

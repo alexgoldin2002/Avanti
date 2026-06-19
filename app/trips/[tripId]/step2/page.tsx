@@ -55,6 +55,7 @@ export default function Step2() {
   const [maxVotes, setMaxVotes] = useState(2)
   const [isOrganizer, setIsOrganizer] = useState(false)
   const [startingDecision, setStartingDecision] = useState(false)
+  const [submissionHours, setSubmissionHours] = useState(48)
 
   const s = { fontFamily: 'var(--font-cormorant), Georgia, serif' }
   const inputStyle = { width: '100%', borderBottom: '1px solid #d4d4c8', background: 'transparent', padding: '8px 0', fontSize: '15px', color: 'var(--foreground)', outline: 'none', ...s }
@@ -852,11 +853,29 @@ export default function Step2() {
 
         {!generating && cards.length >= 4 && isOrganizer && (
           <div style={{ marginTop: '24px', marginBottom: '32px' }}>
+            <p style={{ ...labelStyle, marginBottom: '10px' }}>Suggestion window</p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '16px' }}>
+              {[
+                { h: 24, label: '24 hours' },
+                { h: 48, label: '48 hours' },
+                { h: 72, label: '72 hours' },
+                { h: 168, label: '1 week' },
+              ].map(opt => (
+                <button
+                  key={opt.h}
+                  type="button"
+                  onClick={() => setSubmissionHours(opt.h)}
+                  style={chipStyle(submissionHours === opt.h)}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
             <button
               onClick={async () => {
                 setStartingDecision(true)
                 try {
-                  await startDecision(tripId, 48)
+                  await startDecision(tripId, submissionHours)
                   router.push(`/trips/${tripId}/choose`)
                 } catch (e) {
                   alert(e instanceof Error ? e.message : 'Failed to start')

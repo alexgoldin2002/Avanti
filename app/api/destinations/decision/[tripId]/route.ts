@@ -146,6 +146,7 @@ export async function GET(
       myConfirmation: confirmations?.find(c => c.user_id === user?.id) || null,
       isOrganizer: user?.id === trip?.organizer_id,
       userId: user?.id ?? null,
+      myTravelerId,
       analysisProgress: { done: analysisDone, total: analysisTotal },
       rankedOptions,
     })

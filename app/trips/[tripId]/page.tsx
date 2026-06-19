@@ -231,9 +231,8 @@ export default function TripDashboard() {
 
   const getActiveStep = () => {
     if (!trip?.invites_closed) return 1
-    if (decision && decision.status !== 'locked' && decision.status !== 'cancelled') return 3
+    if (decision && !['locked', 'cancelled', 'draft'].includes(decision.status)) return 3
     if (!trip?.destination || trip?.destination === 'TBD') return 2
-    if (!trip?.options_generated) return 2
     return 4
   }
 
@@ -241,7 +240,7 @@ export default function TripDashboard() {
     const active = getActiveStep()
     if (stepNum < active) return 'done'
     if (stepNum === active) return 'active'
-    if (stepNum === active + 1 && stepNum <= 4) return 'open'
+    if (stepNum === active + 1 && stepNum <= 7) return 'open'
     return 'locked'
   }
 

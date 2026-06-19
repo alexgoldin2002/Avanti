@@ -1,9 +1,12 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import SubpageShell from '../../../components/SubpageShell'
 import SuitcaseLoader from '../../../components/SuitcaseLoader'
+import MemberConstraintsModal from './MemberConstraintsModal'
+import { personalCostFromScenarios } from '@/lib/destination-decision/scenario-utils'
+import type { FlightToggle, DateToggle } from '@/lib/destination-decision/types'
 import {
   fetchDecision,
   suggestDestination,
@@ -66,6 +69,15 @@ export default function ChooseDestinationPage() {
   const [suggestName, setSuggestName] = useState('')
   const [suggestNote, setSuggestNote] = useState('')
   const [compareIds, setCompareIds] = useState<[string, string] | null>(null)
+  const [localVotes, setLocalVotes] = useState<Record<string, {
+    toggles: { flight: FlightToggle; dates: DateToggle }
+    desire_score?: number
+    approved?: boolean
+    private_max?: boolean
+  }>>({})
+  const [constraintsDone, setConstraintsDone] = useState(false)
+  const [confirmMaxCost, setConfirmMaxCost] = useState('')
+  const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
 
   const load = useCallback(async () => {
     try {
@@ -84,6 +96,27 @@ export default function ChooseDestinationPage() {
     const interval = setInterval(load, 30000)
     return () => clearInterval(interval)
   }, [load])
+
+  useEffect(() => {
+    if (!data?.options?.length) return
+    setLocalVotes(prev => {
+      const next = { ...prev }
+      for (const o of data.options) {
+        if (!next[o.id]) {
+          next[o.id] = {
+            toggles: {
+              flight: (o.myVote?.toggles?.flight as FlightToggle) || 'one_stop',
+              dates: (o.myVote?.toggles?.dates as DateToggle) || 'best',
+            },
+            desire_score: o.myVote?.desire_score ?? undefined,
+            approved: o.myVote?.approved ?? undefined,
+            private_max: o.myVote?.private_max ?? undefined,
+          }
+        }
+      }
+      return next
+    })
+  }, [data?.options])
 
   const decision = data?.decision
   const status = decision?.status || 'draft'
@@ -120,33 +153,60 @@ export default function ChooseDestinationPage() {
     }
   }
 
-  const updateVote = async (
+  const persistVote = useCallback((
     optionId: string,
-    patch: { desireScore?: number; approved?: boolean; toggles?: { flight?: string; dates?: string }; privateMax?: boolean }
+    patch: Partial<{ desireScore: number; approved: boolean; toggles: { flight?: string; dates?: string }; privateMax: boolean }>,
+    reload = false
   ) => {
-    setBusy(true)
-    try {
-      const opt = options.find(o => o.id === optionId)
-      await submitOptionVote({
-        optionId,
-        desireScore: patch.desireScore ?? opt?.myVote?.desire_score ?? undefined,
-        approved: patch.approved ?? opt?.myVote?.approved ?? undefined,
-        toggles: patch.toggles ?? opt?.myVote?.toggles ?? {},
-        privateMax: patch.privateMax ?? opt?.myVote?.private_max ?? false,
-      })
-      await load()
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed')
-    } finally {
-      setBusy(false)
+    const opt = options.find(o => o.id === optionId)
+    const local = localVotes[optionId]
+    const payload = {
+      optionId,
+      desireScore: patch.desireScore ?? local?.desire_score ?? opt?.myVote?.desire_score ?? undefined,
+      approved: patch.approved ?? local?.approved ?? opt?.myVote?.approved ?? undefined,
+      toggles: patch.toggles ?? local?.toggles ?? opt?.myVote?.toggles ?? {},
+      privateMax: patch.privateMax ?? local?.private_max ?? opt?.myVote?.private_max ?? false,
     }
+
+    if (saveTimers.current[optionId]) clearTimeout(saveTimers.current[optionId])
+    saveTimers.current[optionId] = setTimeout(async () => {
+      try {
+        await submitOptionVote(payload)
+        if (reload) await load()
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Failed to save vote')
+      }
+    }, patch.toggles ? 400 : 0)
+  }, [options, localVotes, load])
+
+  const updateVote = (
+    optionId: string,
+    patch: { desireScore?: number; approved?: boolean; toggles?: { flight?: FlightToggle; dates?: DateToggle }; privateMax?: boolean }
+  ) => {
+    setLocalVotes(prev => {
+      const cur = prev[optionId] || {
+        toggles: { flight: 'one_stop' as FlightToggle, dates: 'best' as DateToggle },
+      }
+      return {
+        ...prev,
+        [optionId]: {
+          ...cur,
+          ...(patch.desireScore !== undefined ? { desire_score: patch.desireScore } : {}),
+          ...(patch.approved !== undefined ? { approved: patch.approved } : {}),
+          ...(patch.privateMax !== undefined ? { private_max: patch.privateMax } : {}),
+          ...(patch.toggles ? { toggles: { ...cur.toggles, ...patch.toggles } } : {}),
+        },
+      }
+    })
+    persistVote(optionId, patch, patch.desireScore !== undefined || patch.approved !== undefined)
   }
 
   const handleConfirm = async (confirmed: boolean) => {
     if (!decision?.id) return
     setBusy(true)
     try {
-      await submitConfirmation(decision.id, confirmed)
+      const max = confirmMaxCost.trim() ? parseFloat(confirmMaxCost.replace(/[^0-9.]/g, '')) : undefined
+      await submitConfirmation(decision.id, confirmed, max)
       await load()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed')
@@ -186,6 +246,16 @@ export default function ChooseDestinationPage() {
   const showVote = status === 'voting' || (status === 'meta_vote' && !!data.myMetaVote)
   const winnerId = decision?.winner_option_id || ranked[0]?.id
 
+  const myTraveler = data.myTravelerId
+    ? data.travelers?.find((t: { id: string }) => t.id === data.myTravelerId)
+    : null
+  const needsConstraints =
+    !constraintsDone &&
+    myTraveler &&
+    !myTraveler.departure_city &&
+    !(myTraveler.step2 as { departureCity?: string } | undefined)?.departureCity &&
+    ['meta_vote', 'voting'].includes(status)
+
   return (
     <SubpageShell
       backHref={`/trips/${tripId}`}
@@ -202,6 +272,19 @@ export default function ChooseDestinationPage() {
     >
       {error && (
         <div className="mb-4 border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div>
+      )}
+
+      {needsConstraints && myTraveler && (
+        <MemberConstraintsModal
+          tripId={tripId}
+          travelerId={myTraveler.id}
+          initialDeparture={myTraveler.departure_city || ''}
+          initialBudget={(myTraveler.step2 as { budget?: string })?.budget || ''}
+          onComplete={() => {
+            setConstraintsDone(true)
+            load()
+          }}
+        />
       )}
 
       {status === 'draft' && (
@@ -345,11 +428,17 @@ export default function ChooseDestinationPage() {
       {showVote && (
         <div className="space-y-4">
           {options.map(option => {
-            const toggles = (option.myVote?.toggles || {
-              flight: 'one_stop',
-              dates: 'best',
-            }) as { flight: 'direct' | 'one_stop' | 'cheapest'; dates: 'best' | 'fri' | 'mon' }
+            const local = localVotes[option.id]
+            const toggles = local?.toggles || {
+              flight: 'one_stop' as FlightToggle,
+              dates: 'best' as DateToggle,
+            }
             const gs = option.group_summary || {}
+            const personal = option.myAnalysis?.scenarios
+              ? personalCostFromScenarios(option.myAnalysis.scenarios, toggles)
+              : null
+            const displayCost = personal?.cost ?? option.personalCost
+            const worksForYou = personal?.works ?? option.worksForYou
 
             return (
               <div key={option.id} className="avanti-box border border-border bg-card p-5">
@@ -362,10 +451,10 @@ export default function ChooseDestinationPage() {
                   </div>
                   <div className="text-right">
                     <p className="text-xs text-muted-foreground">Your est.</p>
-                    <p className="font-serif text-lg text-forest-deep">{formatCost(option.personalCost)}</p>
-                    {option.worksForYou && (
+                    <p className="font-serif text-lg text-forest-deep">{formatCost(displayCost)}</p>
+                    {worksForYou && (
                       <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                        Works for you: {WORKS_LABELS[option.worksForYou] || option.worksForYou}
+                        Works for you: {WORKS_LABELS[worksForYou] || worksForYou}
                       </p>
                     )}
                   </div>
@@ -407,7 +496,7 @@ export default function ChooseDestinationPage() {
                           key={n}
                           type="button"
                           onClick={() => updateVote(option.id, { desireScore: n })}
-                          className={`text-lg ${(option.myVote?.desire_score || 0) >= n ? 'text-forest-deep' : 'text-border'}`}
+                          className={`text-lg ${(local?.desire_score ?? option.myVote?.desire_score ?? 0) >= n ? 'text-forest-deep' : 'text-border'}`}
                           aria-label={`${n} stars`}
                         >
                           ★
@@ -418,7 +507,7 @@ export default function ChooseDestinationPage() {
                   <label className="flex items-center gap-2 text-sm cursor-pointer">
                     <input
                       type="checkbox"
-                      checked={!!option.myVote?.approved}
+                      checked={!!(local?.approved ?? option.myVote?.approved)}
                       onChange={e => updateVote(option.id, { approved: e.target.checked })}
                     />
                     I&apos;d go if the group picks this
@@ -426,7 +515,7 @@ export default function ChooseDestinationPage() {
                   <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
                     <input
                       type="checkbox"
-                      checked={!!option.myVote?.private_max}
+                      checked={!!(local?.private_max ?? option.myVote?.private_max)}
                       onChange={e => updateVote(option.id, { privateMax: e.target.checked })}
                     />
                     This is my max (organizer only)
@@ -509,13 +598,31 @@ export default function ChooseDestinationPage() {
           </div>
 
           {!data.myConfirmation && status === 'confirming' && (
-            <div className="grid sm:grid-cols-2 gap-3">
-              <button type="button" disabled={busy} onClick={() => handleConfirm(true)} className="avanti-btn avanti-btn-primary">
-                I&apos;m in at this price
-              </button>
-              <button type="button" disabled={busy} onClick={() => handleConfirm(false)} className="avanti-btn avanti-btn-ghost">
-                Can&apos;t do this
-              </button>
+            <div className="space-y-3">
+              <input
+                className="avanti-input w-full"
+                placeholder="My max budget (optional) e.g. $2800"
+                value={confirmMaxCost}
+                onChange={e => setConfirmMaxCost(e.target.value)}
+              />
+              <div className="grid sm:grid-cols-2 gap-3">
+                <button type="button" disabled={busy} onClick={() => handleConfirm(true)} className="avanti-btn avanti-btn-primary">
+                  I&apos;m in at this price
+                </button>
+                <button type="button" disabled={busy} onClick={() => handleConfirm(false)} className="avanti-btn avanti-btn-ghost">
+                  Can&apos;t do this
+                </button>
+              </div>
+            </div>
+          )}
+
+          {isOrganizer && status === 'confirming' && (data.confirmations?.length ?? 0) > 0 && (
+            <div className="avanti-box border border-border bg-card p-4 mb-4">
+              <p className="eyebrow text-muted-foreground mb-2">Group confirmations</p>
+              <p className="text-sm text-muted-foreground m-0">
+                {(data.confirmations || []).filter((c: { confirmed: boolean }) => c.confirmed).length} in ·{' '}
+                {(data.confirmations || []).filter((c: { confirmed: boolean }) => !c.confirmed).length} can&apos;t do
+              </p>
             </div>
           )}
 
