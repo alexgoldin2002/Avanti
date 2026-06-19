@@ -1,5 +1,5 @@
--- Trip expense splitting (Splitwise-style)
--- NOTE: If an older expenses table exists, run 20250626000000_expenses_schema_fix.sql instead.
+-- Fix: an older `expenses` table may exist without paid_by_traveler_id.
+-- Drops legacy expense tables and recreates the Splitwise-style schema.
 
 drop table if exists expense_item_participants cascade;
 drop table if exists expense_person_totals cascade;
@@ -23,6 +23,11 @@ create index expenses_trip_id_idx on expenses(trip_id);
 create index expenses_paid_by_idx on expenses(paid_by_traveler_id);
 
 alter table expenses enable row level security;
+
+drop policy if exists "Trip members can view expenses" on expenses;
+drop policy if exists "Trip members can insert expenses" on expenses;
+drop policy if exists "Trip members can update expenses" on expenses;
+drop policy if exists "Trip members can delete expenses" on expenses;
 
 create policy "Trip members can view expenses"
   on expenses for select

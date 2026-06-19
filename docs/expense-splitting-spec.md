@@ -4,7 +4,9 @@ Splitwise-style bill splitting per trip. Persists to Supabase `expenses` table.
 
 ## Migration
 
-Run `supabase/migrations/20250625000000_expenses.sql` in Supabase SQL editor.
+Run `supabase/migrations/20250626000000_expenses_schema_fix.sql` in Supabase SQL editor.
+
+If you already have an old `expenses` table from a prior stub, this migration drops it and recreates the correct schema.
 
 ## API
 
