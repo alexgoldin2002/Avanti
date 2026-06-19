@@ -1,73 +1,49 @@
 import { supabase } from '@/lib/supabase'
 
-/** Remove expense-splitting rows for a trip (child tables first). */
+/** Remove all expenses for a trip. */
 async function deleteTripExpenses(tripId: string): Promise<{ error?: string }> {
-  const { data: expenses, error: fetchError } = await supabase
-    .from('expenses')
-    .select('id')
-    .eq('trip_id', tripId)
+  const { error } = await supabase.from('expenses').delete().eq('trip_id', tripId)
 
-  if (fetchError) {
-    // Expense tables may not exist on older databases — skip cleanup in that case.
-    if (fetchError.code === '42P01' || fetchError.code === 'PGRST205') return {}
-    return { error: fetchError.message }
+  if (error) {
+    if (error.code === '42P01' || error.code === 'PGRST205') return {}
+    return { error: error.message }
   }
-
-  const expenseIds = (expenses || []).map(e => e.id)
-  if (expenseIds.length === 0) return {}
-
-  const { data: lineItems, error: lineItemsFetchError } = await supabase
-    .from('expense_line_items')
-    .select('id')
-    .in('expense_id', expenseIds)
-
-  if (lineItemsFetchError) return { error: lineItemsFetchError.message }
-
-  const lineItemIds = (lineItems || []).map(li => li.id)
-
-  if (lineItemIds.length > 0) {
-    const { error } = await supabase
-      .from('expense_item_participants')
-      .delete()
-      .in('line_item_id', lineItemIds)
-    if (error) return { error: error.message }
-  }
-
-  const { error: totalsError } = await supabase
-    .from('expense_person_totals')
-    .delete()
-    .in('expense_id', expenseIds)
-  if (totalsError) return { error: totalsError.message }
-
-  const { error: lineItemsError } = await supabase
-    .from('expense_line_items')
-    .delete()
-    .in('expense_id', expenseIds)
-  if (lineItemsError) return { error: lineItemsError.message }
-
-  const { error: expensesError } = await supabase.from('expenses').delete().eq('trip_id', tripId)
-  if (expensesError) return { error: expensesError.message }
 
   return {}
 }
 
-/** Remove expense-splitting rows that reference a traveler. */
-async function deleteTravelerExpenses(travelerId: string): Promise<{ error?: string }> {
-  const { error: participantsError } = await supabase
-    .from('expense_item_participants')
-    .delete()
-    .eq('traveler_id', travelerId)
+/** Detach a traveler from expense records when they leave a trip. */
+async function deleteTravelerExpenses(travelerId: string, tripId: string): Promise<{ error?: string }> {
+  const { error: payerError } = await supabase
+    .from('expenses')
+    .update({ paid_by_traveler_id: null })
+    .eq('trip_id', tripId)
+    .eq('paid_by_traveler_id', travelerId)
 
-  if (participantsError) {
-    if (participantsError.code === '42P01' || participantsError.code === 'PGRST205') return {}
-    return { error: participantsError.message }
+  if (payerError) {
+    if (payerError.code === '42P01' || payerError.code === 'PGRST205') return {}
+    return { error: payerError.message }
   }
 
-  const { error: totalsError } = await supabase
-    .from('expense_person_totals')
-    .delete()
-    .eq('traveler_id', travelerId)
-  if (totalsError) return { error: totalsError.message }
+  const { data: allExpenses, error: fetchError } = await supabase
+    .from('expenses')
+    .select('id, participant_traveler_ids')
+    .eq('trip_id', tripId)
+
+  if (fetchError) {
+    if (fetchError.code === '42P01' || fetchError.code === 'PGRST205') return {}
+    return { error: fetchError.message }
+  }
+
+  for (const exp of allExpenses || []) {
+    const ids = exp.participant_traveler_ids || []
+    if (!ids.includes(travelerId)) continue
+    const { error } = await supabase
+      .from('expenses')
+      .update({ participant_traveler_ids: ids.filter((id: string) => id !== travelerId) })
+      .eq('id', exp.id)
+    if (error) return { error: error.message }
+  }
 
   return {}
 }
@@ -124,7 +100,7 @@ export async function leaveTripAsMember(tripId: string, userId: string): Promise
 
   const travelerId = traveler?.id
   if (travelerId) {
-    const expenseResult = await deleteTravelerExpenses(travelerId)
+    const expenseResult = await deleteTravelerExpenses(travelerId, tripId)
     if (expenseResult.error) return expenseResult
   }
 

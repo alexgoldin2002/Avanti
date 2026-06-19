@@ -2,6 +2,8 @@
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { fetchTripExpenses, createTripExpenses } from '@/lib/expenses/client-api'
+import type { ExpenseInput } from '@/lib/expenses/types'
 import AvantiLogo from '../../../components/AvantiLogo'
 import SuitcaseLoader from '../../../components/SuitcaseLoader'
 
@@ -66,6 +68,7 @@ export default function TripExpenses() {
   const [tipValue, setTipValue] = useState('')
   const [receiptNotes, setReceiptNotes] = useState('')
   const [receiptDesc, setReceiptDesc] = useState('')
+  const [saving, setSaving] = useState(false)
   const s = { fontFamily: 'var(--font-cormorant), Georgia, serif' }
   const inputStyle = { width:'100%', borderBottom:'1px solid #d4d4c8', background:'transparent', padding:'8px 0', fontSize:'15px', color:'#1a1a1a', outline:'none', ...s }
   const labelStyle = { fontSize:'10px', letterSpacing:'0.15em', textTransform:'uppercase' as const, color:'#9a9a8a', display:'block', marginBottom:'6px' }
@@ -79,7 +82,9 @@ export default function TripExpenses() {
       const { data: travelerData } = await supabase.from('travelers').select('*').eq('trip_id', tripId)
       if (tripData) setTrip(tripData)
       if (travelerData) {
-        const myTraveler = travelerData.find((t: { email: string }) => t.email === profile?.email)
+        const myTraveler = travelerData.find((t: { user_id?: string; email: string }) =>
+          t.user_id === user.id || t.email === profile?.email
+        )
         const meId = myTraveler?.id || 'me'
         setMyId(meId)
         setPaidBy(meId)
@@ -87,12 +92,18 @@ export default function TripExpenses() {
         const splits: Record<string,string> = {}
         travelerData.forEach((t: { id: string }) => { splits[t.id] = '' })
         setCustomSplits(splits)
-        setPeople(travelerData.map((t: { id: string; nickname?: string; full_name?: string; email: string }, i: number) => ({
+        setPeople(travelerData.map((t: { id: string; nickname?: string; full_name?: string; email: string; user_id?: string }, i: number) => ({
           id: t.id,
           name: t.nickname || t.full_name?.split(' ')[0] || 'Unknown',
           color: COLORS[i % COLORS.length],
-          isMe: t.email === profile?.email
+          isMe: t.user_id === user.id || t.email === profile?.email
         })))
+      }
+      try {
+        const saved = await fetchTripExpenses(tripId)
+        setExpenses(saved)
+      } catch {
+        setExpenses([])
       }
       setLoading(false)
     }
@@ -191,16 +202,15 @@ export default function TripExpenses() {
   }
   const personTotals = getPersonTotals()
 
-  const finalizeReceiptExpense = () => {
+  const finalizeReceiptExpense = async () => {
     if (!paidBy) return
-    const newExpenses: Expense[] = lineItems
+    const newExpenses: ExpenseInput[] = lineItems
       .filter(item => item.participants.length > 0)
       .map(item => {
         const proportion = subtotal > 0 ? item.priceUSD / subtotal : 1 / lineItems.length
         const itemTax = taxAmt * proportion
         const itemTip = tipAmt * proportion
         return {
-          id: Date.now().toString() + Math.random(),
           description: item.name,
           amount: parseFloat((item.priceUSD + itemTax + itemTip).toFixed(2)),
           paidBy,
@@ -209,12 +219,21 @@ export default function TripExpenses() {
           settled: false,
         }
       })
-    setExpenses(e => [...e, ...newExpenses])
-    setLineItems([])
-    setTaxValue('')
-    setTipValue('')
-    setReceiptNotes('')
-    setStep('home')
+    if (newExpenses.length === 0) return
+    setSaving(true)
+    try {
+      const created = await createTripExpenses(tripId, newExpenses)
+      setExpenses(e => [...e, ...created])
+      setLineItems([])
+      setTaxValue('')
+      setTipValue('')
+      setReceiptNotes('')
+      setStep('home')
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Could not save expenses')
+    } finally {
+      setSaving(false)
+    }
   }
 
   const finalizeManualExpense = async () => {
@@ -231,21 +250,29 @@ export default function TripExpenses() {
     const participants = splitType === 'equal'
       ? (selectedForEqual.length > 0 ? selectedForEqual : people.map(p => p.id))
       : Object.keys(customSplits).filter(id => parseFloat(customSplits[id] || '0') > 0)
-    setExpenses(e => [...e, {
-      id: Date.now().toString(),
+    const input: ExpenseInput = {
       description: expenseDesc,
       amount: finalAmount,
       paidBy,
       date: new Date().toISOString().split('T')[0],
       participants: participants.length > 0 ? participants : people.map(p => p.id),
       settled: false,
-    }])
-    setExpenseDesc('')
-    setManualAmount('')
-    setManualCurrency('USD')
-    setSplitType('equal')
-    setSelectedForEqual(people.map(p => p.id))
-    setStep('home')
+    }
+    setSaving(true)
+    try {
+      const created = await createTripExpenses(tripId, [input])
+      setExpenses(e => [...e, ...created])
+      setExpenseDesc('')
+      setManualAmount('')
+      setManualCurrency('USD')
+      setSplitType('equal')
+      setSelectedForEqual(people.map(p => p.id))
+      setStep('home')
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Could not save expense')
+    } finally {
+      setSaving(false)
+    }
   }
 
   const settleUp = (fromId: string, toId: string, amount: number) => {
