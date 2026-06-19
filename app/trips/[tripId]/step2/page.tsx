@@ -7,6 +7,7 @@ import DestinationCard from '../../../components/DestinationCard'
 import { BackLink } from '../../../components/SubpageShell'
 import { fetchFullDestinationCards } from '@/lib/fetch-destination-batches'
 import { STOP_OPTIONS } from '@/lib/preview-trip-storage'
+import { startDecision } from '@/lib/destination-decision/client-api'
 
 export default function Step2() {
   const { tripId } = useParams() as { tripId: string }
@@ -52,6 +53,8 @@ export default function Step2() {
   const [cachedAnswers, setCachedAnswers] = useState<any>(null)
   const [votes, setVotes] = useState<Record<string, boolean>>({})
   const [maxVotes, setMaxVotes] = useState(2)
+  const [isOrganizer, setIsOrganizer] = useState(false)
+  const [startingDecision, setStartingDecision] = useState(false)
 
   const s = { fontFamily: 'var(--font-cormorant), Georgia, serif' }
   const inputStyle = { width: '100%', borderBottom: '1px solid #d4d4c8', background: 'transparent', padding: '8px 0', fontSize: '15px', color: 'var(--foreground)', outline: 'none', ...s }
@@ -88,6 +91,9 @@ export default function Step2() {
         if (tripData.max_votes) setMaxVotes(tripData.max_votes)
       }
       const { data: { user } } = await supabase.auth.getUser()
+      if (user && tripData) {
+        setIsOrganizer(tripData.organizer_id === user.id)
+      }
       if (user) {
         const { data: profile } = await supabase.from('user_profiles').select('email').eq('user_id', user.id).single()
         const { data: traveler } = await supabase.from('travelers').select('step2').eq('trip_id', tripId).eq('email', profile?.email || '').single()
@@ -844,20 +850,40 @@ export default function Step2() {
           </div>
         )}
 
-        {!generating && cards.length >= 4 && (
+        {!generating && cards.length >= 4 && isOrganizer && (
           <div style={{ marginTop: '24px', marginBottom: '32px' }}>
             <button
-              onClick={() => router.push(`/trips/${tripId}/vote`)}
+              onClick={async () => {
+                setStartingDecision(true)
+                try {
+                  await startDecision(tripId, 48)
+                  router.push(`/trips/${tripId}/choose`)
+                } catch (e) {
+                  alert(e instanceof Error ? e.message : 'Failed to start')
+                } finally {
+                  setStartingDecision(false)
+                }
+              }}
+              disabled={startingDecision}
               style={{
                 width: '100%', padding: '16px',
                 border: 'none', background: 'var(--forest-deep)', color: '#fafaf8',
                 fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase',
-                cursor: 'pointer',
+                cursor: startingDecision ? 'wait' : 'pointer',
+                opacity: startingDecision ? 0.7 : 1,
                 fontFamily: 'var(--font-cormorant), Georgia, serif',
               }}
             >
-              Go to voting →
+              {startingDecision ? 'Starting…' : 'Start group decision →'}
             </button>
+          </div>
+        )}
+
+        {!generating && cards.length >= 4 && !isOrganizer && (
+          <div style={{ marginTop: '24px', marginBottom: '32px', textAlign: 'center' }}>
+            <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+              Waiting for the organizer to start the group destination decision.
+            </p>
           </div>
         )}
 

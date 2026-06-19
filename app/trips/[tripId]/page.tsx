@@ -87,6 +87,7 @@ export default function TripDashboard() {
   const [trip, setTrip] = useState<any>(null)
   const [travelers, setTravelers] = useState<any[]>([])
   const [votes, setVotes] = useState<any[]>([])
+  const [decision, setDecision] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'prep' | 'gametime'>('prep')
   const [userId, setUserId] = useState<string | null>(null)
@@ -139,12 +140,18 @@ export default function TripDashboard() {
         .eq('trip_id', tripId)
         .neq('status', 'closed')
         .order('created_at', { ascending: false })
+      const { data: decisionData } = await supabase
+        .from('destination_decisions')
+        .select('id, status, submission_deadline, voting_deadline')
+        .eq('trip_id', tripId)
+        .maybeSingle()
       if (tripData) {
         setTrip(tripData)
         if (tripData.image_position) setImagePosition(tripData.image_position)
       }
       if (travelerData) setTravelers(travelerData)
       if (voteData) setVotes(voteData)
+      if (decisionData) setDecision(decisionData)
       setLoading(false)
     }
     load()
@@ -224,20 +231,31 @@ export default function TripDashboard() {
 
   const getActiveStep = () => {
     if (!trip?.invites_closed) return 1
+    if (decision && decision.status !== 'locked' && decision.status !== 'cancelled') return 3
     if (!trip?.destination || trip?.destination === 'TBD') return 2
     if (!trip?.options_generated) return 2
-    return 3
+    return 4
   }
 
   const getStepState = (stepNum: number): StepState => {
     const active = getActiveStep()
     if (stepNum < active) return 'done'
     if (stepNum === active) return 'active'
-    if (stepNum === active + 1 && stepNum <= 3) return 'open'
+    if (stepNum === active + 1 && stepNum <= 4) return 'open'
     return 'locked'
   }
 
   const guestCount = travelers.filter(t => t.role !== 'organizer').length
+
+  const decisionStatusLabel: Record<string, string> = {
+    suggestions_open: 'Add suggestions',
+    analyzing: 'Analyzing',
+    meta_vote: 'Set priority',
+    voting: 'Vote open',
+    results: 'Results',
+    confirming: 'Confirm',
+    locked: 'Locked',
+  }
 
   const steps: StepDef[] = [
     {
@@ -255,12 +273,22 @@ export default function TripDashboard() {
       subtitle: 'Plan with Avanti AI',
       icon: 'ti-brain',
       path: `/trips/${tripId}/step2`,
-      badge: votes.length > 0 ? votes.length : undefined,
     },
-    { key: 'itinerary', number: 3, title: 'Itinerary & flights', subtitle: 'Routes and transport', icon: 'ti-map', path: `/trips/${tripId}/itinerary` },
-    { key: 'stay', number: 4, title: 'Accommodation', subtitle: 'Hotels and Airbnbs', icon: 'ti-building', path: `/trips/${tripId}/accommodation` },
-    { key: 'activities', number: 5, title: 'Activities', subtitle: 'Things to do', icon: 'ti-compass', path: `/trips/${tripId}/activities` },
-    { key: 'dining', number: 6, title: 'Dining', subtitle: 'Restaurants and reservations', icon: 'ti-tools-kitchen-2', path: `/trips/${tripId}/dining` },
+    {
+      key: 'choose',
+      number: 3,
+      title: 'Choose destination',
+      subtitle: decision
+        ? decisionStatusLabel[decision.status] || 'Group decision'
+        : 'Vote with cost estimates',
+      icon: 'ti-map-pin',
+      path: `/trips/${tripId}/choose`,
+      badge: decision && decision.status !== 'draft' ? '·' : undefined,
+    },
+    { key: 'itinerary', number: 4, title: 'Itinerary & flights', subtitle: 'Routes and transport', icon: 'ti-map', path: `/trips/${tripId}/itinerary` },
+    { key: 'stay', number: 5, title: 'Accommodation', subtitle: 'Hotels and Airbnbs', icon: 'ti-building', path: `/trips/${tripId}/accommodation` },
+    { key: 'activities', number: 6, title: 'Activities', subtitle: 'Things to do', icon: 'ti-compass', path: `/trips/${tripId}/activities` },
+    { key: 'dining', number: 7, title: 'Dining', subtitle: 'Restaurants and reservations', icon: 'ti-tools-kitchen-2', path: `/trips/${tripId}/dining` },
   ]
 
   const getDaysLeft = (deadline: string) => {
@@ -451,13 +479,31 @@ export default function TripDashboard() {
             {/* To do */}
             <section className="mt-8">
               <div className="text-[10px] tracking-[0.35em] uppercase text-muted-foreground">To do</div>
-              {votes.length === 0 ? (
+              {!decision && votes.length === 0 ? (
                 <div className="avanti-box mt-3 flex items-center gap-3 rounded-none border border-border bg-card px-5 py-4">
                   <span className="h-2 w-2 rounded-full bg-sage" />
                   <span className="font-serif italic text-muted-foreground">No actions at this time</span>
                 </div>
               ) : (
                 <div className="mt-3 flex flex-col gap-2">
+                  {decision && decision.status !== 'locked' && (
+                    <button
+                      type="button"
+                      onClick={() => router.push(`/trips/${tripId}/choose`)}
+                      className="group avanti-box flex items-center justify-between rounded-none border border-forest-deep bg-card px-5 py-4 text-left transition-all duration-200 ease-out hover:-translate-y-px hover:border-forest-deep hover:[box-shadow:var(--shadow-box-hover)]"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="h-2 w-2 rounded-full bg-forest-deep transition-transform duration-200 group-hover:scale-125" />
+                        <div>
+                          <p className="font-serif text-base transition-colors duration-200 group-hover:text-forest-deep">Choose destination</p>
+                          <p className="text-[11px] text-muted-foreground m-0">
+                            {decisionStatusLabel[decision.status] || decision.status}
+                          </p>
+                        </div>
+                      </div>
+                      <i className="ti ti-chevron-right text-muted-foreground transition-transform duration-200 group-hover:translate-x-0.5" aria-hidden />
+                    </button>
+                  )}
                   {votes.filter(v => v.id).map(vote => (
                     <button
                       key={vote.id}
