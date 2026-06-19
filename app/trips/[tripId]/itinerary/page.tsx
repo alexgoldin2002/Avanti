@@ -8,9 +8,11 @@ import SuitcaseLoader from '../../../components/SuitcaseLoader'
 import { formatCost, TIER_LABELS } from '@/lib/destination-decision/client-api'
 import { personalCostFromScenarios } from '@/lib/destination-decision/scenario-utils'
 import type { FlightToggle, DateToggle } from '@/lib/destination-decision/types'
-import { mergeBookingsIntoItinerary } from '@/lib/bookings/merge-itinerary'
+import { mergeFullItinerary } from '@/lib/trip-companion/merge-full-itinerary'
 import { fetchTripBookings } from '@/lib/bookings/client-api'
+import { fetchInspirations } from '@/lib/trip-companion/client-api'
 import type { ItineraryData, TripBooking } from '@/lib/bookings/types'
+import type { TripInspirationRow } from '@/lib/trip-companion/merge-inspirations'
 import Link from 'next/link'
 
 const DRIFT_THRESHOLD = 0.15
@@ -31,8 +33,14 @@ export default function ItineraryPage() {
   const [driftWarning, setDriftWarning] = useState<string | null>(null)
   const [bookings, setBookings] = useState<TripBooking[]>([])
 
-  const applyBookingsToItinerary = (base: ItineraryData, bookingList: TripBooking[]) =>
-    mergeBookingsIntoItinerary(base, bookingList)
+  const applyBookingsToItinerary = async (base: ItineraryData, bookingList: TripBooking[]) => {
+    let inspirations: TripInspirationRow[] = []
+    try {
+      const raw = await fetchInspirations(tripId)
+      inspirations = raw as TripInspirationRow[]
+    } catch { /* none */ }
+    return mergeFullItinerary(base, bookingList, inspirations)
+  }
 
   const load = useCallback(async () => {
     const { data: tripData } = await supabase.from('trips').select('*').eq('id', tripId).single()
@@ -46,7 +54,7 @@ export default function ItineraryPage() {
       try {
         const { bookings: bookingList } = await fetchTripBookings(tripId)
         setBookings(bookingList as TripBooking[])
-        setItinerary(applyBookingsToItinerary(tripData.options.itinerary, bookingList as TripBooking[]))
+        setItinerary(await applyBookingsToItinerary(tripData.options.itinerary, bookingList as TripBooking[]))
       } catch {
         setItinerary(tripData.options.itinerary)
       }
@@ -55,7 +63,7 @@ export default function ItineraryPage() {
         const { bookings: bookingList } = await fetchTripBookings(tripId)
         setBookings(bookingList as TripBooking[])
         if (bookingList.length > 0) {
-          setItinerary(applyBookingsToItinerary({ summary: 'Your confirmed bookings', days: [] }, bookingList as TripBooking[]))
+          setItinerary(await applyBookingsToItinerary({ summary: 'Your confirmed bookings', days: [] }, bookingList as TripBooking[]))
         }
       } catch { /* no bookings yet */ }
     }
@@ -149,7 +157,7 @@ export default function ItineraryPage() {
         setBookings(bookingList)
       } catch { /* use cached */ }
 
-      const merged = applyBookingsToItinerary(data.itinerary, bookingList)
+      const merged = await applyBookingsToItinerary(data.itinerary, bookingList)
       setItinerary(merged)
       setActiveDay(0)
 
@@ -335,6 +343,14 @@ export default function ItineraryPage() {
                       <div className="flex-1">
                         <p className="text-sm font-medium m-0">{item.name}</p>
                         <p className="text-xs text-muted-foreground mt-0.5 m-0">{item.detail}</p>
+                        {item.inspiration_id && (
+                          <Link
+                            href={`/trips/${tripId}/saves`}
+                            className="text-[10px] uppercase tracking-wider text-forest-deep hover:underline mt-1 inline-block"
+                          >
+                            Saved place →
+                          </Link>
+                        )}
                         {item.booking_id && (
                           <Link
                             href={`/trips/${tripId}/bookings/${item.booking_id}`}

@@ -58,6 +58,7 @@ export type ItineraryItem = {
   detail: string
   type: string
   booking_id?: string
+  inspiration_id?: string
 }
 
 export type ItineraryDay = {

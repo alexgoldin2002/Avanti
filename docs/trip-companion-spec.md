@@ -4,7 +4,9 @@ Game-time features: saved places, destination essentials, local apps, daily brie
 
 ## Saved places (`/trips/[tripId]/saves`)
 
-Paste TikTok/Instagram/Pinterest/article links or drop screenshots. AI identifies the place and suggests the best day/time on the itinerary.
+Paste TikTok/Instagram/Pinterest/article links or drop screenshots. AI identifies the place and suggests the best day/time on the itinerary. Tap **Add to itinerary** to pin it on Game time for the whole group.
+
+**API:** `POST /api/inspiration/[tripId]/add-to-itinerary`
 
 **Migration:** `supabase/migrations/20250624000000_trip_inspirations.sql`
 

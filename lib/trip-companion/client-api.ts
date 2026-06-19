@@ -80,6 +80,17 @@ export async function saveInspirationClient(tripId: string, parsed: Record<strin
   return data.inspiration
 }
 
+export async function addInspirationToItineraryClient(tripId: string, inspirationId: string) {
+  const res = await fetch(`/api/inspiration/${tripId}/add-to-itinerary`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ inspirationId }),
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.error || 'Could not add to itinerary')
+  return data
+}
+
 export async function generateEssentialsClient(tripId: string) {
   const res = await fetch(`/api/trip-companion/essentials/${tripId}`, { method: 'POST' })
   const data = await res.json()

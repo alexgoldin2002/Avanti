@@ -6,9 +6,11 @@ import { supabase } from '@/lib/supabase'
 import SuitcaseLoader from '../../components/SuitcaseLoader'
 import { BackLink } from '../../components/SubpageShell'
 import GameTimeItinerary from '../../components/GameTimeItinerary'
-import { mergeBookingsIntoItinerary } from '@/lib/bookings/merge-itinerary'
+import { mergeFullItinerary } from '@/lib/trip-companion/merge-full-itinerary'
 import { fetchTripBookings } from '@/lib/bookings/client-api'
+import { fetchInspirations } from '@/lib/trip-companion/client-api'
 import type { ItineraryData, TripBooking } from '@/lib/bookings/types'
+import type { TripInspirationRow } from '@/lib/trip-companion/merge-inspirations'
 
 type StepState = 'done' | 'active' | 'locked' | 'open'
 
@@ -120,8 +122,13 @@ export default function TripDashboard() {
       const { bookings } = await fetchTripBookings(tripId)
       const list = bookings as TripBooking[]
       setGameTimeBookings(list)
+      let inspirations: TripInspirationRow[] = []
+      try {
+        const raw = await fetchInspirations(tripId)
+        inspirations = raw as TripInspirationRow[]
+      } catch { /* none yet */ }
       const base = (trip.options?.itinerary as ItineraryData) || { summary: 'Your trip', days: [] }
-      setGameTimeItinerary(mergeBookingsIntoItinerary(base, list))
+      setGameTimeItinerary(mergeFullItinerary(base, list, inspirations))
     } catch {
       const base = (trip.options?.itinerary as ItineraryData) || null
       setGameTimeItinerary(base)

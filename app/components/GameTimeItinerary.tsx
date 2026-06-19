@@ -108,6 +108,14 @@ export default function GameTimeItinerary({ tripId, itinerary, bookings, compact
                         {formatBookingMeta(linked).join(' · ')}
                       </p>
                     )}
+                    {item.inspiration_id && (
+                      <Link
+                        href={`/trips/${tripId}/saves`}
+                        className="text-[10px] uppercase tracking-wider text-forest-deep hover:underline mt-0.5 inline-block"
+                      >
+                        Saved place →
+                      </Link>
+                    )}
                     {item.booking_id && (
                       <Link
                         href={`/trips/${tripId}/bookings/${item.booking_id}`}

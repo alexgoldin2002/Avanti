@@ -8,6 +8,7 @@ import {
   fetchInspirations,
   parseInspirationClient,
   saveInspirationClient,
+  addInspirationToItineraryClient,
 } from '@/lib/trip-companion/client-api'
 import type { ParsedInspiration } from '@/lib/trip-companion/types'
 
@@ -32,6 +33,7 @@ export default function TripSavesPage() {
   const [preview, setPreview] = useState<ParsedInspiration | null>(null)
   const [previewMeta, setPreviewMeta] = useState<{ source_type: string; source_url?: string }>({ source_type: 'url' })
   const [saving, setSaving] = useState(false)
+  const [addingId, setAddingId] = useState<string | null>(null)
   const [dragOver, setDragOver] = useState(false)
 
   const load = useCallback(async () => {
@@ -110,6 +112,18 @@ export default function TripSavesPage() {
     }
   }
 
+  const addToItinerary = async (id: string) => {
+    setAddingId(id)
+    try {
+      await addInspirationToItineraryClient(tripId, id)
+      await load()
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Could not add to itinerary')
+    } finally {
+      setAddingId(null)
+    }
+  }
+
   if (loading) return <SuitcaseLoader message="Loading saves" />
 
   return (
@@ -139,7 +153,7 @@ export default function TripSavesPage() {
       >
         <p className="font-serif text-lg mb-1">Drop a screenshot or paste a link</p>
         <p className="text-xs text-muted-foreground mb-4">
-          Avanti identifies the restaurant, shop, or spot and suggests the best day and time on your trip.
+          Saved places appear on the shared Game time itinerary for the whole group.
         </p>
         <input
           type="url"
@@ -211,14 +225,28 @@ export default function TripSavesPage() {
                     <p className="text-sm font-medium m-0">{s.place_name}</p>
                     <p className="text-xs text-muted-foreground m-0 mt-0.5">{s.place_category}{s.source_platform ? ` · ${s.source_platform}` : ''}</p>
                   </div>
-                  {s.suggested_day_date && (
-                    <span className="text-[10px] uppercase tracking-wider text-forest-deep shrink-0">
-                      {s.suggested_day_date}{s.suggested_time ? ` ${s.suggested_time}` : ''}
-                    </span>
-                  )}
+                  <div className="text-right shrink-0">
+                    {s.status === 'added_to_itinerary' ? (
+                      <span className="text-[10px] uppercase tracking-wider text-forest-deep">On itinerary ✓</span>
+                    ) : s.suggested_day_date ? (
+                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                        {s.suggested_day_date}{s.suggested_time ? ` · ${s.suggested_time}` : ''}
+                      </span>
+                    ) : null}
+                  </div>
                 </div>
                 {s.suggestion_reason && (
                   <p className="text-xs text-muted-foreground mt-2 m-0">{s.suggestion_reason}</p>
+                )}
+                {s.status !== 'added_to_itinerary' && (
+                  <button
+                    type="button"
+                    disabled={addingId === s.id}
+                    onClick={() => addToItinerary(s.id)}
+                    className="mt-3 text-[10px] uppercase tracking-wider text-forest-deep hover:underline disabled:opacity-50"
+                  >
+                    {addingId === s.id ? 'Adding…' : 'Add to itinerary →'}
+                  </button>
                 )}
               </div>
             ))}
