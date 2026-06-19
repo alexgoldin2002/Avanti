@@ -503,7 +503,7 @@ export default function TripDashboard() {
                       <i className="ti ti-chevron-right text-muted-foreground transition-transform duration-200 group-hover:translate-x-0.5" aria-hidden />
                     </button>
                   )}
-                  {votes.filter(v => v.id).map(vote => (
+                  {(!decision || decision.status === 'draft') && votes.filter(v => v.id).map(vote => (
                     <button
                       key={vote.id}
                       type="button"

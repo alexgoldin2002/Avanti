@@ -7,6 +7,7 @@ import {
 import { nextStatusFromClock } from './status'
 import { pickWinner, aggregateGroupPriority } from './ranking'
 import type { RankableOption } from './ranking'
+import { notifyDecisionEventAsync } from './notify-trip'
 
 export async function tickDestinationDecision(
   supabase: SupabaseClient,
@@ -122,6 +123,27 @@ export async function tickDestinationDecision(
 
   if (Object.keys(updates).length > 1) {
     await supabase.from('destination_decisions').update(updates).eq('id', decisionId)
+
+    const newStatus = updates.status as DestinationDecisionStatus
+    const { data: tripRow } = await supabase.from('trips').select('name').eq('id', decision.trip_id).single()
+    const tripName = tripRow?.name || 'Your trip'
+
+    if (newStatus === 'meta_vote' || newStatus === 'voting') {
+      notifyDecisionEventAsync(supabase, {
+        tripId: decision.trip_id,
+        decisionId,
+        event: 'voting_open',
+        tripName,
+      })
+    }
+    if (newStatus === 'confirming') {
+      notifyDecisionEventAsync(supabase, {
+        tripId: decision.trip_id,
+        decisionId,
+        event: 'confirm_open',
+        tripName,
+      })
+    }
   }
 
   return (updates.status as DestinationDecisionStatus) || decision.status

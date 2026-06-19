@@ -6,6 +6,7 @@ import {
 } from '@/lib/destination-decision/types'
 import { adminOrAnon, requireOrganizer } from '@/lib/destination-decision/supabase-server'
 import type { ParsedDestinationCard } from '@/lib/parse-destination-cards'
+import { notifyDecisionEventAsync } from '@/lib/destination-decision/notify-trip'
 
 export const maxDuration = 60
 
@@ -89,6 +90,14 @@ export async function POST(request: NextRequest) {
       },
       body: JSON.stringify({ decisionId: decision.id, optionIds: (inserted || []).map(o => o.id) }),
     }).catch(() => {})
+
+    const { data: tripRow } = await supabase.from('trips').select('name').eq('id', tripId).single()
+    notifyDecisionEventAsync(supabase, {
+      tripId,
+      decisionId: decision.id,
+      event: 'decision_started',
+      tripName: tripRow?.name || 'Your trip',
+    })
 
     return NextResponse.json({
       decisionId: decision.id,

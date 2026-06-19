@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminOrAnon, requireOrganizer } from '@/lib/destination-decision/supabase-server'
+import { notifyDecisionEventAsync } from '@/lib/destination-decision/notify-trip'
 
 export async function POST(request: NextRequest) {
   try {
@@ -48,6 +49,14 @@ export async function POST(request: NextRequest) {
       locked_date_end: trip?.end_date || trip?.date_range_end || null,
       options_generated: true,
     }).eq('id', decision.trip_id)
+
+    notifyDecisionEventAsync(supabase, {
+      tripId: decision.trip_id,
+      decisionId,
+      event: 'destination_locked',
+      tripName: trip?.name || 'Your trip',
+      detail: `${option.name} (${option.tier})`,
+    })
 
     return NextResponse.json({
       ok: true,
