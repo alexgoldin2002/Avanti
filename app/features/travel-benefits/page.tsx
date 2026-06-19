@@ -95,6 +95,17 @@ const EMPTY_PROFILE: BenefitsProfile = {
   memberships: [],
 }
 
+function normalizeBenefitsProfile(raw: unknown): BenefitsProfile {
+  const p = (raw && typeof raw === 'object' ? raw : {}) as Partial<BenefitsProfile>
+  return {
+    credit_cards: Array.isArray(p.credit_cards) ? p.credit_cards : [],
+    airlines: Array.isArray(p.airlines) ? p.airlines : [],
+    hotels: Array.isArray(p.hotels) ? p.hotels : [],
+    rental_cars: Array.isArray(p.rental_cars) ? p.rental_cars : [],
+    memberships: Array.isArray(p.memberships) ? p.memberships : [],
+  }
+}
+
 export default function TravelBenefits() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
@@ -120,7 +131,7 @@ export default function TravelBenefits() {
         .select('benefits_profile')
         .eq('user_id', user.id)
         .single()
-      if (data?.benefits_profile) setProfile(data.benefits_profile)
+      if (data?.benefits_profile) setProfile(normalizeBenefitsProfile(data.benefits_profile))
       setLoading(false)
     }
     load()
