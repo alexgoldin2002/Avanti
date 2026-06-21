@@ -1,5 +1,5 @@
 import { parseDestinationCards } from '@/lib/parse-destination-cards'
-import { dedupeCardsByCountry } from '@/lib/generate-destinations-core'
+import { dedupeCardsByCountry, isValidDestinationCardName } from '@/lib/generate-destinations-core'
 import { extractCountryFromDestinationName, getCountryDuplicateViolations } from '@/lib/destination-country-rules'
 import type { ParsedDestinationCard } from '@/lib/parse-destination-cards'
 import type { ChatMessage } from '@/lib/infer-trip-context'
@@ -99,15 +99,27 @@ export async function fetchFullDestinationCards(
     options.onPartialCards?.(parsed)
 
     const violations = getCountryDuplicateViolations(parsed)
-    const hasValidWildcard = parsed.some(c => c.isWildcard)
-    if (violations.length > 0 || !hasValidWildcard || parsed.length < 4) {
+    const mains = parsed.filter(c => !c.isWildcard)
+    const wildcard = parsed.find(c => c.isWildcard)
+    const wildcardCountry = wildcard ? extractCountryFromDestinationName(wildcard.name) : null
+    const mainCountries = mains
+      .map(card => extractCountryFromDestinationName(card.name))
+      .filter(Boolean) as string[]
+    const wildcardInvalid =
+      !wildcard ||
+      !isValidDestinationCardName(wildcard.name) ||
+      (wildcardCountry != null && mainCountries.includes(wildcardCountry))
+
+    if (violations.length > 0 || wildcardInvalid || parsed.length < 4) {
       options.onStatus?.('Picking a wildcard…')
-      const mains = parsed.filter(c => !c.isWildcard)
-      const excludeAll = mains
-        .map(card => extractCountryFromDestinationName(card.name))
-        .filter(Boolean) as string[]
+      const excludeAll = mainCountries
       const wildcardBatch = await fetchBatch(answers, 'wildcard-only', options, excludeAll)
-      parsed = dedupeCardsByCountry([...mains, ...wildcardBatch])
+      const freshWildcard = wildcardBatch.find(c => c.isWildcard) || wildcardBatch[0]
+      if (freshWildcard && isValidDestinationCardName(freshWildcard.name)) {
+        parsed = dedupeCardsByCountry([...mains, { ...freshWildcard, isWildcard: true }])
+      } else {
+        parsed = dedupeCardsByCountry([...mains, ...wildcardBatch])
+      }
       options.onPartialCards?.(parsed)
     }
 

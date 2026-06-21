@@ -171,7 +171,7 @@ export function buildDestinationUserMessage(
 
 TRIP TYPE: ${(trip?.trip_type as string) || 'Group trip'}
 GROUP SIZE: ${travelerCount} people
-EVENT: ${trip?.is_event_centered ? `Yes — ${trip.event_name} on ${trip.event_date} in ${trip.event_location}` : 'No specific event'}
+EVENT: ${trip?.is_event_centered ? `Yes — ${trip.event_name} on ${trip.event_date_end && trip.event_date_end !== trip.event_date ? `${trip.event_date} to ${trip.event_date_end}` : trip.event_date} in ${trip.event_location}` : 'No specific event'}
 
 About this trip: ${answers.q1 || 'Not specified'}
 Departure: ${departure}
@@ -258,7 +258,13 @@ export function destinationOutputIsValid(fullText: string): boolean {
 export function isValidDestinationCardName(name: string): boolean {
   const trimmed = name.trim()
   if (trimmed.length < 4) return false
-  if (/\.\.\.|skipped|excluded|do not use|cannot use/i.test(trimmed)) return false
+  if (
+    /\.\.\.|skipped|excluded|do not use|cannot use|already used|wait,|wait —|duplicate|not used|is already/i.test(
+      trimmed
+    )
+  ) {
+    return false
+  }
   if (!trimmed.includes(',')) return false
   return true
 }

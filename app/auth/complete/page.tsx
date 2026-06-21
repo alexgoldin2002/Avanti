@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { getPostAuthPath } from '@/lib/preview-trip-storage'
+import { syncUserPhoneToProfile } from '@/lib/auth/sync-user-phone'
 import SuitcaseLoader from '../../components/SuitcaseLoader'
 
 export default function AuthCompletePage() {
@@ -15,6 +16,9 @@ export default function AuthCompletePage() {
       if (!user) {
         router.replace('/')
         return
+      }
+      if (user.phone) {
+        await syncUserPhoneToProfile(user.id, user.phone)
       }
       const { data: profile } = await supabase
         .from('user_profiles')

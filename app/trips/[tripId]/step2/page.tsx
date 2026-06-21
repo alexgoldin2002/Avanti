@@ -7,7 +7,9 @@ import DestinationCard from '../../../components/DestinationCard'
 import { BackLink } from '../../../components/SubpageShell'
 import { fetchFullDestinationCards } from '@/lib/fetch-destination-batches'
 import { STOP_OPTIONS } from '@/lib/preview-trip-storage'
-import { startDecision } from '@/lib/destination-decision/client-api'
+import { submitTripCards } from '@/lib/destination-decision/client-api'
+import SubmissionCountdown from '../../../components/SubmissionCountdown'
+import { findTravelerForUser, patchTravelerStep2 } from '@/lib/traveler-lookup'
 
 export default function Step2() {
   const { tripId } = useParams() as { tripId: string }
@@ -54,8 +56,12 @@ export default function Step2() {
   const [votes, setVotes] = useState<Record<string, boolean>>({})
   const [maxVotes, setMaxVotes] = useState(2)
   const [isOrganizer, setIsOrganizer] = useState(false)
-  const [startingDecision, setStartingDecision] = useState(false)
-  const [submissionHours, setSubmissionHours] = useState(48)
+  const [decisionStatus, setDecisionStatus] = useState<string | null>(null)
+  const [submissionDeadline, setSubmissionDeadline] = useState<string | null>(null)
+  const [submittingCards, setSubmittingCards] = useState(false)
+  const [showSubmitConfirm, setShowSubmitConfirm] = useState(false)
+  const [travelerId, setTravelerId] = useState<string | null>(null)
+  const [hasSubmittedCards, setHasSubmittedCards] = useState(false)
 
   const s = { fontFamily: 'var(--font-cormorant), Georgia, serif' }
   const inputStyle = { width: '100%', borderBottom: '1px solid #d4d4c8', background: 'transparent', padding: '8px 0', fontSize: '15px', color: 'var(--foreground)', outline: 'none', ...s }
@@ -96,40 +102,51 @@ export default function Step2() {
         setIsOrganizer(tripData.organizer_id === user.id)
       }
       if (user) {
-        const { data: profile } = await supabase.from('user_profiles').select('email').eq('user_id', user.id).single()
-        const { data: traveler } = await supabase.from('travelers').select('step2').eq('trip_id', tripId).eq('email', profile?.email || '').single()
+        const traveler = await findTravelerForUser(supabase, tripId, user.id)
+        if (traveler) setTravelerId(traveler.id)
         if (traveler?.step2) {
-          const s2 = traveler.step2
-          if (s2.q1) { setQ1(s2.q1) }
-          if (s2.departureCity) setDepartureCities(s2.departureCity.split(',').map((c: string) => c.trim()).filter(Boolean))
-          if (s2.dates) setDates(s2.dates)
-          if (s2.fixedDates) setFixedDates(s2.fixedDates)
-          if (s2.flexLength) setFlexLength(s2.flexLength)
-          if (s2.domestic) setDomestic(s2.domestic)
-          if (s2.regions) setRegions(s2.regions)
+          const s2 = traveler.step2 as Record<string, unknown>
+          if (s2.q1) { setQ1(s2.q1 as string) }
+          if (s2.departureCity) setDepartureCities((s2.departureCity as string).split(',').map((c: string) => c.trim()).filter(Boolean))
+          if (s2.dates) setDates(s2.dates as string)
+          if (s2.fixedDates) setFixedDates(s2.fixedDates as { start: string; end: string })
+          if (s2.flexLength) setFlexLength(s2.flexLength as string)
+          if (s2.domestic) setDomestic(s2.domestic as string)
+          if (s2.regions) setRegions(s2.regions as string[])
           if (s2.stops) {
-            if (STOP_OPTIONS.includes(s2.stops)) setStops(s2.stops)
-            else { setStops('Other'); setStopsOther(s2.stops) }
+            if (STOP_OPTIONS.includes(s2.stops as string)) setStops(s2.stops as string)
+            else { setStops('Other'); setStopsOther(s2.stops as string) }
           }
-          if (s2.activities) setActivities(s2.activities)
-          if (s2.vibe) setVibe(s2.vibe)
-          if (s2.accommodation) setAccommodation(s2.accommodation)
-          if (s2.budget) setBudget(s2.budget)
-          if (s2.popularity) setPopularity(s2.popularity)
-          if (s2.q3) setQ3(s2.q3)
-          if (s2.stage) setStage(s2.stage)
-          if (Array.isArray(s2.chatMessages)) setChatMessages(s2.chatMessages)
+          if (s2.activities) setActivities(s2.activities as string[])
+          if (s2.vibe) setVibe(s2.vibe as string[])
+          if (s2.accommodation) setAccommodation(s2.accommodation as string)
+          if (s2.budget) setBudget(s2.budget as string)
+          if (s2.popularity) setPopularity(s2.popularity as string)
+          if (s2.q3) setQ3(s2.q3 as string)
+          if (s2.stage) setStage(s2.stage as typeof stage)
+          if (Array.isArray(s2.chatMessages)) setChatMessages(s2.chatMessages as { role: 'user' | 'assistant'; content: string }[])
+          if (Array.isArray(s2.cards) && s2.cards.length > 0) {
+            setCards(s2.cards)
+            if (Array.isArray(s2.why_not)) setWhyNot(s2.why_not as { name: string; reasons: string[] }[])
+            if (s2.cardVotes && typeof s2.cardVotes === 'object') {
+              setVotes(s2.cardVotes as Record<string, boolean>)
+            }
+            setStage('done')
+          }
         }
-        const { data: savedDest } = await supabase
-          .from('trip_destinations')
-          .select('cards, why_not')
-          .eq('trip_id', tripId)
-          .single()
 
-        if (savedDest?.cards && savedDest.cards.length > 0) {
-          setCards(savedDest.cards)
-          if (savedDest.why_not) setWhyNot(savedDest.why_not)
-          setStage('done' as any)
+        const { data: decision } = await supabase
+          .from('destination_decisions')
+          .select('status, submission_deadline, settings')
+          .eq('trip_id', tripId)
+          .maybeSingle()
+        if (decision) {
+          setDecisionStatus(decision.status)
+          setSubmissionDeadline(decision.submission_deadline)
+          const subs = (decision.settings as { submissions_by_traveler?: Record<string, unknown> })?.submissions_by_traveler
+          if (traveler?.id && subs?.[traveler.id]) {
+            setHasSubmittedCards(true)
+          }
         }
       }
       setLoading(false)
@@ -157,6 +174,13 @@ export default function Step2() {
   }
 
   const q2Valid = isQ2Complete()
+
+  const submissionOpen =
+    decisionStatus === 'draft' ||
+    (decisionStatus === 'suggestions_open' &&
+      submissionDeadline &&
+      new Date(submissionDeadline) > new Date())
+  const alreadySubmitted = hasSubmittedCards
 
   const showQ2 = (typeof stage === 'number' && stage >= 2) || stage === 'generate' || stage === 'done' || editMode
   const showQ3 = editMode || stage === 'generate' || stage === 'done' || (typeof stage === 'number' && stage >= 3 && q2Valid)
@@ -217,34 +241,33 @@ export default function Step2() {
   const saveProgress = async (stageToSave: any, messagesOverride?: { role: 'user' | 'assistant'; content: string }[]) => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-    const { data: profile } = await supabase.from('user_profiles').select('email').eq('user_id', user.id).single()
-    await supabase.from('travelers').update({
-      step2: {
-        q1, departureCity: departureCities.join(', '),
-        dates, fixedDates, flexLength,
-        domestic, regions, stops: stops === 'Other' ? stopsOther : stops,
-        activities, vibe: vibe.includes('Other') ? [...vibe.filter(v => v !== 'Other'), vibeOther] : vibe,
-        accommodation, budget: budget === 'Other' ? budgetOther : budget,
-        popularity, q3, stage: stageToSave,
-        chatMessages: messagesOverride ?? chatMessages,
-      }
-    }).eq('trip_id', tripId).eq('email', profile?.email || '')
+    const tid = travelerId || (await findTravelerForUser(supabase, tripId, user.id))?.id
+    if (!tid) return
+    await patchTravelerStep2(supabase, tid, {
+      q1, departureCity: departureCities.join(', '),
+      dates, fixedDates, flexLength,
+      domestic, regions, stops: stops === 'Other' ? stopsOther : stops,
+      activities, vibe: vibe.includes('Other') ? [...vibe.filter(v => v !== 'Other'), vibeOther] : vibe,
+      accommodation, budget: budget === 'Other' ? budgetOther : budget,
+      popularity, q3, stage: stageToSave,
+      chatMessages: messagesOverride ?? chatMessages,
+    })
+  }
+
+  const persistCardVotes = async (nextVotes: Record<string, boolean>) => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const tid = travelerId || (await findTravelerForUser(supabase, tripId, user.id))?.id
+    if (!tid) return
+    await patchTravelerStep2(supabase, tid, { cardVotes: nextVotes })
   }
 
   const persistChatMessages = async (messages: { role: 'user' | 'assistant'; content: string }[]) => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-    const { data: profile } = await supabase.from('user_profiles').select('email').eq('user_id', user.id).single()
-    const { data: traveler } = await supabase
-      .from('travelers')
-      .select('step2')
-      .eq('trip_id', tripId)
-      .eq('email', profile?.email || '')
-      .single()
-    const existingStep2 = traveler?.step2 || {}
-    await supabase.from('travelers').update({
-      step2: { ...existingStep2, chatMessages: messages },
-    }).eq('trip_id', tripId).eq('email', profile?.email || '')
+    const tid = travelerId || (await findTravelerForUser(supabase, tripId, user.id))?.id
+    if (!tid) return
+    await patchTravelerStep2(supabase, tid, { chatMessages: messages })
   }
 
   const refreshChat = async () => {
@@ -253,17 +276,10 @@ export default function Step2() {
     setChatMessages([])
     setChatInput('')
     if (user) {
-      const { data: profile } = await supabase.from('user_profiles').select('email').eq('user_id', user.id).single()
-      const { data: traveler } = await supabase
-        .from('travelers')
-        .select('step2')
-        .eq('trip_id', tripId)
-        .eq('email', profile?.email || '')
-        .single()
-      const existingStep2 = traveler?.step2 || {}
-      await supabase.from('travelers').update({
-        step2: { ...existingStep2, chatMessages: [] },
-      }).eq('trip_id', tripId).eq('email', profile?.email || '')
+      const tid = travelerId || (await findTravelerForUser(supabase, tripId, user.id))?.id
+      if (tid) {
+        await patchTravelerStep2(supabase, tid, { chatMessages: [] })
+      }
       await supabase.from('trip_conversations').delete().eq('trip_id', tripId).eq('user_id', user.id)
     }
     setRefreshingChat(false)
@@ -335,11 +351,15 @@ export default function Step2() {
 
       setCards(parsed)
       setStage('done')
-      await supabase.from('trip_destinations').upsert({
-        trip_id: tripId,
-        cards: parsed,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'trip_id' })
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const tid = travelerId || (await findTravelerForUser(supabase, tripId, user.id))?.id
+        if (tid) {
+          if (!travelerId) setTravelerId(tid)
+          await patchTravelerStep2(supabase, tid, { cards: parsed, cardVotes: {} })
+          setVotes({})
+        }
+      }
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : 'Something went wrong generating trip ideas'
       console.error('generate error:', e)
@@ -397,6 +417,26 @@ export default function Step2() {
 
   if (loading) return <SuitcaseLoader message="Loading" />
 
+  if (trip && !trip.invites_closed) {
+    return (
+      <main style={{ minHeight: '100vh', background: 'transparent', paddingBottom: '140px', ...s }}>
+        <div style={{ maxWidth: '480px', margin: '0 auto', padding: '80px 24px', textAlign: 'center' }}>
+          <p style={{ fontSize: '22px', fontWeight: 300, marginBottom: '12px' }}>Step 2 not open yet</p>
+          <p style={{ fontSize: '14px', color: 'var(--muted-foreground)', marginBottom: '24px', lineHeight: 1.6 }}>
+            The host needs to start Step 2 from Invite guests and set the suggestion window.
+          </p>
+          <button
+            type="button"
+            onClick={() => router.push(`/trips/${tripId}/invite`)}
+            style={{ padding: '14px 28px', border: 'none', background: 'var(--forest-deep)', color: '#fafaf8', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', cursor: 'pointer', ...s }}
+          >
+            Go to Invite →
+          </button>
+        </div>
+      </main>
+    )
+  }
+
   return (
     <main style={{ minHeight: '100vh', background: 'transparent', paddingBottom: '140px', ...s }}>
       <div style={{ maxWidth: '640px', margin: '0 auto', padding: '48px 24px' }}>
@@ -406,6 +446,17 @@ export default function Step2() {
             {trip?.name}
           </p>
         </div>
+
+        {submissionDeadline && submissionOpen && (
+          <div style={{ marginBottom: '32px', padding: '24px 16px', border: '1px solid var(--border)', background: 'var(--card)' }}>
+            <SubmissionCountdown
+              deadline={submissionDeadline}
+              label="Submission window"
+              hint="Submit your trip cards before this timer ends. You can update picks until it closes."
+              variant="large"
+            />
+          </div>
+        )}
 
         {(stage === 1 || editMode) && (
           <>
@@ -742,13 +793,8 @@ export default function Step2() {
               const answersChanged = JSON.stringify(buildAnswersPayload()) !== JSON.stringify(cachedAnswers)
               setEditMode(false)
               if (!answersChanged && cachedAnswers) {
-                const { data } = await supabase
-                  .from('trip_destinations')
-                  .select('cards, why_not')
-                  .eq('trip_id', tripId)
-                  .single()
-                if (data?.cards) setCards(data.cards)
-                if (data?.why_not) setWhyNot(data.why_not)
+                if (cards.length > 0) return
+                await generateDestinations()
                 return
               }
               await generateDestinations()
@@ -832,7 +878,11 @@ export default function Step2() {
                   const currentCount = Object.values(votes).filter(Boolean).length
                   const isCurrentlyVoted = votes[card.name]
                   if (!isCurrentlyVoted && currentCount >= maxVotes) return
-                  setVotes(v => ({ ...v, [card.name]: !v[card.name] }))
+                  setVotes(v => {
+                    const next = { ...v, [card.name]: !v[card.name] }
+                    persistCardVotes(next)
+                    return next
+                  })
                 }}
               />
             ))}
@@ -851,57 +901,95 @@ export default function Step2() {
           </div>
         )}
 
-        {!generating && cards.length >= 4 && isOrganizer && (
-          <div style={{ marginTop: '24px', marginBottom: '32px' }}>
-            <p style={{ ...labelStyle, marginBottom: '10px' }}>Suggestion window</p>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '16px' }}>
-              {[
-                { h: 24, label: '24 hours' },
-                { h: 48, label: '48 hours' },
-                { h: 72, label: '72 hours' },
-                { h: 168, label: '1 week' },
-              ].map(opt => (
-                <button
-                  key={opt.h}
-                  type="button"
-                  onClick={() => setSubmissionHours(opt.h)}
-                  style={chipStyle(submissionHours === opt.h)}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
+        {!generating && cards.length >= 4 && submissionOpen && (
+          <div style={{ marginTop: '8px', marginBottom: '32px' }}>
+            <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', textAlign: 'center', marginBottom: '16px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+              {Object.values(votes).filter(Boolean).length} of {maxVotes} cards selected · {cards.length} destinations ready
+              {alreadySubmitted && submissionDeadline && (
+                <> · you can change picks until the window closes</>
+              )}
+            </p>
             <button
-              onClick={async () => {
-                setStartingDecision(true)
-                try {
-                  await startDecision(tripId, submissionHours)
-                  router.push(`/trips/${tripId}/choose`)
-                } catch (e) {
-                  alert(e instanceof Error ? e.message : 'Failed to start')
-                } finally {
-                  setStartingDecision(false)
-                }
-              }}
-              disabled={startingDecision}
+              type="button"
+              disabled={submittingCards || Object.values(votes).filter(Boolean).length === 0}
+              onClick={() => setShowSubmitConfirm(true)}
               style={{
                 width: '100%', padding: '16px',
                 border: 'none', background: 'var(--forest-deep)', color: '#fafaf8',
                 fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase',
-                cursor: startingDecision ? 'wait' : 'pointer',
-                opacity: startingDecision ? 0.7 : 1,
+                cursor: submittingCards ? 'wait' : 'pointer',
+                opacity: Object.values(votes).filter(Boolean).length === 0 ? 0.5 : 1,
                 fontFamily: 'var(--font-cormorant), Georgia, serif',
               }}
             >
-              {startingDecision ? 'Starting…' : 'Start group decision →'}
+              {alreadySubmitted ? 'Update my trip cards →' : 'Send in my trip cards to the voting page →'}
             </button>
           </div>
         )}
 
-        {!generating && cards.length >= 4 && !isOrganizer && (
+        {alreadySubmitted && !submissionOpen && (
+          <div style={{ marginTop: '24px', marginBottom: '32px', textAlign: 'center' }}>
+            <p style={{ fontSize: '14px', color: 'var(--forest-deep)', marginBottom: '12px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+              ✓ Cards submitted — submission window closed.
+            </p>
+            <button
+              type="button"
+              onClick={() => router.push(`/trips/${tripId}/choose`)}
+              style={{ padding: '12px 24px', border: '1px solid var(--forest-deep)', background: 'var(--forest-deep)', color: '#fafaf8', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', cursor: 'pointer', fontFamily: 'var(--font-cormorant), Georgia, serif' }}
+            >
+              Go to Choose destination →
+            </button>
+          </div>
+        )}
+
+        {showSubmitConfirm && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '24px' }}>
+            <div style={{ background: 'var(--cream)', maxWidth: '400px', width: '100%', padding: '28px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+              <p style={{ fontSize: '11px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--muted-foreground)', margin: '0 0 8px' }}>Submit cards</p>
+              <h2 style={{ fontSize: '24px', fontWeight: 300, margin: '0 0 12px' }}>Send to the voting page?</h2>
+              <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', lineHeight: 1.7, margin: '0 0 16px' }}>
+                You can change your selections until the submission window closes. After that, your picks are locked in.
+              </p>
+              <div style={{ background: '#fef9ec', border: '1px solid #f0c040', padding: '12px', marginBottom: '20px' }}>
+                <p style={{ fontSize: '12px', color: '#8a6a10', margin: 0, lineHeight: 1.6 }}>
+                  Submitting {Object.entries(votes).filter(([, v]) => v).map(([name]) => name).join(', ')}
+                </p>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <button
+                  type="button"
+                  disabled={submittingCards}
+                  onClick={async () => {
+                    setSubmittingCards(true)
+                    try {
+                      const selected = Object.entries(votes).filter(([, v]) => v).map(([name]) => name)
+                      await submitTripCards(tripId, selected)
+                      setDecisionStatus('suggestions_open')
+                      setHasSubmittedCards(true)
+                      setShowSubmitConfirm(false)
+                      router.push(`/trips/${tripId}/choose`)
+                    } catch (e) {
+                      alert(e instanceof Error ? e.message : 'Failed to submit')
+                    } finally {
+                      setSubmittingCards(false)
+                    }
+                  }}
+                  style={{ width: '100%', padding: '14px', border: 'none', background: 'var(--forest-deep)', color: '#fff', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', cursor: 'pointer' }}
+                >
+                  {submittingCards ? 'Submitting…' : 'Yes, send them in →'}
+                </button>
+                <button type="button" onClick={() => setShowSubmitConfirm(false)} style={{ width: '100%', padding: '14px', border: '1px solid var(--border)', background: 'transparent', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', cursor: 'pointer' }}>
+                  ← Go back
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {!generating && cards.length >= 4 && !isOrganizer && !decisionStatus && (
           <div style={{ marginTop: '24px', marginBottom: '32px', textAlign: 'center' }}>
             <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
-              Waiting for the organizer to start the group destination decision.
+              Waiting for the organizer to start Step 2 from Invite guests.
             </p>
           </div>
         )}

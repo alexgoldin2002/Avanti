@@ -11,6 +11,7 @@ import {
   fetchDecision,
   suggestDestination,
   closeSubmissions,
+  retryAnalysis,
   submitMetaVote,
   submitOptionVote,
   submitConfirmation,
@@ -22,6 +23,7 @@ import {
   WORKS_LABELS,
   STATUS_HEADINGS,
 } from '@/lib/destination-decision/client-api'
+import SubmissionCountdown from '../../../components/SubmissionCountdown'
 
 type DecisionPayload = Awaited<ReturnType<typeof fetchDecision>>
 
@@ -98,6 +100,15 @@ export default function ChooseDestinationPage() {
   }, [load])
 
   useEffect(() => {
+    if (!data?.analysisProgress) return
+    const { done, total } = data.analysisProgress
+    if (data.decision?.status !== 'analyzing' || total === 0 || done < total) return
+    load()
+    const fast = setInterval(load, 3000)
+    return () => clearInterval(fast)
+  }, [data?.decision?.status, data?.analysisProgress?.done, data?.analysisProgress?.total, load])
+
+  useEffect(() => {
     if (!data?.options?.length) return
     setLocalVotes(prev => {
       const next = { ...prev }
@@ -122,6 +133,16 @@ export default function ChooseDestinationPage() {
   const status = decision?.status || 'draft'
   const options = data?.options || []
   const isOrganizer = data?.isOrganizer
+  const submissionDeadline = decision?.submission_deadline ?? null
+  const votingOpen = ['meta_vote', 'voting', 'results', 'confirming', 'locked'].includes(status)
+  const waitingForVoting = !votingOpen
+  const submissionWindowOpen =
+    !!submissionDeadline && new Date(submissionDeadline) > new Date()
+  const analysisComplete =
+    status === 'analyzing' &&
+    !!data?.analysisProgress &&
+    data.analysisProgress.total > 0 &&
+    data.analysisProgress.done >= data.analysisProgress.total
 
   const ranked = data?.rankedOptions || []
 
@@ -221,7 +242,7 @@ export default function ChooseDestinationPage() {
     try {
       await lockDestination(decision.id, optionId)
       await load()
-      router.push(`/trips/${tripId}/itinerary`)
+      router.push(`/trips/${tripId}/flights`)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed')
     } finally {
@@ -242,8 +263,9 @@ export default function ChooseDestinationPage() {
           ? decision?.confirm_deadline
           : null
 
-  const showMeta = status === 'meta_vote' && !data.myMetaVote
-  const showVote = status === 'voting' || (status === 'meta_vote' && !!data.myMetaVote)
+  const canVote = data?.canVote !== false
+  const showMeta = canVote && status === 'meta_vote' && !data.myMetaVote
+  const showVote = canVote && (status === 'voting' || (status === 'meta_vote' && !!data.myMetaVote))
   const winnerId = decision?.winner_option_id || ranked[0]?.id
 
   const myTraveler = data.myTravelerId
@@ -274,6 +296,15 @@ export default function ChooseDestinationPage() {
         <div className="mb-4 border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div>
       )}
 
+      {!canVote && ['meta_vote', 'voting'].includes(status) && (
+        <div className="avanti-box border border-border bg-card p-5 mb-6">
+          <p className="font-serif text-lg text-foreground mb-2">View-only on this trip</p>
+          <p className="text-sm text-muted-foreground m-0 leading-relaxed">
+            You asked someone else to handle planning on this trip. You can still follow along — you just won&apos;t cast votes yourself.
+          </p>
+        </div>
+      )}
+
       {needsConstraints && myTraveler && (
         <MemberConstraintsModal
           tripId={tripId}
@@ -289,97 +320,133 @@ export default function ChooseDestinationPage() {
 
       {status === 'draft' && (
         <div className="avanti-box border border-border bg-forest-mist px-6 py-10 text-center">
-          <p className="font-serif text-xl text-foreground mb-2">Not started yet</p>
-          <p className="text-sm text-muted-foreground mb-6">
-            Complete Brainstorm, then the organizer starts the group decision.
+          <p className="font-serif text-xl text-foreground mb-2">Waiting for trip cards</p>
+          <p className="text-sm text-muted-foreground mb-4">
+            Submit your Brainstorm picks to open the voting countdown.
           </p>
-          <button
-            type="button"
-            onClick={() => router.push(`/trips/${tripId}/step2`)}
-            className="avanti-btn avanti-btn-primary"
-          >
-            Go to Brainstorm →
-          </button>
+          {submissionDeadline && submissionWindowOpen && (
+            <div className="mb-6">
+              <SubmissionCountdown
+                deadline={submissionDeadline}
+                label="Submission window"
+                variant="compact"
+              />
+            </div>
+          )}
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <button type="button" onClick={() => router.push(`/trips/${tripId}/step2`)} className="avanti-btn avanti-btn-primary">
+              Go to Brainstorm →
+            </button>
+            <button type="button" onClick={() => router.push(`/trips/${tripId}`)} className="avanti-btn avanti-btn-ghost">
+              Back to trip dashboard
+            </button>
+          </div>
         </div>
       )}
 
-      {status === 'suggestions_open' && (
-        <div className="space-y-8">
-          <div className="avanti-box border border-border bg-card p-6">
-            <p className="text-sm text-muted-foreground mb-4">
-              Add one destination idea for the group. Avanti will price it at Budget, Mid, and Luxury tiers alongside your AI cards.
+      {waitingForVoting && status !== 'draft' && (
+        <div className="avanti-box border border-border bg-card px-6 py-10 text-center mb-8">
+          {analysisComplete ? (
+            <>
+              <p className="font-serif text-xl text-foreground mb-2">Analysis complete</p>
+              <p className="text-sm text-muted-foreground mb-2">
+                {data!.analysisProgress!.done} / {data!.analysisProgress!.total} estimates ready
+              </p>
+              <p className="text-sm text-muted-foreground mb-6">
+                Next up: everyone picks whether to optimize for budget, experience, or balance — then you vote on destinations.
+              </p>
+              <p className="text-xs text-muted-foreground animate-pulse mb-0">
+                Opening the next step… refresh if this doesn&apos;t update in a few seconds.
+              </p>
+            </>
+          ) : (
+            <>
+          <SubmissionCountdown
+            deadline={submissionDeadline}
+            label={status === 'analyzing' ? 'Voting opens after analysis' : 'Until voting opens'}
+            hint={
+              status === 'analyzing'
+                ? 'Avanti is pricing flights and stays for everyone.'
+                : 'Destination cards stay hidden until the submission window closes and analysis finishes.'
+            }
+          />
+          {status === 'analyzing' && data?.analysisProgress && (
+            <p className="text-xs text-muted-foreground mt-6 mb-0">
+              {data.analysisProgress.done} / {data.analysisProgress.total} estimates ready
             </p>
-            <input
-              className="avanti-input w-full mb-3"
-              placeholder="e.g. Lisbon, Portugal"
-              value={suggestName}
-              onChange={e => setSuggestName(e.target.value)}
-            />
-            <input
-              className="avanti-input w-full mb-4"
-              placeholder="Why this place? (optional)"
-              value={suggestNote}
-              onChange={e => setSuggestNote(e.target.value)}
-            />
-            <button
-              type="button"
-              disabled={busy || !suggestName.trim()}
-              onClick={handleSuggest}
-              className="avanti-btn avanti-btn-primary w-full"
-            >
-              Add suggestion
-            </button>
-          </div>
-
-          <div>
-            <p className="eyebrow text-muted-foreground mb-3">{options.length} options in the pool</p>
-            <div className="grid gap-2">
-              {[...new Set(options.map(o => o.name))].map(name => (
-                <div key={name} className="avanti-box border border-border bg-card px-4 py-3 text-sm">
-                  {name}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {isOrganizer && (
+          )}
+          {status === 'analyzing' && isOrganizer && data.analysisProgress && data.analysisProgress.done < data.analysisProgress.total && (
             <button
               type="button"
               disabled={busy}
               onClick={async () => {
                 setBusy(true)
                 try {
-                  await closeSubmissions(decision!.id)
+                  await retryAnalysis(decision!.id)
                   await load()
                 } catch (e) {
-                  setError(e instanceof Error ? e.message : 'Failed')
+                  setError(e instanceof Error ? e.message : 'Failed to start analysis')
                 } finally {
                   setBusy(false)
                 }
               }}
-              className="avanti-btn avanti-btn-ghost w-full"
+              className="avanti-btn avanti-btn-primary mt-4"
             >
-              Close suggestions early →
+              {busy ? 'Starting…' : 'Start analysis →'}
             </button>
           )}
-        </div>
-      )}
-
-      {status === 'analyzing' && (
-        <div className="avanti-box border border-border bg-card px-6 py-12 text-center">
-          <div className="mx-auto mb-6 h-2 max-w-md overflow-hidden bg-forest-mist">
-            <div
-              className="h-full bg-forest-deep transition-all duration-500"
-              style={{
-                width: `${data.analysisProgress.total ? (100 * data.analysisProgress.done) / data.analysisProgress.total : 10}%`,
-              }}
-            />
-          </div>
-          <p className="font-serif text-xl mb-2">Pricing flights, hotels, and dates for everyone</p>
-          <p className="text-sm text-muted-foreground">
-            {data.analysisProgress.done} of {data.analysisProgress.total} personal estimates ready.
-            Voting opens automatically when analysis completes.
-          </p>
+            </>
+          )}
+          {status === 'suggestions_open' && submissionWindowOpen && (
+            <div className="mt-8 text-left max-w-md mx-auto border-t border-border pt-6">
+              <p className="text-sm text-muted-foreground mb-4">
+                Add one destination idea for the group (optional).
+              </p>
+              <input
+                className="avanti-input w-full mb-3"
+                placeholder="e.g. Lisbon, Portugal"
+                value={suggestName}
+                onChange={e => setSuggestName(e.target.value)}
+              />
+              <input
+                className="avanti-input w-full mb-4"
+                placeholder="Why this place? (optional)"
+                value={suggestNote}
+                onChange={e => setSuggestNote(e.target.value)}
+              />
+              <button
+                type="button"
+                disabled={busy || !suggestName.trim()}
+                onClick={handleSuggest}
+                className="avanti-btn avanti-btn-primary w-full"
+              >
+                Add suggestion
+              </button>
+              {isOrganizer && (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={async () => {
+                    setBusy(true)
+                    try {
+                      await closeSubmissions(decision!.id)
+                      await load()
+                    } catch (e) {
+                      setError(e instanceof Error ? e.message : 'Failed')
+                    } finally {
+                      setBusy(false)
+                    }
+                  }}
+                  className="mt-3 avanti-btn avanti-btn-ghost w-full text-sm"
+                >
+                  Close submission window early →
+                </button>
+              )}
+            </div>
+          )}
+          <button type="button" onClick={() => router.push(`/trips/${tripId}`)} className="avanti-btn avanti-btn-ghost mt-6">
+            Back to trip dashboard
+          </button>
         </div>
       )}
 
@@ -650,7 +717,7 @@ export default function ChooseDestinationPage() {
           </p>
           <button
             type="button"
-            onClick={() => router.push(`/trips/${tripId}/itinerary`)}
+            onClick={() => router.push(`/trips/${tripId}/flights`)}
             className="avanti-btn avanti-btn-primary"
           >
             Plan flights →

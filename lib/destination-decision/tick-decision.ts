@@ -66,17 +66,13 @@ export async function tickDestinationDecision(
   }
 
   if (decision.status === 'analyzing' && allAnalyzed) {
-    const started = decision.analysis_started_at ? new Date(decision.analysis_started_at) : now
-    const bufferMs = ANALYSIS_BUFFER_MINUTES * 60 * 1000
-    if (now.getTime() - started.getTime() >= bufferMs || decision.analysis_completed_at) {
-      updates.status = 'meta_vote'
-      updates.analysis_completed_at = decision.analysis_completed_at || now.toISOString()
-      if (!decision.voting_deadline) {
-        const votingEnd = new Date(now.getTime() + 72 * 60 * 60 * 1000)
-        updates.voting_deadline = votingEnd.toISOString()
-      }
-      next = 'meta_vote'
+    updates.status = 'meta_vote'
+    updates.analysis_completed_at = decision.analysis_completed_at || now.toISOString()
+    if (!decision.voting_deadline) {
+      const votingEnd = new Date(now.getTime() + 72 * 60 * 60 * 1000)
+      updates.voting_deadline = votingEnd.toISOString()
     }
+    next = 'meta_vote'
   }
 
   // All meta votes in → voting

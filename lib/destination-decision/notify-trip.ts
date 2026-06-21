@@ -27,7 +27,7 @@ function messageForEvent(
     case 'confirm_open':
       return `Avanti: Results are in for ${tripName}. Confirm your spot: ${chooseUrl}`
     case 'destination_locked':
-      return `Avanti: Destination locked for ${tripName}${detail ? ` — ${detail}` : ''}. Plan flights: ${chooseUrl.replace('/choose', '/itinerary')}`
+      return `Avanti: Destination locked for ${tripName}${detail ? ` — ${detail}` : ''}. Plan flights: ${chooseUrl.replace('/choose', '/flights')}`
     default:
       return `Avanti update for ${tripName}: ${chooseUrl}`
   }

@@ -1,8 +1,14 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { listAccountCompanions } from '@/lib/account-companions'
+import { addCompanionToTrip, companionErrorMessage } from '@/lib/add-companion-to-trip'
+import DateOfBirthSelect from '../../../components/DateOfBirthSelect'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { beginStep2 } from '@/lib/destination-decision/client-api'
+import { minutesToSubmissionWindow, formatSubmissionWindow } from '@/lib/submission-window'
 import Footer from '../../../components/Footer'
+import SubmissionCountdown from '../../../components/SubmissionCountdown'
 import { BackLink } from '../../../components/SubpageShell'
 
 export default function InviteGuests() {
@@ -30,15 +36,35 @@ export default function InviteGuests() {
   const [showRemoveModal, setShowRemoveModal] = useState<string | null>(null)
   const [invitesClosed, setInvitesClosed] = useState(false)
   const [inviteLocked, setInviteLocked] = useState(false)
-  const [showCloseConfirm, setShowCloseConfirm] = useState(false)
+  const [showStartStep2, setShowStartStep2] = useState(false)
+  const [startingStep2, setStartingStep2] = useState(false)
+  const [windowDays, setWindowDays] = useState('2')
+  const [windowHours, setWindowHours] = useState('0')
+  const [windowMinutes, setWindowMinutes] = useState('0')
+  const [decisionStarted, setDecisionStarted] = useState(false)
+  const [submissionDeadline, setSubmissionDeadline] = useState<string | null>(null)
+  const [expandedParty, setExpandedParty] = useState<Set<string>>(new Set())
   const [showMemberConvos, setShowMemberConvos] = useState(true)
   const [addMode, setAddMode] = useState<'new' | 'saved'>('new')
+  const [addIntent, setAddIntent] = useState<'on_invite' | 'invite_link'>('on_invite')
   const [newAttendee, setNewAttendee] = useState({
     nickname: '', full_name: '', email: '',
-    fills_own_preferences: true,
+    fills_own_preferences: false,
     departure_city: '', available_from: '', available_to: '',
-    passport_number: '', tsa_known_traveler: '',
+    passport_number: '', tsa_known_traveler: '', date_of_birth: '',
   })
+
+  const openAddForm = (intent: 'on_invite' | 'invite_link') => {
+    setAddIntent(intent)
+    setNewAttendee({
+      nickname: '', full_name: '', email: '',
+      fills_own_preferences: intent === 'invite_link',
+      departure_city: '', available_from: '', available_to: '',
+      passport_number: '', tsa_known_traveler: '', date_of_birth: '',
+    })
+    setAddMode(intent === 'on_invite' && savedTravelers.length > 0 ? 'saved' : 'new')
+    setShowAddForm(true)
+  }
 
   const load = async () => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -47,6 +73,21 @@ export default function InviteGuests() {
       setTrip(tripData)
       setInvitesClosed(!!tripData.invites_closed)
       if (tripData.invite_locked) setInviteLocked(true)
+      if (tripData.submission_window_minutes) {
+        const w = minutesToSubmissionWindow(tripData.submission_window_minutes)
+        setWindowDays(String(w.days))
+        setWindowHours(String(w.hours))
+        setWindowMinutes(String(w.minutes))
+      }
+      if (tripData.destination_decision_id) {
+        setDecisionStarted(true)
+        const { data: dec } = await supabase
+          .from('destination_decisions')
+          .select('submission_deadline')
+          .eq('id', tripData.destination_decision_id)
+          .maybeSingle()
+        setSubmissionDeadline(dec?.submission_deadline ?? null)
+      }
       if (tripData?.show_member_conversations !== undefined) {
         setShowMemberConvos(tripData.show_member_conversations)
       }
@@ -65,7 +106,7 @@ export default function InviteGuests() {
       const myTraveler = travelerData?.find((t: any) => t.user_id === user.id)
       const isOrgByRole = myTraveler?.role === 'organizer'
       setIsOrganizer(isOrgByTrip || isOrgByRole)
-      const { data: saved } = await supabase.from('user_profiles').select('*').eq('owner_user_id', user.id)
+      const saved = await listAccountCompanions(supabase, user.id)
       setSavedTravelers(saved || [])
     }
   }
@@ -112,45 +153,63 @@ export default function InviteGuests() {
   const addNewAttendee = async () => {
     if (!newAttendee.nickname.trim()) return
     setSaving(true)
-    const isDependent = !newAttendee.fills_own_preferences
-    await supabase.from('travelers').insert({
-      trip_id: tripId,
-      nickname: newAttendee.nickname,
-      full_name: newAttendee.full_name || newAttendee.nickname,
-      email: newAttendee.email || '',
-      role: isDependent ? 'dependent' : 'member',
-      profile_complete: isDependent,
-      passport_number: isDependent ? newAttendee.passport_number : null,
-      tsa_known_traveler: isDependent ? newAttendee.tsa_known_traveler : null,
-    })
-    const { data } = await supabase.from('travelers').select('*').eq('trip_id', tripId)
-    if (data) setAttendees(data)
-    setNewAttendee({ nickname: '', full_name: '', email: '', fills_own_preferences: true, departure_city: '', available_from: '', available_to: '', passport_number: '', tsa_known_traveler: '' })
-    setShowAddForm(false)
+    const isDependent = addIntent === 'on_invite' || !newAttendee.fills_own_preferences
+    try {
+      if (isDependent && currentUserId) {
+        await addCompanionToTrip(tripId, {
+          companion: {
+            full_name: newAttendee.full_name || newAttendee.nickname,
+            nickname: newAttendee.nickname,
+            passport_number: newAttendee.passport_number,
+            tsa_known_traveler: newAttendee.tsa_known_traveler,
+            date_of_birth: newAttendee.date_of_birth || undefined,
+          },
+        })
+      } else {
+        const { error } = await supabase.from('travelers').insert({
+          trip_id: tripId,
+          nickname: newAttendee.nickname,
+          full_name: newAttendee.full_name || newAttendee.nickname,
+          email: newAttendee.email || '',
+          role: 'member',
+          profile_complete: false,
+          status: 'approved',
+          managed_by_user_id: null,
+          fills_own_preferences: true,
+          can_vote: true,
+        })
+        if (error) throw error
+      }
+      const { data } = await supabase.from('travelers').select('*').eq('trip_id', tripId)
+      if (data) setAttendees(data)
+      setNewAttendee({ nickname: '', full_name: '', email: '', fills_own_preferences: false, departure_city: '', available_from: '', available_to: '', passport_number: '', tsa_known_traveler: '', date_of_birth: '' })
+      setShowAddForm(false)
+      setToast(isDependent ? 'Added on your invite ✓' : 'Guest added ✓')
+      setTimeout(() => setToast(''), 2000)
+    } catch (e) {
+      console.error(e)
+      setToast(companionErrorMessage(e))
+      setTimeout(() => setToast(''), 4000)
+    }
     setSaving(false)
-    setToast('Guest added ✓')
-    setTimeout(() => setToast(''), 2000)
   }
 
   const addFromSaved = async (saved: any) => {
+    if (!currentUserId) return
     setSaving(true)
-    await supabase.from('travelers').insert({
-      trip_id: tripId,
-      full_name: saved.full_name,
-      nickname: saved.nickname || saved.full_name.split(' ')[0],
-      email: '',
-      role: 'dependent',
-      profile_complete: false,
-      date_of_birth: saved.date_of_birth,
-      passport_number: saved.passport_number,
-      tsa_known_traveler: saved.tsa_known_traveler,
-    })
-    const { data } = await supabase.from('travelers').select('*').eq('trip_id', tripId)
-    if (data) setAttendees(data)
+    try {
+      await addCompanionToTrip(tripId, { savedCompanionId: saved.id })
+      const { data } = await supabase.from('travelers').select('*').eq('trip_id', tripId)
+      if (data) setAttendees(data)
+      setShowAddForm(false)
+      setToast('Added on your invite ✓')
+      setTimeout(() => setToast(''), 2000)
+    } catch (e) {
+      console.error(e)
+      setToast(companionErrorMessage(e))
+      setTimeout(() => setToast(''), 4000)
+    }
     setSaving(false)
-    setShowAddForm(false)
-    setToast('Guest added ✓')
-    setTimeout(() => setToast(''), 2000)
   }
 
   const removeAttendee = async (id: string) => {
@@ -171,11 +230,25 @@ export default function InviteGuests() {
     if (data) setAttendees(data)
   }
 
-  const handleCloseInvites = async () => {
-    await supabase.from('trips').update({ invites_closed: true }).eq('id', tripId)
-    setInvitesClosed(true)
-    setTrip((t: any) => t ? { ...t, invites_closed: true } : t)
-    setShowCloseConfirm(false)
+  const handleBeginStep2 = async () => {
+    setStartingStep2(true)
+    try {
+      const result = await beginStep2(tripId, {
+        days: parseInt(windowDays, 10) || 0,
+        hours: parseInt(windowHours, 10) || 0,
+        minutes: parseInt(windowMinutes, 10) || 0,
+      })
+      setInvitesClosed(true)
+      setDecisionStarted(true)
+      setSubmissionDeadline(result.submissionDeadline ?? null)
+      setTrip((t: any) => (t ? { ...t, invites_closed: true } : t))
+      setShowStartStep2(false)
+      router.push(`/trips/${tripId}/step2`)
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Failed to start Step 2')
+    } finally {
+      setStartingStep2(false)
+    }
   }
 
   const handleLeaveGroup = async () => {
@@ -207,7 +280,23 @@ export default function InviteGuests() {
       window.open(`mailto:${sendInviteEmail}?subject=${encodeURIComponent(`Join ${trip?.name} on Avanti`)}&body=${encodeURIComponent(`You've been invited to join ${trip?.name} on Avanti. Click here to join: ${inviteUrl}`)}`)
     }
     if (sendInvitePhone) {
-      window.open(`sms:${sendInvitePhone}?body=${encodeURIComponent(`You've been invited to join ${trip?.name} on Avanti: ${inviteUrl}`)}`)
+      try {
+        const res = await fetch('/api/send-invite', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            phone: sendInvitePhone,
+            tripName: trip?.name,
+            inviteUrl,
+          }),
+        })
+        const data = await res.json()
+        if (!data.success && !data.skipped) {
+          window.open(`sms:${sendInvitePhone}?body=${encodeURIComponent(`You've been invited to join ${trip?.name} on Avanti: ${inviteUrl}`)}`)
+        }
+      } catch {
+        window.open(`sms:${sendInvitePhone}?body=${encodeURIComponent(`You've been invited to join ${trip?.name} on Avanti: ${inviteUrl}`)}`)
+      }
     }
     setSendInviteEmail('')
     setSendInvitePhone('')
@@ -227,6 +316,7 @@ export default function InviteGuests() {
           tripId,
           travelerId: att.id,
           travelerEmail: att.email,
+          travelerPhone: att.phone,
           travelerName: att.nickname || att.full_name,
           tripName: trip?.name,
           senderName: organizer?.nickname || organizer?.full_name || 'The organizer',
@@ -243,7 +333,7 @@ export default function InviteGuests() {
         window.open(data.mailtoLink)
       }
       setNudgedAttendees(prev => new Set([...prev, att.id]))
-      setToast(`Nudge sent to ${att.nickname || att.full_name} ✓`)
+      setToast(data.smsSent ? `Text sent to ${att.nickname || att.full_name} ✓` : `Nudge sent to ${att.nickname || att.full_name} ✓`)
       setTimeout(() => setToast(''), 2000)
     } catch (e) {
       console.error('Nudge error:', e)
@@ -257,7 +347,80 @@ export default function InviteGuests() {
   if (!trip) return null
 
   const organizer = attendees.find(a => a.role === 'organizer')
-  const guests = attendees.filter(a => a.role !== 'organizer' && (a.status === 'approved' || a.status === null))
+  const memberGuests = attendees.filter(a => {
+    if (a.role === 'organizer' || a.role === 'dependent') return false
+    return a.status === 'approved' || a.status === null
+  })
+
+  const dependentsFor = (userId: string | null | undefined) =>
+    attendees.filter(a => a.role === 'dependent' && a.managed_by_user_id === userId)
+
+  const toggleParty = (userId: string) => {
+    setExpandedParty(prev => {
+      const next = new Set(prev)
+      if (next.has(userId)) next.delete(userId)
+      else next.add(userId)
+      return next
+    })
+  }
+
+  const partyCountLabel = (count: number) =>
+    count === 1 ? '+1 traveler' : `+${count} travelers`
+
+  const renderPartyToggle = (userId: string | null | undefined, party: any[]) => {
+    if (!userId || party.length === 0) return null
+    const open = expandedParty.has(userId)
+    return (
+      <button
+        type="button"
+        onClick={() => toggleParty(userId)}
+        style={{
+          fontSize: '10px',
+          letterSpacing: '0.04em',
+          color: 'var(--forest)',
+          background: 'none',
+          border: 'none',
+          cursor: 'pointer',
+          padding: 0,
+          textDecoration: 'underline',
+          textUnderlineOffset: '2px',
+          ...s,
+        }}
+      >
+        {open ? 'hide' : partyCountLabel(party.length)}
+      </button>
+    )
+  }
+
+  const renderPartyList = (userId: string | null | undefined, party: any[]) => {
+    if (!userId || !expandedParty.has(userId) || party.length === 0) return null
+    return (
+      <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '6px', paddingLeft: '42px' }}>
+        {party.map(dep => (
+          <div key={dep.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+            <div>
+              <p style={{ fontSize: '13px', color: 'var(--foreground)', margin: '0 0 1px', ...s }}>
+                {dep.nickname || dep.full_name}
+              </p>
+              <p style={{ fontSize: '10px', color: 'var(--muted-foreground)', margin: 0 }}>
+                {dep.full_name !== dep.nickname && dep.nickname ? dep.full_name : 'on invite'}
+              </p>
+            </div>
+            {isOrganizer && (
+              <button
+                type="button"
+                onClick={() => setShowRemoveModal(dep.id)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--border)', fontSize: '16px', padding: '0 4px', lineHeight: 1 }}
+                aria-label={`Remove ${dep.full_name}`}
+              >
+                ×
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+    )
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: '100%', background: 'var(--cream)', ...s }}>
@@ -364,8 +527,14 @@ export default function InviteGuests() {
             <p style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--muted-foreground)', margin: 0 }}>
               Attendees ({attendees.length})
             </p>
-            {!invitesClosed && (
-              <button onClick={() => setShowAddForm(!showAddForm)}
+            {!invitesClosed && isOrganizer && (
+              <button type="button" onClick={() => openAddForm('invite_link')}
+                style={{ fontSize: '10px', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--forest)', background: 'none', border: '1.5px solid var(--forest)', padding: '6px 12px', cursor: 'pointer', borderRadius: '20px', ...s }}>
+                + Invite someone
+              </button>
+            )}
+            {!invitesClosed && !isOrganizer && (
+              <button type="button" onClick={() => openAddForm('invite_link')}
                 style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--forest)', background: 'none', border: '1.5px solid var(--forest)', padding: '6px 12px', cursor: 'pointer', borderRadius: '20px', ...s }}>
                 + Add person
               </button>
@@ -373,38 +542,70 @@ export default function InviteGuests() {
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {organizer && (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: '#f5f5f0', borderRadius: '0' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--forest-deep)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', color: '#fff', fontWeight: 300, ...s }}>
-                    {organizer.nickname?.charAt(0).toUpperCase() || organizer.full_name?.charAt(0).toUpperCase()}
+            {organizer && (() => {
+              const party = dependentsFor(organizer.user_id)
+              return (
+              <div style={{ padding: '12px 16px', background: '#f5f5f0', borderRadius: '0' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0 }}>
+                    <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--forest-deep)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', color: '#fff', fontWeight: 300, flexShrink: 0, ...s }}>
+                      {organizer.nickname?.charAt(0).toUpperCase() || organizer.full_name?.charAt(0).toUpperCase()}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontSize: '14px', color: 'var(--foreground)', margin: 0 }}>{organizer.nickname || organizer.full_name}</p>
+                      <p style={{ fontSize: '11px', color: 'var(--muted-foreground)', margin: 0, display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                        <span>organizer</span>
+                        {renderPartyToggle(organizer.user_id, party)}
+                        {isOrganizer && !invitesClosed && (
+                          <button
+                            type="button"
+                            onClick={() => openAddForm('on_invite')}
+                            style={{
+                              fontSize: '10px',
+                              letterSpacing: '0.04em',
+                              color: 'var(--forest)',
+                              background: 'none',
+                              border: 'none',
+                              cursor: 'pointer',
+                              padding: 0,
+                              textDecoration: 'underline',
+                              textUnderlineOffset: '2px',
+                              ...s,
+                            }}
+                          >
+                            + add on my invite
+                          </button>
+                        )}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p style={{ fontSize: '14px', color: 'var(--foreground)', margin: 0 }}>{organizer.nickname || organizer.full_name}</p>
-                    <p style={{ fontSize: '11px', color: 'var(--muted-foreground)', margin: 0 }}>organizer</p>
+                  <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'var(--forest)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <span style={{ color: '#fff', fontSize: '12px' }}>✓</span>
                   </div>
                 </div>
-                <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'var(--forest)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <span style={{ color: '#fff', fontSize: '12px' }}>✓</span>
-                </div>
+                {renderPartyList(organizer.user_id, party)}
               </div>
-            )}
+              )
+            })()}
 
-            {guests.map(att => (
-              <div key={att.id}
-                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', background: 'var(--card)', border: '0.5px solid var(--border)', borderRadius: '0' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            {memberGuests.map(att => {
+              const party = dependentsFor(att.user_id)
+              return (
+              <div key={att.id} style={{ padding: '14px 16px', background: 'var(--card)', border: '0.5px solid var(--border)', borderRadius: '0' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
                   <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'var(--forest-deep)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', color: '#fff', fontWeight: 300, flexShrink: 0, fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
                     {att.nickname?.charAt(0).toUpperCase() || att.full_name?.charAt(0).toUpperCase()}
                   </div>
-                  <div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{ fontSize: '15px', color: 'var(--foreground)', margin: '0 0 2px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>{att.nickname || att.full_name}</p>
-                    <p style={{ fontSize: '11px', color: 'var(--muted-foreground)', margin: 0, letterSpacing: '0.03em' }}>
-                      {att.role === 'dependent' ? 'managed by you' : att.profile_complete ? 'ready ✓' : 'profile pending'}
+                    <p style={{ fontSize: '11px', color: 'var(--muted-foreground)', margin: 0, letterSpacing: '0.03em', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                      <span>{att.profile_complete ? 'ready ✓' : 'profile pending'}</span>
+                      {renderPartyToggle(att.user_id, party)}
                     </p>
                   </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
                   <div
                     style={{ position: 'relative' }}
                     onMouseEnter={() => !att.profile_complete && setHoveredAttendee(att.id)}
@@ -435,28 +636,42 @@ export default function InviteGuests() {
                     ×
                   </button>
                 </div>
+                </div>
+                {renderPartyList(att.user_id, party)}
               </div>
-            ))}
+              )
+            })}
 
-            {guests.length === 0 && !showAddForm && (
+            {memberGuests.length === 0 && !showAddForm && (
               <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', textAlign: 'center', padding: '20px 0', fontStyle: 'italic' }}>No guests added yet. Share the link above or add people manually.</p>
             )}
           </div>
 
           {showAddForm && (
             <div style={{ marginTop: '16px', padding: '18px', background: '#f5f5f0', borderRadius: '0' }}>
+              <p style={{ fontSize: '12px', color: 'var(--foreground)', margin: '0 0 4px', ...s }}>
+                {addIntent === 'on_invite' ? 'Add partner, kids, or anyone on your invite' : 'Invite someone to join themselves'}
+              </p>
+              <p style={{ fontSize: '11px', color: 'var(--muted-foreground)', margin: '0 0 16px', lineHeight: 1.5 }}>
+                {addIntent === 'on_invite'
+                  ? 'They count toward the group — you fill in their travel details. No separate vote.'
+                  : 'They get the link and set up their own profile.'}
+              </p>
+
+              {addIntent === 'on_invite' && (
               <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-                {[{ key: 'new', label: 'New person' }, { key: 'saved', label: 'From my travelers' }].map(m => (
+                {[{ key: 'new', label: 'New person' }, { key: 'saved', label: 'Saved travelers' }].map(m => (
                   <button key={m.key} onClick={() => setAddMode(m.key as any)}
                     style={{ flex: 1, padding: '7px', fontSize: '11px', letterSpacing: '0.08em', border: `1px solid ${addMode === m.key ? 'var(--forest)' : 'var(--border)'}`, background: addMode === m.key ? 'var(--accent-light)' : 'transparent', color: addMode === m.key ? 'var(--forest)' : 'var(--muted-foreground)', cursor: 'pointer', borderRadius: '6px', ...s }}>
                     {m.label}
                   </button>
                 ))}
               </div>
+              )}
 
-              {addMode === 'saved' && (
+              {addIntent === 'on_invite' && addMode === 'saved' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {savedTravelers.length === 0 && <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', textAlign: 'center', padding: '12px 0' }}>No saved travelers. Add them to your profile first.</p>}
+                  {savedTravelers.length === 0 && <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', textAlign: 'center', padding: '12px 0' }}>No saved travelers yet. <a href="/profile?tab=travelers" style={{ color: 'var(--forest)' }}>Add them in Profile → Travelers</a> or enter details below.</p>}
                   {savedTravelers.map(saved => (
                     <button key={saved.id} onClick={() => addFromSaved(saved)}
                       style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', border: '0.5px solid var(--border)', background: 'var(--card)', cursor: 'pointer', borderRadius: '0', textAlign: 'left', ...s }}>
@@ -472,7 +687,7 @@ export default function InviteGuests() {
                 </div>
               )}
 
-              {addMode === 'new' && (
+              {(addIntent === 'invite_link' || addMode === 'new') && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                     <div>
@@ -484,25 +699,22 @@ export default function InviteGuests() {
                       <input style={inputStyle} value={newAttendee.full_name} onChange={e => setNewAttendee({...newAttendee, full_name: e.target.value})} placeholder="Sydney Prusan" />
                     </div>
                   </div>
-                  <div>
-                    <label style={labelStyle}>Will they fill in their own info?</label>
-                    <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
-                      {[{ v: true, l: 'Yes — send them the link' }, { v: false, l: 'No — I manage their info' }].map(opt => (
-                        <button key={String(opt.v)} onClick={() => setNewAttendee({...newAttendee, fills_own_preferences: opt.v})}
-                          style={{ flex: 1, padding: '8px', fontSize: '11px', border: `1px solid ${newAttendee.fills_own_preferences === opt.v ? 'var(--forest)' : 'var(--border)'}`, background: newAttendee.fills_own_preferences === opt.v ? 'var(--accent-light)' : 'transparent', color: newAttendee.fills_own_preferences === opt.v ? 'var(--forest)' : 'var(--muted-foreground)', cursor: 'pointer', borderRadius: '6px', ...s }}>
-                          {opt.l}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  {newAttendee.fills_own_preferences && (
+                  {addIntent === 'invite_link' && (
                     <div>
                       <label style={labelStyle}>Email <span style={{ textTransform: 'none', letterSpacing: 0 }}>(optional)</span></label>
                       <input type="email" style={inputStyle} value={newAttendee.email} onChange={e => setNewAttendee({...newAttendee, email: e.target.value})} placeholder="sydney@gmail.com" />
                     </div>
                   )}
-                  {!newAttendee.fills_own_preferences && (
+                  {addIntent === 'on_invite' && (
                     <div style={{ padding: '12px', background: 'var(--card)', borderRadius: '0', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      <div>
+                        <label style={labelStyle}>Date of birth</label>
+                        <DateOfBirthSelect
+                          value={newAttendee.date_of_birth}
+                          onChange={date_of_birth => setNewAttendee({ ...newAttendee, date_of_birth })}
+                          selectStyle={{ ...inputStyle, borderBottom: '1px solid var(--border)', padding: '8px 24px 8px 0', fontSize: '14px' }}
+                        />
+                      </div>
                       <div>
                         <label style={labelStyle}>Passport number</label>
                         <input style={inputStyle} value={newAttendee.passport_number} onChange={e => setNewAttendee({...newAttendee, passport_number: e.target.value})} placeholder="A12345678" />
@@ -514,9 +726,9 @@ export default function InviteGuests() {
                     </div>
                   )}
                   <div style={{ display: 'flex', gap: '8px' }}>
-                    <button onClick={() => setShowAddForm(false)} style={{ flex: 1, border: '1px solid var(--border)', padding: '10px', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--muted-foreground)', background: 'transparent', cursor: 'pointer', borderRadius: '6px', ...s }}>Cancel</button>
-                    <button onClick={addNewAttendee} disabled={saving || !newAttendee.nickname.trim()} style={{ flex: 1, border: '1px solid var(--forest)', padding: '10px', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--forest)', background: 'transparent', cursor: 'pointer', opacity: saving || !newAttendee.nickname.trim() ? 0.4 : 1, borderRadius: '6px', ...s }}>
-                      {saving ? 'Adding...' : 'Add →'}
+                    <button type="button" onClick={() => setShowAddForm(false)} style={{ flex: 1, border: '1px solid var(--border)', padding: '10px', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--muted-foreground)', background: 'transparent', cursor: 'pointer', borderRadius: '6px', ...s }}>Cancel</button>
+                    <button type="button" onClick={addNewAttendee} disabled={saving || !newAttendee.nickname.trim()} style={{ flex: 1, border: '1px solid var(--forest)', padding: '10px', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--forest)', background: 'transparent', cursor: 'pointer', opacity: saving || !newAttendee.nickname.trim() ? 0.4 : 1, borderRadius: '6px', ...s }}>
+                      {saving ? 'Adding...' : addIntent === 'on_invite' ? 'Add on my invite →' : 'Add →'}
                     </button>
                   </div>
                 </div>
@@ -579,47 +791,47 @@ export default function InviteGuests() {
             >
               Lock invite link →
             </button>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div style={{ background: '#fef9ec', border: '1px solid #f0c040', borderRadius: '0', padding: '16px 20px' }}>
-                <p style={{ fontSize: '13px', color: '#8a6a10', margin: '0 0 6px', fontWeight: 500, fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
-                  ⚠ Before you move to Step 2
-                </p>
-                <p style={{ fontSize: '12px', color: '#8a6a10', margin: '0 0 16px', lineHeight: 1.6 }}>
-                  Review your trip settings — including how many votes each traveler gets. You can always change this later.
-                </p>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <button
-                    onClick={() => router.push(`/trips/${tripId}/settings`)}
-                    style={{ fontSize: '11px', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#8a6a10', background: 'none', border: '1px solid #f0c040', padding: '8px 16px', cursor: 'pointer', borderRadius: '6px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}
-                  >
-                    Review settings
-                  </button>
-                  <button
-                    onClick={() => router.push(`/trips/${tripId}/step2`)}
-                    style={{ fontSize: '11px', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#fafaf8', background: 'var(--forest-deep)', border: 'none', padding: '8px 16px', cursor: 'pointer', borderRadius: '6px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}
-                  >
-                    Proceed to Step 2 →
-                  </button>
-                </div>
-              </div>
+          ) : inviteLocked && !invitesClosed ? (
+            <div style={{ background: '#fef9ec', border: '1px solid #f0c040', borderRadius: '0', padding: '16px 20px' }}>
+              <p style={{ fontSize: '12px', color: '#8a6a10', margin: '0 0 12px', lineHeight: 1.6 }}>
+                Review trip settings before starting Step 2 — including how many votes each traveler gets.
+              </p>
+              <button
+                type="button"
+                onClick={() => router.push(`/trips/${tripId}/settings`)}
+                style={{ fontSize: '11px', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#8a6a10', background: 'none', border: '1px solid #f0c040', padding: '8px 16px', cursor: 'pointer', fontFamily: 'var(--font-cormorant), Georgia, serif' }}
+              >
+                Review settings
+              </button>
             </div>
-          )}
+          ) : null}
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          {isOrganizer && !invitesClosed && (
+          {isOrganizer && !invitesClosed && !decisionStarted && (
             <button
-              onClick={() => setShowCloseConfirm(true)}
+              onClick={() => setShowStartStep2(true)}
               style={{ width: '100%', border: '1px solid var(--forest-deep)', background: 'var(--forest-deep)', color: '#fff', padding: '16px', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '0', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
-              Done adding guests — close invite link →
+              Start Step 2 — Brainstorm →
             </button>
           )}
 
-          {isOrganizer && invitesClosed && (
+          {invitesClosed && (
             <div style={{ padding: '16px', background: 'var(--accent-light)', border: '0.5px solid #8aad7a', borderRadius: '0', textAlign: 'center' }}>
-              <p style={{ fontSize: '12px', color: 'var(--forest)', margin: '0 0 4px' }}>✓ Invite link closed</p>
-              <p style={{ fontSize: '11px', color: 'var(--muted-foreground)', margin: 0, lineHeight: 1.6 }}>No new guests can join. Step 2 is now unlocked.</p>
+              <p style={{ fontSize: '12px', color: 'var(--forest)', margin: '0 0 4px' }}>✓ Step 2 unlocked</p>
+              <p style={{ fontSize: '11px', color: 'var(--muted-foreground)', margin: '0 0 12px', lineHeight: 1.6 }}>Invite link closed · suggestion window is running</p>
+              {submissionDeadline && (
+                <div style={{ marginBottom: '16px' }}>
+                  <SubmissionCountdown deadline={submissionDeadline} label="Until voting opens" variant="compact" />
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={() => router.push(`/trips/${tripId}/step2`)}
+                style={{ fontSize: '11px', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#fafaf8', background: 'var(--forest-deep)', border: 'none', padding: '10px 20px', cursor: 'pointer', fontFamily: 'var(--font-cormorant), Georgia, serif' }}
+              >
+                Go to Brainstorm →
+              </button>
             </div>
           )}
         </div>
@@ -708,50 +920,65 @@ export default function InviteGuests() {
         )
       })()}
 
-      {showCloseConfirm && (
+      {showStartStep2 && (
         <div style={{ position: 'fixed', inset: 0, background: 'var(--cream)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '32px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
-          <div style={{ width: '100%', maxWidth: '400px' }}>
-            <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-              <div style={{ fontSize: '40px', marginBottom: '16px' }}>🔒</div>
-              <p style={{ fontSize: '11px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--muted-foreground)', margin: '0 0 10px' }}>Close invite link</p>
-              <h2 style={{ fontSize: '28px', fontWeight: 300, color: 'var(--foreground)', margin: '0 0 16px' }}>Ready to lock the group?</h2>
+          <div style={{ width: '100%', maxWidth: '420px' }}>
+            <div style={{ textAlign: 'center', marginBottom: '28px' }}>
+              <p style={{ fontSize: '11px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--muted-foreground)', margin: '0 0 10px' }}>Start Step 2</p>
+              <h2 style={{ fontSize: '28px', fontWeight: 300, color: 'var(--foreground)', margin: '0 0 16px' }}>How long is the suggestion window?</h2>
               <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', lineHeight: 1.8, margin: 0 }}>
-                Once you close the invite link, no new guests can join.<br/>
-                <strong style={{ color: 'var(--foreground)', fontWeight: 400 }}>This cannot be undone.</strong>
+                This closes the invite link, unlocks Brainstorm, and starts the countdown until voting opens.
               </p>
             </div>
 
-            <div style={{ background: '#faeeda', border: '0.5px solid #ef9f27', borderRadius: '0', padding: '16px', marginBottom: '28px' }}>
-              <p style={{ fontSize: '12px', color: '#854f0b', margin: '0 0 6px', fontWeight: 500 }}>Before you close —</p>
-              <p style={{ fontSize: '12px', color: '#633806', margin: 0, lineHeight: 1.7 }}>
-                If anyone is on the fence about joining, invite them now. They'll have another chance to remove themselves from the group before final bookings are made — but they can't join after this point.
-              </p>
-            </div>
-
-            <div style={{ background: 'var(--card)', border: '0.5px solid var(--border)', borderRadius: '0', padding: '14px 16px', marginBottom: '28px' }}>
-              <p style={{ fontSize: '11px', color: 'var(--muted-foreground)', margin: '0 0 8px', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Current group — {attendees.filter(a => a.status === 'approved' || a.role === 'organizer').length} confirmed</p>
-              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                {attendees.filter(a => a.status === 'approved' || a.role === 'organizer').map(att => (
-                  <div key={att.id} style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#f5f5f0', padding: '4px 10px', borderRadius: '20px' }}>
-                    <div style={{ width: '18px', height: '18px', borderRadius: '50%', background: 'var(--forest-deep)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', color: '#fff' }}>
-                      {att.nickname?.charAt(0).toUpperCase() || att.full_name?.charAt(0).toUpperCase()}
-                    </div>
-                    <span style={{ fontSize: '11px', color: '#3a3a3a' }}>{att.nickname || att.full_name?.split(' ')[0]}</span>
+            <div style={{ background: 'var(--card)', border: '0.5px solid var(--border)', padding: '20px', marginBottom: '20px' }}>
+              <p style={{ fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--muted-foreground)', margin: '0 0 14px' }}>Suggestion window</p>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+                {[
+                  { label: 'Days', value: windowDays, set: setWindowDays },
+                  { label: 'Hours', value: windowHours, set: setWindowHours },
+                  { label: 'Minutes', value: windowMinutes, set: setWindowMinutes },
+                ].map(field => (
+                  <div key={field.label}>
+                    <label style={{ fontSize: '10px', color: 'var(--muted-foreground)', display: 'block', marginBottom: '6px' }}>{field.label}</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={field.value}
+                      onChange={e => field.set(e.target.value)}
+                      style={{ width: '100%', border: '1px solid var(--border)', padding: '10px', fontSize: '16px', background: 'var(--cream)', fontFamily: 'inherit' }}
+                    />
                   </div>
                 ))}
               </div>
+              <p style={{ fontSize: '12px', color: 'var(--muted-foreground)', margin: '14px 0 0', fontStyle: 'italic' }}>
+                Total: {formatSubmissionWindow(
+                  (parseInt(windowDays, 10) || 0) * 24 * 60 +
+                  (parseInt(windowHours, 10) || 0) * 60 +
+                  (parseInt(windowMinutes, 10) || 0) || 48 * 60
+                )}
+              </p>
+            </div>
+
+            <div style={{ background: '#faeeda', border: '0.5px solid #ef9f27', padding: '16px', marginBottom: '24px' }}>
+              <p style={{ fontSize: '12px', color: '#633806', margin: 0, lineHeight: 1.7 }}>
+                No new guests can join after this. Anyone on the fence should be invited now.
+              </p>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <button
-                onClick={handleCloseInvites}
-                style={{ width: '100%', border: '1px solid var(--forest-deep)', background: 'var(--forest-deep)', color: '#fff', padding: '15px', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '0', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
-                Lock the group →
+                type="button"
+                disabled={startingStep2}
+                onClick={handleBeginStep2}
+                style={{ width: '100%', border: '1px solid var(--forest-deep)', background: 'var(--forest-deep)', color: '#fff', padding: '15px', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', cursor: startingStep2 ? 'wait' : 'pointer', opacity: startingStep2 ? 0.7 : 1, fontFamily: 'inherit' }}>
+                {startingStep2 ? 'Starting…' : 'Start Step 2 & begin timer →'}
               </button>
               <button
-                onClick={() => setShowCloseConfirm(false)}
-                style={{ width: '100%', border: '0.5px solid var(--border)', padding: '15px', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', color: 'var(--muted-foreground)', background: 'transparent', cursor: 'pointer', borderRadius: '0', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
-                ← Not yet, go back
+                type="button"
+                onClick={() => setShowStartStep2(false)}
+                style={{ width: '100%', border: '0.5px solid var(--border)', padding: '15px', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', color: 'var(--muted-foreground)', background: 'transparent', cursor: 'pointer', fontFamily: 'inherit' }}>
+                ← Not yet
               </button>
             </div>
           </div>

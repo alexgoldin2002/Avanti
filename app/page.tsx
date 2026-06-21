@@ -6,6 +6,8 @@ import { supabase } from '@/lib/supabase'
 import Footer from './components/Footer'
 import HomeTripPlanner from './components/HomeTripPlanner'
 import { getPostAuthPath, hasPreviewAnswers, isPendingShare, markPendingShare, loadPreviewTrip, savePreviewTrip } from '@/lib/preview-trip-storage'
+import PhoneAuthForm from './components/PhoneAuthForm'
+import { syncUserPhoneToProfile } from '@/lib/auth/sync-user-phone'
 
 const HERO_VIDEO =
   process.env.NEXT_PUBLIC_HERO_VIDEO ??
@@ -41,6 +43,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [rememberMe, setRememberMe] = useState(true)
+  const [authChannel, setAuthChannel] = useState<'email' | 'phone'>('email')
   const [plannerRevealed, setPlannerRevealed] = useState(false)
 
   const revealPlanner = () => {
@@ -88,8 +91,21 @@ export default function Home() {
 
   const openAuth = (mode: 'signin' | 'signup') => {
     setAuthMode(mode)
+    setAuthChannel('email')
     setError('')
     setMenuOpen(false)
+  }
+
+  const finishAuth = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    if (user.phone) await syncUserPhoneToProfile(user.id, user.phone)
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('profile_complete')
+      .eq('user_id', user.id)
+      .maybeSingle()
+    router.push(getPostAuthPath(Boolean(profile?.profile_complete)))
   }
 
   const handleSignUp = async (e: React.FormEvent) => {
@@ -337,44 +353,71 @@ export default function Home() {
               <div className="flex-1 h-px bg-border" />
             </div>
 
-            <form onSubmit={authMode === 'signup' ? handleSignUp : handleSignIn} className="flex flex-col gap-5">
-              {error && <p className="text-sm text-center" style={{ color: 'var(--destructive)' }}>{error}</p>}
-              <div>
-                <label className="eyebrow text-muted-foreground block mb-2">Email</label>
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  className="w-full border-b border-border bg-transparent py-2 font-serif text-foreground outline-none"
-                  placeholder="your@email.com"
-                />
-              </div>
-              <div>
-                <label className="eyebrow text-muted-foreground block mb-2">Password</label>
-                <input
-                  type="password"
-                  required
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  className="w-full border-b border-border bg-transparent py-2 font-serif text-foreground outline-none"
-                  placeholder="••••••••"
-                />
-              </div>
-              {authMode === 'signin' && (
-                <label className="flex items-center gap-2 eyebrow text-muted-foreground cursor-pointer">
-                  <input type="checkbox" checked={rememberMe} onChange={e => setRememberMe(e.target.checked)} />
-                  Keep me signed in
-                </label>
-              )}
+            <div className="flex border border-border mb-6">
               <button
-                type="submit"
-                disabled={loading}
-                className="w-full bg-forest-deep text-cream eyebrow py-4 hover:opacity-90 transition disabled:opacity-50"
+                type="button"
+                onClick={() => { setAuthChannel('email'); setError('') }}
+                className={`flex-1 py-2.5 eyebrow transition ${authChannel === 'email' ? 'bg-forest-deep text-cream' : 'text-muted-foreground hover:text-foreground'}`}
               >
-                {loading ? 'Please wait...' : authMode === 'signup' ? 'Create account' : 'Sign in'}
+                Email
               </button>
-            </form>
+              <button
+                type="button"
+                onClick={() => { setAuthChannel('phone'); setError('') }}
+                className={`flex-1 py-2.5 eyebrow transition ${authChannel === 'phone' ? 'bg-forest-deep text-cream' : 'text-muted-foreground hover:text-foreground'}`}
+              >
+                Phone
+              </button>
+            </div>
+
+            {authChannel === 'email' ? (
+              <form onSubmit={authMode === 'signup' ? handleSignUp : handleSignIn} className="flex flex-col gap-5">
+                {error && <p className="text-sm text-center" style={{ color: 'var(--destructive)' }}>{error}</p>}
+                <div>
+                  <label className="eyebrow text-muted-foreground block mb-2">Email</label>
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    className="w-full border-b border-border bg-transparent py-2 font-serif text-foreground outline-none"
+                    placeholder="your@email.com"
+                  />
+                </div>
+                <div>
+                  <label className="eyebrow text-muted-foreground block mb-2">Password</label>
+                  <input
+                    type="password"
+                    required
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    className="w-full border-b border-border bg-transparent py-2 font-serif text-foreground outline-none"
+                    placeholder="••••••••"
+                  />
+                </div>
+                {authMode === 'signin' && (
+                  <label className="flex items-center gap-2 eyebrow text-muted-foreground cursor-pointer">
+                    <input type="checkbox" checked={rememberMe} onChange={e => setRememberMe(e.target.checked)} />
+                    Keep me signed in
+                  </label>
+                )}
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full bg-forest-deep text-cream eyebrow py-4 hover:opacity-90 transition disabled:opacity-50"
+                >
+                  {loading ? 'Please wait...' : authMode === 'signup' ? 'Create account' : 'Sign in'}
+                </button>
+              </form>
+            ) : (
+              <PhoneAuthForm
+                onSuccess={finishAuth}
+                loading={loading}
+                setLoading={setLoading}
+                error={error}
+                setError={setError}
+              />
+            )}
 
             <button
               type="button"

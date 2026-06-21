@@ -11,6 +11,7 @@ import { fetchTripBookings } from '@/lib/bookings/client-api'
 import { fetchInspirations } from '@/lib/trip-companion/client-api'
 import type { ItineraryData, TripBooking } from '@/lib/bookings/types'
 import type { TripInspirationRow } from '@/lib/trip-companion/merge-inspirations'
+import SubmissionCountdown from '../../components/SubmissionCountdown'
 
 type StepState = 'done' | 'active' | 'locked' | 'open'
 
@@ -272,8 +273,10 @@ export default function TripDashboard() {
   const getActiveStep = () => {
     if (!trip?.invites_closed) return 1
     if (decision && !['locked', 'cancelled', 'draft'].includes(decision.status)) return 3
+    if (decision && decision.status === 'draft') return 2
+    if (trip?.destination && trip.destination !== 'TBD' && !trip?.flights_locked) return 4
     if (!trip?.destination || trip?.destination === 'TBD') return 2
-    return 4
+    return 5
   }
 
   const getStepState = (stepNum: number): StepState => {
@@ -324,7 +327,18 @@ export default function TripDashboard() {
       path: `/trips/${tripId}/choose`,
       badge: decision && decision.status !== 'draft' ? '·' : undefined,
     },
-    { key: 'itinerary', number: 4, title: 'Itinerary & flights', subtitle: 'Routes and transport', icon: 'ti-map', path: `/trips/${tripId}/itinerary` },
+    {
+      key: 'flights',
+      number: 4,
+      title: 'Flights',
+      subtitle: trip?.flights_locked
+        ? 'Dates locked'
+        : trip?.destination && trip.destination !== 'TBD'
+          ? 'Coordinate & book'
+          : 'After destination lock',
+      icon: 'ti-plane',
+      path: `/trips/${tripId}/flights`,
+    },
     { key: 'stay', number: 5, title: 'Accommodation', subtitle: 'Hotels and Airbnbs', icon: 'ti-building', path: `/trips/${tripId}/accommodation` },
     { key: 'activities', number: 6, title: 'Activities', subtitle: 'Things to do', icon: 'ti-compass', path: `/trips/${tripId}/activities` },
     { key: 'dining', number: 7, title: 'Dining', subtitle: 'Restaurants and reservations', icon: 'ti-tools-kitchen-2', path: `/trips/${tripId}/dining` },
@@ -353,6 +367,18 @@ export default function TripDashboard() {
 
   const activeStep = getActiveStep()
   const readyCount = travelers.filter(t => t.profile_complete).length
+
+  const showSubmissionCountdown =
+    decision?.submission_deadline &&
+    !['meta_vote', 'voting', 'results', 'confirming', 'locked'].includes(decision.status) &&
+    new Date(decision.submission_deadline) > new Date()
+
+  const countdownHint =
+    decision?.status === 'draft'
+      ? 'Complete Brainstorm and submit your trip cards before time runs out.'
+      : decision?.status === 'analyzing'
+        ? 'Avanti is analyzing options — voting opens when the window closes.'
+        : 'Voting opens when the submission window closes and analysis finishes.'
 
   return (
     <>
@@ -513,6 +539,19 @@ export default function TripDashboard() {
           ))}
         </div>
 
+        {activeTab === 'prep' && showSubmissionCountdown && (
+          <section className="mt-8">
+            <div className="avanti-box border border-forest-deep/25 bg-forest-pale px-6 py-8">
+              <SubmissionCountdown
+                deadline={decision.submission_deadline}
+                label="Until voting opens"
+                hint={countdownHint}
+                variant="compact"
+              />
+            </div>
+          </section>
+        )}
+
         {activeTab === 'prep' && (
           <>
             {/* To do */}
@@ -538,6 +577,22 @@ export default function TripDashboard() {
                           <p className="text-[11px] text-muted-foreground m-0">
                             {decisionStatusLabel[decision.status] || decision.status}
                           </p>
+                        </div>
+                      </div>
+                      <i className="ti ti-chevron-right text-muted-foreground transition-transform duration-200 group-hover:translate-x-0.5" aria-hidden />
+                    </button>
+                  )}
+                  {decision && decision.status === 'locked' && !trip?.flights_locked && (
+                    <button
+                      type="button"
+                      onClick={() => router.push(`/trips/${tripId}/flights`)}
+                      className="group avanti-box flex items-center justify-between rounded-none border border-forest-deep bg-card px-5 py-4 text-left transition-all duration-200 ease-out hover:-translate-y-px hover:border-forest-deep hover:[box-shadow:var(--shadow-box-hover)]"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="h-2 w-2 rounded-full bg-forest-deep transition-transform duration-200 group-hover:scale-125" />
+                        <div>
+                          <p className="font-serif text-base transition-colors duration-200 group-hover:text-forest-deep">Plan flights</p>
+                          <p className="text-[11px] text-muted-foreground m-0">Coordinate routes and lock travel dates</p>
                         </div>
                       </div>
                       <i className="ti ti-chevron-right text-muted-foreground transition-transform duration-200 group-hover:translate-x-0.5" aria-hidden />

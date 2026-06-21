@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase'
 
 const MENU_LINKS = [
   { label: 'Dashboard', href: '/dashboard' },
+  { label: 'Features', href: '/features' },
   { label: 'How it works', href: '/how-it-works' },
   { label: 'About', href: '/about' },
   { label: 'Contact', href: '/contact' },
@@ -60,7 +61,7 @@ export default function AppNav({ userName }: { userName?: string }) {
     <header className="sticky top-0 z-40 bg-forest-deep text-cream">
       <nav className="relative mx-auto flex max-w-7xl items-center justify-between px-6 py-5 sm:px-10">
         <div className="flex items-center gap-8 min-w-0 flex-1">
-          {MENU_LINKS.filter(l => l.href !== '/dashboard' && l.href !== '/profile').map(item => (
+          {MENU_LINKS.filter(l => l.href !== '/dashboard' && l.href !== '/profile' && l.href !== '/features').map(item => (
             <Link
               key={item.label}
               href={item.href}

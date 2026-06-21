@@ -34,8 +34,12 @@ export function extractCountryFromDestinationName(name: string): string | null {
   let trimmed = name.trim()
   if (!trimmed) return null
 
-  // Model sometimes adds meta text like "... *(skipped — Portugal excluded)*"
-  trimmed = trimmed.replace(/\.\.\.+.*$/s, '').replace(/\*[^*]*\*/g, '').trim()
+  // Model sometimes adds meta text after the place name
+  trimmed = trimmed
+    .replace(/\.\.\.+.*$/s, '')
+    .replace(/\*[^*]*\*/g, '')
+    .replace(/\s*[—–-]\s*(wait|note|already|duplicate|skipped|excluded).*$/i, '')
+    .trim()
 
   if (trimmed.includes(',')) {
     const afterComma = trimmed.split(',').pop()?.trim()

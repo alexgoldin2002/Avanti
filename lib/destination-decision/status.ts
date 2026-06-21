@@ -97,10 +97,7 @@ export function nextStatusFromClock(input: {
   }
 
   if (status === 'analyzing') {
-    const bufferMs = analysisBufferMinutes * 60 * 1000
-    const started = analysisStartedAt ?? now
-    const bufferElapsed = now.getTime() - started.getTime() >= bufferMs
-    if (allOptionsAnalyzed && (bufferElapsed || analysisCompletedAt)) {
+    if (allOptionsAnalyzed) {
       return 'meta_vote'
     }
   }

@@ -6,34 +6,11 @@ import SuitcaseLoader from '../components/SuitcaseLoader'
 import Footer from '../components/Footer'
 import { BackLink } from '../components/SubpageShell'
 import { hasPreviewAnswers, isPendingShare } from '@/lib/preview-trip-storage'
+import { PHONE_COUNTRY_CODES } from '@/lib/phone'
+import TravelersTab from './TravelersTab'
+import DateOfBirthSelect from '../components/DateOfBirthSelect'
 
 const COUNTRIES = ["Afghanistan","Albania","Algeria","Andorra","Angola","Antigua and Barbuda","Argentina","Armenia","Australia","Austria","Azerbaijan","Bahamas","Bahrain","Bangladesh","Barbados","Belarus","Belgium","Belize","Benin","Bhutan","Bolivia","Bosnia and Herzegovina","Botswana","Brazil","Brunei","Bulgaria","Burkina Faso","Burundi","Cabo Verde","Cambodia","Cameroon","Canada","Central African Republic","Chad","Chile","China","Colombia","Comoros","Congo","Costa Rica","Croatia","Cuba","Cyprus","Czech Republic","Denmark","Djibouti","Dominica","Dominican Republic","Ecuador","Egypt","El Salvador","Equatorial Guinea","Eritrea","Estonia","Eswatini","Ethiopia","Fiji","Finland","France","Gabon","Gambia","Georgia","Germany","Ghana","Greece","Grenada","Guatemala","Guinea","Guinea-Bissau","Guyana","Haiti","Honduras","Hungary","Iceland","India","Indonesia","Iran","Iraq","Ireland","Israel","Italy","Jamaica","Japan","Jordan","Kazakhstan","Kenya","Kiribati","Kuwait","Kyrgyzstan","Laos","Latvia","Lebanon","Lesotho","Liberia","Libya","Liechtenstein","Lithuania","Luxembourg","Madagascar","Malawi","Malaysia","Maldives","Mali","Malta","Marshall Islands","Mauritania","Mauritius","Mexico","Micronesia","Moldova","Monaco","Mongolia","Montenegro","Morocco","Mozambique","Myanmar","Namibia","Nauru","Nepal","Netherlands","New Zealand","Nicaragua","Niger","Nigeria","North Korea","North Macedonia","Norway","Oman","Pakistan","Palau","Palestine","Panama","Papua New Guinea","Paraguay","Peru","Philippines","Poland","Portugal","Qatar","Romania","Russia","Rwanda","Saint Kitts and Nevis","Saint Lucia","Saint Vincent and the Grenadines","Samoa","San Marino","Sao Tome and Principe","Saudi Arabia","Senegal","Serbia","Seychelles","Sierra Leone","Singapore","Slovakia","Slovenia","Solomon Islands","Somalia","South Africa","South Korea","South Sudan","Spain","Sri Lanka","Sudan","Suriname","Sweden","Switzerland","Syria","Taiwan","Tajikistan","Tanzania","Thailand","Timor-Leste","Togo","Tonga","Trinidad and Tobago","Tunisia","Turkey","Turkmenistan","Tuvalu","Uganda","Ukraine","United Arab Emirates","United Kingdom","United States","Uruguay","Uzbekistan","Vanuatu","Vatican City","Venezuela","Vietnam","Yemen","Zambia","Zimbabwe"]
-
-const PHONE_CODES = [
-  { country: "United States", code: "+1", flag: "🇺🇸" },
-  { country: "United Kingdom", code: "+44", flag: "🇬🇧" },
-  { country: "Canada", code: "+1", flag: "🇨🇦" },
-  { country: "Australia", code: "+61", flag: "🇦🇺" },
-  { country: "France", code: "+33", flag: "🇫🇷" },
-  { country: "Germany", code: "+49", flag: "🇩🇪" },
-  { country: "Italy", code: "+39", flag: "🇮🇹" },
-  { country: "Spain", code: "+34", flag: "🇪🇸" },
-  { country: "Greece", code: "+30", flag: "🇬🇷" },
-  { country: "Israel", code: "+972", flag: "🇮🇱" },
-  { country: "Japan", code: "+81", flag: "🇯🇵" },
-  { country: "China", code: "+86", flag: "🇨🇳" },
-  { country: "India", code: "+91", flag: "🇮🇳" },
-  { country: "Brazil", code: "+55", flag: "🇧🇷" },
-  { country: "Mexico", code: "+52", flag: "🇲🇽" },
-  { country: "South Africa", code: "+27", flag: "🇿🇦" },
-  { country: "UAE", code: "+971", flag: "🇦🇪" },
-  { country: "Turkey", code: "+90", flag: "🇹🇷" },
-  { country: "Netherlands", code: "+31", flag: "🇳🇱" },
-  { country: "Portugal", code: "+351", flag: "🇵🇹" },
-  { country: "Sweden", code: "+46", flag: "🇸🇪" },
-  { country: "Switzerland", code: "+41", flag: "🇨🇭" },
-  { country: "Other", code: "+", flag: "🌍" },
-]
 
 const CARDS = ['Amex Platinum', 'Amex Gold', 'Chase Sapphire Reserve', 'Chase Sapphire Preferred', 'United Explorer', 'Delta SkyMiles Gold', 'Delta SkyMiles Reserve', 'Capital One Venture X', 'Citi AAdvantage', 'Southwest Rapid Rewards', 'Other']
 const MEMBERSHIPS = ['TSA PreCheck', 'Global Entry', 'CLEAR', 'AAA', 'Active Military / Veteran', 'AARP']
@@ -48,6 +25,7 @@ function ProfileSetupInner() {
   const [userId, setUserId] = useState<string | null>(null)
   const [phoneCode, setPhoneCode] = useState('+1')
   const [phoneNumber, setPhoneNumber] = useState('')
+  const [smsNotificationsEnabled, setSmsNotificationsEnabled] = useState(true)
   const saveTimer = useRef<any>(null)
   const [autoSaved, setAutoSaved] = useState(false)
   const [form, setForm] = useState({
@@ -69,6 +47,7 @@ function ProfileSetupInner() {
         phone: fullPhone,
         address: fullAddress,
         profile_complete: true,
+        sms_notifications_enabled: smsNotificationsEnabled,
       })
       setAutoSaved(true)
       setTimeout(() => setAutoSaved(false), 2000)
@@ -89,6 +68,9 @@ function ProfileSetupInner() {
       const { data: existing } = await supabase.from('user_profiles').select('*').eq('user_id', user.id).maybeSingle()
       if (existing) {
         setForm(f => ({ ...f, ...existing }))
+        if (typeof existing.sms_notifications_enabled === 'boolean') {
+          setSmsNotificationsEnabled(existing.sms_notifications_enabled)
+        }
         if (existing.phone) {
           const parts = existing.phone.split(' ')
           if (parts.length > 1) { setPhoneCode(parts[0]); setPhoneNumber(parts.slice(1).join(' ')) }
@@ -132,7 +114,8 @@ function ProfileSetupInner() {
         tsa_known_traveler: form.tsa_known_traveler,
         credit_cards: form.credit_cards,
         memberships: form.memberships,
-        profile_complete: true
+        profile_complete: true,
+        sms_notifications_enabled: smsNotificationsEnabled,
       }, { onConflict: 'user_id' })
       if (error) {
         alert('Error saving: ' + error.message)
@@ -161,6 +144,8 @@ function ProfileSetupInner() {
   const labelStyle = { fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase' as const, color: 'var(--muted-foreground)', display: 'block', marginBottom: '6px' }
   const selectStyle = { ...inputStyle, cursor: 'pointer', appearance: 'none' as const, backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%239a9a8a' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 4px center', paddingRight: '24px' }
   const sectionStyle = { fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase' as const, color: 'var(--muted-foreground)', borderBottom: '1px solid #e8e8e0', paddingBottom: '8px', marginBottom: '20px' }
+
+  const activeTab = searchParams.get('tab') === 'travelers' ? 'travelers' : 'profile'
 
   if (loading) return <SuitcaseLoader message="Loading your profile" />
 
@@ -205,17 +190,17 @@ function ProfileSetupInner() {
         <h1 style={{ fontSize: '36px', fontWeight: 300, color: '#083807', margin: '0 0 32px', ...s }}>My profile</h1>
 
         <div style={{ display: 'flex', borderBottom: '1px solid #e8e8e0', marginBottom: '32px' }}>
-          {[{ key: 'profile', label: 'Profile' }, { key: 'travelers', label: 'Travelers' }].map(tab => {
-            const activeTab = searchParams.get('tab') === 'travelers' ? 'travelers' : 'profile'
-            return (
+          {[{ key: 'profile', label: 'Profile' }, { key: 'travelers', label: 'Travelers' }].map(tab => (
               <button key={tab.key} onClick={() => router.push(tab.key === 'travelers' ? '/profile?tab=travelers' : '/profile')}
                 style={{ flex: 1, padding: '10px 0', fontSize: '11px', letterSpacing: '0.15em', textTransform: 'uppercase', color: activeTab === tab.key ? '#1a1a1a' : '#9a9a8a', background: 'none', border: 'none', borderBottom: `2px solid ${activeTab === tab.key ? '#083807' : 'transparent'}`, cursor: 'pointer', ...s }}>
                 {tab.label}
               </button>
-            )
-          })}
+            ))}
         </div>
 
+        {activeTab === 'travelers' && userId ? (
+          <TravelersTab userId={userId} />
+        ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '40px' }}>
           {autoSaved && (
             <p style={{ fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#2d5a18', textAlign: 'right', marginBottom: '-24px' }}>✓ Saved</p>
@@ -228,26 +213,49 @@ function ProfileSetupInner() {
                 <p style={{ fontSize: '11px', color: '#b4b4a8', marginBottom: '6px', fontStyle: 'italic' }}>Exactly as it appears on your passport or government ID</p>
                 <input style={inputStyle} value={form.full_name} onChange={e => { const updated = {...form, full_name: e.target.value}; setForm(updated); autoSaveProfile(updated) }} placeholder="Alexandra Sarah Goldin" />
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                <div>
-                  <label style={labelStyle}>Date of birth</label>
-                  <input type="date" style={inputStyle} value={form.date_of_birth} onChange={e => { const updated = {...form, date_of_birth: e.target.value}; setForm(updated); autoSaveProfile(updated) }} />
-                </div>
-                <div>
-                  <label style={labelStyle}>Email</label>
-                  <input type="email" style={inputStyle} value={form.email} onChange={e => { const updated = {...form, email: e.target.value}; setForm(updated); autoSaveProfile(updated) }} />
-                </div>
+              <div>
+                <label style={labelStyle}>Date of birth</label>
+                <DateOfBirthSelect
+                  value={form.date_of_birth}
+                  onChange={date_of_birth => {
+                    const updated = { ...form, date_of_birth }
+                    setForm(updated)
+                    autoSaveProfile(updated)
+                  }}
+                  selectStyle={selectStyle}
+                />
+              </div>
+              <div>
+                <label style={labelStyle}>Email</label>
+                <input type="email" style={inputStyle} value={form.email} onChange={e => { const updated = {...form, email: e.target.value}; setForm(updated); autoSaveProfile(updated) }} />
               </div>
               <div>
                 <label style={labelStyle}>Phone number</label>
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
                   <div style={{ minWidth: '140px' }}>
                     <select value={phoneCode} onChange={e => { setPhoneCode(e.target.value); autoSaveProfile(form) }} style={{ ...selectStyle, width: '100%' }}>
-                      {PHONE_CODES.map(p => <option key={p.country} value={p.code}>{p.flag} {p.code} {p.country}</option>)}
+                      {PHONE_COUNTRY_CODES.map(p => <option key={p.country} value={p.code}>{p.flag} {p.code} {p.country}</option>)}
                     </select>
                   </div>
                   <input style={{ ...inputStyle, flex: 1 }} value={phoneNumber} onChange={e => { setPhoneNumber(e.target.value); autoSaveProfile(form) }} placeholder="312 555 0192" type="tel" />
                 </div>
+                <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginTop: '14px', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={smsNotificationsEnabled}
+                    onChange={e => {
+                      setSmsNotificationsEnabled(e.target.checked)
+                      autoSaveProfile(form)
+                    }}
+                    style={{ marginTop: '2px' }}
+                  />
+                  <span>
+                    <span style={{ ...labelStyle, marginBottom: '4px' }}>Text notifications</span>
+                    <span style={{ display: 'block', fontSize: '12px', color: '#9a9a8a', lineHeight: 1.6 }}>
+                      Get trip invites, reminders, and nudges by text message.
+                    </span>
+                  </span>
+                </label>
               </div>
               <div>
                 <label style={labelStyle}>Country of residence</label>
@@ -310,6 +318,7 @@ function ProfileSetupInner() {
             {saving ? 'Saving...' : 'Save profile →'}
           </button>
         </div>
+        )}
       </div>
 
       <div style={{ maxWidth: '560px', margin: '0 auto', padding: '0 24px 48px', textAlign: 'center' }}>

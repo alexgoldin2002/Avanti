@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminOrAnon, requireUser } from '@/lib/destination-decision/supabase-server'
+import { getMyTripTraveler, travelerCanVote } from '@/lib/account-companions'
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,13 +18,23 @@ export async function POST(request: NextRequest) {
 
     if (!option) return NextResponse.json({ error: 'Option not found' }, { status: 404 })
 
-    const { data: decision } = await supabase
+    const { data: decisionRow } = await supabase
       .from('destination_decisions')
-      .select('status')
+      .select('status, trip_id')
       .eq('id', option.decision_id)
       .single()
 
-    const votable = ['meta_vote', 'voting'].includes(decision?.status || '')
+    if (!decisionRow) return NextResponse.json({ error: 'Decision not found' }, { status: 404 })
+
+    const traveler = await getMyTripTraveler(supabase, decisionRow.trip_id, user.id)
+    if (traveler && !travelerCanVote(traveler)) {
+      return NextResponse.json(
+        { error: 'Your account is set to view-only — someone else manages your votes on this trip.' },
+        { status: 403 }
+      )
+    }
+
+    const votable = ['meta_vote', 'voting'].includes(decisionRow.status || '')
     if (!votable) {
       return NextResponse.json({ error: 'Voting is not open' }, { status: 400 })
     }

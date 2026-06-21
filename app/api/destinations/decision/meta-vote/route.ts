@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { adminOrAnon, requireUser } from '@/lib/destination-decision/supabase-server'
 import { aggregateGroupPriority } from '@/lib/destination-decision/ranking'
 import { tickDestinationDecision } from '@/lib/destination-decision/tick-decision'
+import { getMyTripTraveler, travelerCanVote } from '@/lib/account-companions'
 import type { GroupPriority } from '@/lib/destination-decision/types'
 
 export async function POST(request: NextRequest) {
@@ -26,6 +27,14 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (!decision) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
+    const traveler = await getMyTripTraveler(supabase, decision.trip_id, user.id)
+    if (traveler && !travelerCanVote(traveler)) {
+      return NextResponse.json(
+        { error: 'Your account is set to view-only — someone else manages your votes on this trip.' },
+        { status: 403 }
+      )
+    }
 
     await supabase.from('destination_meta_votes').upsert(
       { decision_id: decisionId, user_id: user.id, priority },

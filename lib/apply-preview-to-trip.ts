@@ -12,6 +12,10 @@ export async function applyPreviewToTrip(tripId: string, userEmail: string): Pro
 
   const step2 = buildStep2FromPreviewAnswers(answers)
 
+  if (Array.isArray(cards) && cards.length > 0) {
+    step2.cards = cards
+  }
+
   const { error: travelerError } = await supabase
     .from('travelers')
     .update({ step2 })
@@ -21,22 +25,6 @@ export async function applyPreviewToTrip(tripId: string, userEmail: string): Pro
   if (travelerError) {
     console.error('applyPreviewToTrip traveler update:', travelerError)
     return false
-  }
-
-  if (Array.isArray(cards) && cards.length > 0) {
-    const { error: destError } = await supabase.from('trip_destinations').upsert(
-      {
-        trip_id: tripId,
-        cards,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'trip_id' },
-    )
-
-    if (destError) {
-      console.error('applyPreviewToTrip destinations upsert:', destError)
-      return false
-    }
   }
 
   clearPreviewTrip()

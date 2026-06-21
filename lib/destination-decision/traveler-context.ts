@@ -55,7 +55,8 @@ export function cardToOptionRows(
   card: ParsedDestinationCard,
   decisionId: string,
   tripId: string,
-  sortBase: number
+  sortBase: number,
+  sourceTravelerId?: string | null
 ) {
   const country = extractCountryFromDestinationName(card.name)
   const tiers = ['budget', 'mid', 'luxury'] as const
@@ -66,7 +67,7 @@ export function cardToOptionRows(
     country,
     tier,
     source: 'ai_card' as const,
-    source_traveler_id: null,
+    source_traveler_id: sourceTravelerId ?? null,
     card_snapshot: card as unknown as Record<string, unknown>,
     group_summary: { tradeoff: card.tradeoff || card.highlight || '' },
     sort_order: sortBase + i,

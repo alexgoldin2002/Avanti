@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { after } from 'next/server'
+import { runDestinationAnalysis } from '@/lib/destination-decision/run-analysis'
 import { adminOrAnon, requireOrganizer } from '@/lib/destination-decision/supabase-server'
+import { tryCreateAdminClient } from '@/lib/supabase-admin'
+
+export const maxDuration = 300
 
 export async function POST(request: NextRequest) {
   try {
@@ -23,22 +28,23 @@ export async function POST(request: NextRequest) {
       updated_at: now.toISOString(),
     }).eq('id', decisionId)
 
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || request.nextUrl.origin
     const { data: options } = await supabase
       .from('destination_options')
       .select('id')
       .eq('decision_id', decisionId)
 
-    fetch(`${siteUrl}/api/destinations/analyze`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(process.env.CRON_SECRET ? { 'x-cron-secret': process.env.CRON_SECRET } : {}),
-      },
-      body: JSON.stringify({ decisionId, optionIds: (options || []).map(o => o.id) }),
-    }).catch(() => {})
+    const optionIds = (options || []).map(o => o.id)
+    const admin = tryCreateAdminClient() ?? supabase
 
-    return NextResponse.json({ ok: true, status: 'analyzing' })
+    after(async () => {
+      try {
+        await runDestinationAnalysis(admin, decisionId, optionIds)
+      } catch (err) {
+        console.error('close-submissions analysis failed:', err)
+      }
+    })
+
+    return NextResponse.json({ ok: true, status: 'analyzing', optionCount: optionIds.length })
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'Unknown error'
     const status = msg === 'Unauthorized' ? 401 : msg === 'Organizer only' ? 403 : 500

@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { after } from 'next/server'
 import { adminOrAnon } from '@/lib/destination-decision/supabase-server'
+import { runDestinationAnalysis } from '@/lib/destination-decision/run-analysis'
 import { tickDestinationDecision } from '@/lib/destination-decision/tick-decision'
+import { tryCreateAdminClient } from '@/lib/supabase-admin'
 import { personalCostFromScenarios } from '@/lib/destination-decision/scenario-utils'
+import { travelerCanVote } from '@/lib/account-companions'
 import type { FlightToggle, DateToggle } from '@/lib/destination-decision/types'
 
 export async function GET(
@@ -22,6 +26,7 @@ export async function GET(
       return NextResponse.json({ decision: null })
     }
 
+    const statusBeforeTick = decision.status
     await tickDestinationDecision(supabase, decision.id)
 
     const { data: refreshed } = await supabase
@@ -29,6 +34,20 @@ export async function GET(
       .select('*')
       .eq('id', decision.id)
       .single()
+
+    if (
+      statusBeforeTick === 'suggestions_open' &&
+      refreshed?.status === 'analyzing'
+    ) {
+      const admin = tryCreateAdminClient() ?? supabase
+      after(async () => {
+        try {
+          await runDestinationAnalysis(admin, decision.id)
+        } catch (err) {
+          console.error('tick analysis kick failed:', err)
+        }
+      })
+    }
 
     const { data: options } = await supabase
       .from('destination_options')
@@ -91,16 +110,20 @@ export async function GET(
     const { data: { user } } = await supabase.auth.getUser()
 
     let myTravelerId: string | null = null
+    let canVote = true
     if (user) {
+      const byUserId = travelers?.find(t => t.user_id === user.id)
       const { data: profile } = await supabase
         .from('user_profiles')
         .select('email')
         .eq('user_id', user.id)
         .maybeSingle()
-      const traveler = travelers?.find(
+      const byEmail = travelers?.find(
         t => t.email?.toLowerCase() === profile?.email?.toLowerCase()
       )
+      const traveler = byUserId || byEmail
       myTravelerId = traveler?.id ?? null
+      canVote = traveler ? travelerCanVote(traveler) : true
     }
 
     const enrichedOptions = (options || []).map(o => {
@@ -147,6 +170,7 @@ export async function GET(
       isOrganizer: user?.id === trip?.organizer_id,
       userId: user?.id ?? null,
       myTravelerId,
+      canVote,
       analysisProgress: { done: analysisDone, total: analysisTotal },
       rankedOptions,
     })

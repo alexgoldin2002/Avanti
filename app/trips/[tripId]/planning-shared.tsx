@@ -64,11 +64,36 @@ export function usePlanningPage(category: PlanningCategory) {
   }
 
   const locked = trip?.destination && trip.destination !== 'TBD'
+  const flightsLocked = !!trip?.flights_locked
 
-  return { tripId, router, loading, trip, generating, data, generate, locked }
+  return { tripId, router, loading, trip, generating, data, generate, locked, flightsLocked }
 }
 
-export function LockedGate({ tripId, router }: { tripId: string; router: ReturnType<typeof useRouter> }) {
+export function LockedGate({
+  tripId,
+  router,
+  requireFlights = false,
+  flightsLocked = false,
+}: {
+  tripId: string
+  router: ReturnType<typeof useRouter>
+  requireFlights?: boolean
+  flightsLocked?: boolean
+}) {
+  if (requireFlights && !flightsLocked) {
+    return (
+      <SubpageShell backHref={`/trips/${tripId}`} title="Not ready yet">
+        <div className="avanti-box border border-border bg-forest-mist px-6 py-10 text-center">
+          <p className="font-serif text-xl mb-2">Lock flights first</p>
+          <p className="text-sm text-muted-foreground mb-6">Hotel search needs confirmed travel dates from Step 4.</p>
+          <button type="button" onClick={() => router.push(`/trips/${tripId}/flights`)} className="avanti-btn avanti-btn-primary">
+            Go to Flights →
+          </button>
+        </div>
+      </SubpageShell>
+    )
+  }
+
   return (
     <SubpageShell backHref={`/trips/${tripId}`} title="Not ready yet">
       <div className="avanti-box border border-border bg-forest-mist px-6 py-10 text-center">

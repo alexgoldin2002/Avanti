@@ -17,6 +17,31 @@ export async function fetchDecision(tripId: string) {
   return res.json()
 }
 
+export async function beginStep2(
+  tripId: string,
+  window: { days?: number; hours?: number; minutes?: number }
+) {
+  const res = await fetch(`/api/trips/${tripId}/begin-step-2`, {
+    method: 'POST',
+    headers: await authHeaders(),
+    body: JSON.stringify(window),
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.error || 'Failed to start Step 2')
+  return data
+}
+
+export async function submitTripCards(tripId: string, selectedCardNames: string[]) {
+  const res = await fetch('/api/destinations/decision/submit-cards', {
+    method: 'POST',
+    headers: await authHeaders(),
+    body: JSON.stringify({ tripId, selectedCardNames }),
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.error || 'Failed to submit cards')
+  return data
+}
+
 export async function startDecision(tripId: string, submissionHours = 48) {
   const res = await fetch('/api/destinations/decision/start', {
     method: 'POST',
@@ -47,6 +72,17 @@ export async function closeSubmissions(decisionId: string) {
   })
   const data = await res.json()
   if (!res.ok) throw new Error(data.error || 'Failed to close')
+  return data
+}
+
+export async function retryAnalysis(decisionId: string) {
+  const res = await fetch('/api/destinations/decision/retry-analysis', {
+    method: 'POST',
+    headers: await authHeaders(),
+    body: JSON.stringify({ decisionId }),
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.error || 'Failed to start analysis')
   return data
 }
 
@@ -150,12 +186,12 @@ export const WORKS_LABELS: Record<string, string> = {
 }
 
 export const STATUS_HEADINGS: Record<string, string> = {
-  suggestions_open: 'Add your suggestions',
+  suggestions_open: 'Submission window open',
   analyzing: 'Avanti is analyzing your options',
   meta_vote: 'Set your group priority',
   voting: 'Vote on destinations',
   results: 'Group results',
   confirming: 'Confirm your spot',
   locked: 'Destination locked',
-  draft: 'Ready to start',
+  draft: 'Waiting for trip cards',
 }

@@ -9,6 +9,7 @@ export default function AccommodationPage() {
   const p = usePlanningPage('accommodation')
   if (p.loading) return <SuitcaseLoader message="Loading accommodation" />
   if (!p.locked) return <LockedGate tripId={p.tripId} router={p.router} />
+  if (!p.flightsLocked) return <LockedGate tripId={p.tripId} router={p.router} requireFlights={true} flightsLocked={p.flightsLocked} />
 
   return (
     <SubpageShell
