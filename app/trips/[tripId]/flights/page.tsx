@@ -18,6 +18,7 @@ import {
 import type {
   CoordinationMode,
   FlightScenario,
+  FlightAnalysis,
   MemberFlightPlan,
 } from '@/lib/flights/types'
 import {
@@ -26,6 +27,8 @@ import {
   COST_VS_TIME_LABELS,
   GROUP_AIRLINE_CALL_THRESHOLD,
 } from '@/lib/flights/types'
+import BookSearchLink from '../../../components/BookSearchLink'
+import { googleFlightsUrl, googleHotelsUrl, bookingComUrl, extractIata, hotelDestinationFromTrip } from '@/lib/booking/search-links'
 
 const DAY_IMPACT_LABELS: Record<string, string> = {
   full_day: 'Full day on arrival',
@@ -94,7 +97,7 @@ export default function FlightsPage() {
   const trip = data.trip
   const session = data.session
   const status = session?.status || 'setup'
-  const analysis = session?.analysis
+  const analysis = session?.analysis as FlightAnalysis | null | undefined
   const travelerCount = data.travelers.length
   const isOrganizer = data.isOrganizer
   const coordinationMode = session?.coordination_mode
@@ -233,10 +236,49 @@ export default function FlightsPage() {
             <p className="text-sm text-muted-foreground mb-6">
               {(session.locked_summary as FlightScenario).label} · {formatCost((session.locked_summary as FlightScenario).avg_per_person_usd)} avg/person
             </p>
-            <button type="button" onClick={() => router.push(`/trips/${tripId}/accommodation`)} className="avanti-btn avanti-btn-primary">
-              Continue to hotels →
-            </button>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <button type="button" onClick={() => router.push(`/trips/${tripId}/accommodation`)} className="avanti-btn avanti-btn-primary">
+                Continue to hotels →
+              </button>
+              <button type="button" onClick={() => router.push(`/trips/${tripId}/bookings`)} className="avanti-btn avanti-btn-ghost">
+                Add confirmation →
+              </button>
+            </div>
           </div>
+
+          {(session.locked_summary as FlightScenario).member_plans?.length > 0 && (
+            <div className="avanti-box border border-border bg-card p-6">
+              <p className="font-serif text-xl mb-1">Book your flights</p>
+              <p className="text-sm text-muted-foreground mb-4">
+                Search with your dates pre-filled — then forward the confirmation email to your trip vault.
+              </p>
+              <div className="space-y-3">
+                {(session.locked_summary as FlightScenario).member_plans.map(plan => {
+                  const locked = session.locked_summary as FlightScenario
+                  const dest =
+                    extractIata(analysis?.destination_airport || '') ||
+                    plan.segments?.[plan.segments.length - 1]?.to ||
+                    String(trip.destination)
+                  const origin = plan.segments?.[0]?.from || plan.departure_city
+                  const href = googleFlightsUrl({
+                    origin,
+                    destination: dest,
+                    departDate: locked.departure_date,
+                    returnDate: locked.return_date,
+                  })
+                  return (
+                    <div key={plan.traveler_id} className="flex flex-wrap items-center justify-between gap-3 border border-border/60 px-4 py-3">
+                      <div>
+                        <p className="font-serif text-base m-0">{plan.traveler_name}</p>
+                        <p className="text-xs text-muted-foreground m-0">{origin} → {dest}</p>
+                      </div>
+                      <BookSearchLink href={href} label="Search flights →" />
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -453,12 +495,14 @@ export default function FlightsPage() {
             <p className="text-sm italic text-muted-foreground">{analysis.summary}</p>
           )}
 
-          {analysis.scenarios.map(scenario => (
+          {analysis?.scenarios.map(scenario => (
             <ScenarioCard
               key={scenario.id}
               scenario={scenario}
               voteEstimate={data.voteEstimate}
               coordinationMode={coordinationMode}
+              destinationLabel={String(trip.destination)}
+              destinationAirport={analysis.destination_airport}
               expanded={expandedScenario === scenario.id}
               onToggle={() => setExpandedScenario(expandedScenario === scenario.id ? null : scenario.id)}
               expandedMember={expandedMember}
@@ -489,6 +533,8 @@ function ScenarioCard({
   scenario,
   voteEstimate,
   coordinationMode,
+  destinationLabel,
+  destinationAirport,
   expanded,
   onToggle,
   expandedMember,
@@ -500,6 +546,8 @@ function ScenarioCard({
   scenario: FlightScenario
   voteEstimate: number | null
   coordinationMode: CoordinationMode | null | undefined
+  destinationLabel: string
+  destinationAirport?: string
   expanded: boolean
   onToggle: () => void
   expandedMember: string | null
@@ -508,6 +556,10 @@ function ScenarioCard({
   busy: boolean
   onLock: () => void
 }) {
+  const destCode =
+    extractIata(destinationAirport || '') ||
+    destinationLabel
+
   return (
     <div className={`avanti-box border bg-card p-5 ${scenario.recommended ? 'border-forest-deep' : 'border-border'}`}>
       <div className="flex flex-wrap justify-between gap-3 mb-3">
@@ -578,6 +630,9 @@ function ScenarioCard({
             <MemberPlanCard
               key={plan.traveler_id}
               plan={plan}
+              destination={destCode}
+              departDate={scenario.departure_date}
+              returnDate={scenario.return_date}
               expanded={expandedMember === plan.traveler_id}
               onToggle={() => onToggleMember(plan.traveler_id)}
             />
@@ -601,15 +656,30 @@ function ScenarioCard({
 
 function MemberPlanCard({
   plan,
+  destination,
+  departDate,
+  returnDate,
   expanded,
   onToggle,
 }: {
   plan: MemberFlightPlan
+  destination: string
+  departDate: string
+  returnDate: string
   expanded: boolean
   onToggle: () => void
 }) {
   const flightTypeLabel =
     plan.flight_type === 'nonstop' ? 'Nonstop' : plan.flight_type === 'one_stop' ? '1 stop' : 'Multi-stop'
+
+  const origin = plan.segments?.[0]?.from || plan.departure_city
+  const dest = plan.segments?.[plan.segments.length - 1]?.to || destination
+  const bookHref = googleFlightsUrl({
+    origin,
+    destination: dest,
+    departDate,
+    returnDate,
+  })
 
   return (
     <div className="border border-border/60 px-4 py-3">
@@ -664,6 +734,13 @@ function MemberPlanCard({
           )}
 
           <p className="text-xs m-0 capitalize">Group meet: {plan.meets_group?.replace(/_/g, ' ')}</p>
+
+          <BookSearchLink href={bookHref} label="Search & book this route →" className="mt-2" />
+        </div>
+      )}
+      {!expanded && (
+        <div className="mt-2">
+          <BookSearchLink href={bookHref} label="Search flights →" />
         </div>
       )}
     </div>
