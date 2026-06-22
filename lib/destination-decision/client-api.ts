@@ -105,11 +105,23 @@ export async function retryAnalysis(decisionId: string) {
   return data
 }
 
-export async function submitMetaVote(decisionId: string, priority: 'budget' | 'experience' | 'balance') {
+export async function submitMetaVote(
+  decisionId: string,
+  payload: {
+    priority?: 'budget' | 'experience' | 'balance'
+    weights?: {
+      cost: number
+      gettingThere: number
+      weather: number
+      activities: number
+      groupFit: number
+    }
+  }
+) {
   const res = await fetch('/api/destinations/decision/meta-vote', {
     method: 'POST',
     headers: await authHeaders(),
-    body: JSON.stringify({ decisionId, priority }),
+    body: JSON.stringify({ decisionId, ...payload }),
   })
   const data = await res.json()
   if (!res.ok) throw new Error(data.error || 'Failed')
@@ -207,7 +219,7 @@ export const WORKS_LABELS: Record<string, string> = {
 export const STATUS_HEADINGS: Record<string, string> = {
   suggestions_open: 'Submission window open',
   analyzing: 'Avanti is analyzing your options',
-  meta_vote: 'Set your group priority',
+  meta_vote: 'Compare & vote',
   voting: 'Vote on destinations',
   results: 'Group results',
   confirming: 'Confirm your spot',

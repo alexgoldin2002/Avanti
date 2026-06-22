@@ -3,21 +3,38 @@ import { adminOrAnon, requireUser } from '@/lib/destination-decision/supabase-se
 import { aggregateGroupPriority } from '@/lib/destination-decision/ranking'
 import { tickDestinationDecision } from '@/lib/destination-decision/tick-decision'
 import { getMyTripTraveler, travelerCanVote } from '@/lib/account-companions'
+import {
+  normalizeWeights,
+  priorityFromWeights,
+  weightsTotal,
+  type InterestWeights,
+} from '@/lib/destination-decision/voting-display'
 import type { GroupPriority } from '@/lib/destination-decision/types'
 
 export async function POST(request: NextRequest) {
   try {
-    const { decisionId, priority } = await request.json()
-    if (!decisionId || !priority) {
-      return NextResponse.json({ error: 'decisionId and priority required' }, { status: 400 })
+    const { decisionId, priority, weights } = await request.json()
+    if (!decisionId) {
+      return NextResponse.json({ error: 'decisionId required' }, { status: 400 })
     }
 
     const supabase = adminOrAnon(request)
     const user = await requireUser(supabase)
 
+    let resolvedPriority = priority as GroupPriority | undefined
+    let resolvedWeights: InterestWeights | null = null
+
+    if (weights && typeof weights === 'object') {
+      resolvedWeights = normalizeWeights(weights as Partial<InterestWeights>)
+      if (weightsTotal(resolvedWeights) !== 100) {
+        return NextResponse.json({ error: 'Weights must total 100%' }, { status: 400 })
+      }
+      resolvedPriority = priorityFromWeights(resolvedWeights)
+    }
+
     const valid: GroupPriority[] = ['budget', 'experience', 'balance']
-    if (!valid.includes(priority)) {
-      return NextResponse.json({ error: 'Invalid priority' }, { status: 400 })
+    if (!resolvedPriority || !valid.includes(resolvedPriority)) {
+      return NextResponse.json({ error: 'priority or weights required' }, { status: 400 })
     }
 
     const { data: decision } = await supabase
@@ -37,7 +54,12 @@ export async function POST(request: NextRequest) {
     }
 
     await supabase.from('destination_meta_votes').upsert(
-      { decision_id: decisionId, user_id: user.id, priority },
+      {
+        decision_id: decisionId,
+        user_id: user.id,
+        priority: resolvedPriority,
+        weights: resolvedWeights,
+      },
       { onConflict: 'decision_id,user_id' }
     )
 
