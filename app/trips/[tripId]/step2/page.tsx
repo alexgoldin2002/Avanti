@@ -5,7 +5,8 @@ import { supabase } from '@/lib/supabase'
 import SuitcaseLoader from '../../../components/SuitcaseLoader'
 import DestinationCard from '../../../components/DestinationCard'
 import { BackLink } from '../../../components/SubpageShell'
-import { fetchFullDestinationCards } from '@/lib/fetch-destination-batches'
+import { fetchFullDestinationCards, fetchRemainingDestinationCards } from '@/lib/fetch-destination-batches'
+import type { ParsedDestinationCard } from '@/lib/parse-destination-cards'
 import { STOP_OPTIONS } from '@/lib/preview-trip-storage'
 import { submitTripCards } from '@/lib/destination-decision/client-api'
 import SubmissionCountdown from '../../../components/SubmissionCountdown'
@@ -310,11 +311,25 @@ export default function Step2() {
     return result
   }
 
-  const generateDestinations = async () => {
+  const persistPartialCards = async (partial: ParsedDestinationCard[]) => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user || partial.length === 0) return
+    const tid = travelerId || (await findTravelerForUser(supabase, tripId, user.id))?.id
+    if (!tid) return
+    if (!travelerId) setTravelerId(tid)
+    await patchTravelerStep2(supabase, tid, { cards: partial, stage: 'done' })
+  }
+
+  const generateDestinations = async (opts?: { resume?: boolean }) => {
+    const resume = opts?.resume === true && cards.length > 0
+    const snapshot = resume ? [...cards] : []
+
     setGenerating(true)
     setGenerateError(null)
-    setGenerateStatus('Finding your first destinations…')
-    setCards([])
+    setGenerateStatus(resume ? 'Finishing your destinations…' : 'Finding your first destinations…')
+    if (!resume) {
+      setCards([])
+    }
     await saveProgress('done')
 
     const answerPayload = {
@@ -338,16 +353,21 @@ export default function Step2() {
       q3,
     }
 
+    const fetchOptions = {
+      tripId,
+      onStatus: setGenerateStatus,
+      onPartialCards: (partial: ParsedDestinationCard[]) => {
+        setCards(partial)
+        if (partial.length > 0) setStage('done')
+        void persistPartialCards(partial)
+      },
+      messages: chatMessages,
+    }
+
     try {
-      const parsed = await fetchFullDestinationCards(answerPayload, {
-        tripId,
-        onStatus: setGenerateStatus,
-        onPartialCards: partial => {
-          setCards(partial)
-          if (partial.length > 0) setStage('done')
-        },
-        messages: chatMessages,
-      })
+      const parsed = resume
+        ? await fetchRemainingDestinationCards(snapshot, answerPayload, fetchOptions)
+        : await fetchFullDestinationCards(answerPayload, fetchOptions)
 
       setCards(parsed)
       setStage('done')
@@ -356,14 +376,29 @@ export default function Step2() {
         const tid = travelerId || (await findTravelerForUser(supabase, tripId, user.id))?.id
         if (tid) {
           if (!travelerId) setTravelerId(tid)
-          await patchTravelerStep2(supabase, tid, { cards: parsed, cardVotes: {} })
-          setVotes({})
+          await patchTravelerStep2(
+            supabase,
+            tid,
+            resume ? { cards: parsed } : { cards: parsed, cardVotes: {} },
+          )
+          if (!resume) setVotes({})
         }
+      }
+      if (parsed.length > 0 && parsed.length < 4) {
+        setGenerateError('Could not finish all 4 — tap Finish generating to try again.')
       }
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : 'Something went wrong generating trip ideas'
       console.error('generate error:', e)
-      setGenerateError(message)
+      if (resume && snapshot.length > 0) {
+        setCards(snapshot)
+        void persistPartialCards(snapshot)
+      }
+      const hint =
+        message.includes('timed out') || message.includes('Failed')
+          ? ' If several people are generating at once, wait a moment and try again.'
+          : ''
+      setGenerateError(message + hint)
     } finally {
       setGenerating(false)
       setGenerateStatus(null)
@@ -862,15 +897,15 @@ export default function Step2() {
                 <p style={{ fontSize: '13px', color: '#8a6a10', margin: '0 0 10px', lineHeight: 1.6, fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
                   {generateError} — showing {cards.length} of 4 picks so far.
                 </p>
-                <button type="button" onClick={() => generateDestinations()} style={{ padding: '10px 20px', border: '1px solid var(--forest-deep)', background: 'var(--forest-deep)', color: '#fafaf8', fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', cursor: 'pointer', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+                <button type="button" onClick={() => generateDestinations({ resume: true })} style={{ padding: '10px 20px', border: '1px solid var(--forest-deep)', background: 'var(--forest-deep)', color: '#fafaf8', fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', cursor: 'pointer', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
                   Finish generating →
                 </button>
               </div>
             )}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginTop: '32px', marginBottom: '32px' }}>
-            {cards.map((card, i) => (
+            {cards.map((card) => (
               <DestinationCard
-                key={i}
+                key={card.name || card.destination}
                 card={card}
                 tripId={tripId}
                 isVoted={!!votes[card.name]}
@@ -895,7 +930,7 @@ export default function Step2() {
             <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', margin: '0 0 12px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
               {cards.length} of 4 destinations ready — tap to generate the rest.
             </p>
-            <button type="button" onClick={() => generateDestinations()} style={{ padding: '10px 20px', border: '1px solid var(--forest-deep)', background: 'var(--forest-deep)', color: '#fafaf8', fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', cursor: 'pointer', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+            <button type="button" onClick={() => generateDestinations({ resume: true })} style={{ padding: '10px 20px', border: '1px solid var(--forest-deep)', background: 'var(--forest-deep)', color: '#fafaf8', fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', cursor: 'pointer', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
               Finish generating →
             </button>
           </div>
