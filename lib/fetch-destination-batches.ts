@@ -47,9 +47,15 @@ async function fetchBatchOnce(
   const data = await res.json()
   if (data.error) throw new Error(data.error)
 
-  return dedupeCardsByCountry(
+  const cards = dedupeCardsByCountry(
     data.cards?.length ? data.cards : parseDestinationCards(data.message || '').cards,
   )
+
+  if (cards.length === 0) {
+    throw new Error('No destination cards were returned. Please try again.')
+  }
+
+  return cards
 }
 
 async function fetchBatch(
@@ -63,6 +69,7 @@ async function fetchBatch(
     try {
       if (attempt > 0) {
         options.onStatus?.('Retrying…')
+        await new Promise(resolve => setTimeout(resolve, 2000 * attempt))
       }
       return await fetchBatchOnce(answers, batch, options, excludeCountries)
     } catch (e: unknown) {

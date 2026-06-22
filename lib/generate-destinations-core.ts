@@ -224,19 +224,39 @@ export async function createDestinationCards(
   conversationMessages: MessageParam[],
   maxTokens = 3200,
 ) {
-  const response = await client.messages.create({
-    model: 'claude-sonnet-4-6',
-    max_tokens: maxTokens,
-    system: DESTINATION_SYSTEM_PROMPT,
-    messages: conversationMessages,
-  })
-  const fullText = response.content[0].type === 'text' ? response.content[0].text : ''
-  const { cards, closing } = parseDestinationCards(fullText)
-  return {
-    message: fullText,
-    cards: dedupeCardsByCountry(cards),
-    closing,
+  let messages = conversationMessages
+
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const response = await client.messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: maxTokens,
+      system: DESTINATION_SYSTEM_PROMPT,
+      messages,
+    })
+    const fullText = response.content[0].type === 'text' ? response.content[0].text : ''
+    const { cards, closing } = parseDestinationCards(fullText)
+    const deduped = dedupeCardsByCountry(cards)
+
+    if (deduped.length > 0 || attempt === 1) {
+      return {
+        message: fullText,
+        cards: deduped,
+        closing,
+      }
+    }
+
+    messages = [
+      ...conversationMessages,
+      { role: 'assistant', content: fullText },
+      {
+        role: 'user',
+        content:
+          'Your response had no parseable destination cards. Reply with ONLY the card blocks — no preamble. Start immediately with DESTINATIONS: and use the exact NAME/HIGHLIGHT/CONSIDER/etc format with --- separators.',
+      },
+    ]
   }
+
+  return { message: '', cards: [], closing: '' }
 }
 
 function buildCorrectionMessage(violations: ReturnType<typeof getCountryDuplicateViolations>): string {

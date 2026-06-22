@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseFromRequest, requireUser } from '@/lib/destination-decision/supabase-server'
-import { googleFlightsUrl, kayakFlightsUrl } from '@/lib/booking/search-links'
+import { flightSearchUrl, googleFlightsUrl, kayakFlightsUrl } from '@/lib/booking/search-links'
+import { getAffiliateStatus } from '@/lib/booking/affiliate'
 import { searchDuffelOffers } from '@/lib/duffel/search-offers'
 
 export const maxDuration = 60
@@ -26,15 +27,16 @@ export async function GET(
       )
     }
 
-    const searchParams = { origin, destination, departDate, returnDate }
+    const searchParams = { origin, destination, departDate, returnDate, pubref: tripId, label: 'flights' }
     const live = await searchDuffelOffers(searchParams)
 
     return NextResponse.json({
       ...live,
       searchLinks: {
+        kayak: flightSearchUrl(searchParams),
         google: googleFlightsUrl(searchParams),
-        kayak: kayakFlightsUrl(searchParams),
       },
+      affiliate: getAffiliateStatus(),
     })
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'Unknown error'

@@ -28,7 +28,7 @@ import {
   GROUP_AIRLINE_CALL_THRESHOLD,
 } from '@/lib/flights/types'
 import BookSearchLink from '../../../components/BookSearchLink'
-import { googleFlightsUrl, googleHotelsUrl, bookingComUrl, extractIata, hotelDestinationFromTrip } from '@/lib/booking/search-links'
+import { flightSearchUrl, googleFlightsUrl, extractIata } from '@/lib/booking/search-links'
 
 const DAY_IMPACT_LABELS: Record<string, string> = {
   full_day: 'Full day on arrival',
@@ -260,7 +260,15 @@ export default function FlightsPage() {
                     plan.segments?.[plan.segments.length - 1]?.to ||
                     String(trip.destination)
                   const origin = plan.segments?.[0]?.from || plan.departure_city
-                  const href = googleFlightsUrl({
+                  const href = flightSearchUrl({
+                    origin,
+                    destination: dest,
+                    departDate: locked.departure_date,
+                    returnDate: locked.return_date,
+                    pubref: tripId,
+                    label: 'flights',
+                  })
+                  const googleHref = googleFlightsUrl({
                     origin,
                     destination: dest,
                     departDate: locked.departure_date,
@@ -272,7 +280,10 @@ export default function FlightsPage() {
                         <p className="font-serif text-base m-0">{plan.traveler_name}</p>
                         <p className="text-xs text-muted-foreground m-0">{origin} → {dest}</p>
                       </div>
-                      <BookSearchLink href={href} label="Search flights →" />
+                      <div className="flex flex-wrap gap-2">
+                        <BookSearchLink href={href} label="Search flights →" variant="primary" />
+                        <BookSearchLink href={googleHref} label="Google Flights" />
+                      </div>
                     </div>
                   )
                 })}
@@ -498,6 +509,7 @@ export default function FlightsPage() {
           {analysis?.scenarios.map(scenario => (
             <ScenarioCard
               key={scenario.id}
+              tripId={tripId}
               scenario={scenario}
               voteEstimate={data.voteEstimate}
               coordinationMode={coordinationMode}
@@ -530,6 +542,7 @@ export default function FlightsPage() {
 }
 
 function ScenarioCard({
+  tripId,
   scenario,
   voteEstimate,
   coordinationMode,
@@ -543,6 +556,7 @@ function ScenarioCard({
   busy,
   onLock,
 }: {
+  tripId: string
   scenario: FlightScenario
   voteEstimate: number | null
   coordinationMode: CoordinationMode | null | undefined
@@ -629,6 +643,7 @@ function ScenarioCard({
           {scenario.member_plans?.map(plan => (
             <MemberPlanCard
               key={plan.traveler_id}
+              tripId={tripId}
               plan={plan}
               destination={destCode}
               departDate={scenario.departure_date}
@@ -655,6 +670,7 @@ function ScenarioCard({
 }
 
 function MemberPlanCard({
+  tripId,
   plan,
   destination,
   departDate,
@@ -662,6 +678,7 @@ function MemberPlanCard({
   expanded,
   onToggle,
 }: {
+  tripId: string
   plan: MemberFlightPlan
   destination: string
   departDate: string
@@ -674,7 +691,15 @@ function MemberPlanCard({
 
   const origin = plan.segments?.[0]?.from || plan.departure_city
   const dest = plan.segments?.[plan.segments.length - 1]?.to || destination
-  const bookHref = googleFlightsUrl({
+  const affiliateCtx = { pubref: tripId, label: 'flights' }
+  const bookHref = flightSearchUrl({
+    origin,
+    destination: dest,
+    departDate,
+    returnDate,
+    ...affiliateCtx,
+  })
+  const googleHref = googleFlightsUrl({
     origin,
     destination: dest,
     departDate,
@@ -735,12 +760,16 @@ function MemberPlanCard({
 
           <p className="text-xs m-0 capitalize">Group meet: {plan.meets_group?.replace(/_/g, ' ')}</p>
 
-          <BookSearchLink href={bookHref} label="Search & book this route →" className="mt-2" />
+          <div className="flex flex-wrap gap-2 mt-2">
+            <BookSearchLink href={bookHref} label="Search & book this route →" variant="primary" />
+            <BookSearchLink href={googleHref} label="Google Flights" />
+          </div>
         </div>
       )}
       {!expanded && (
-        <div className="mt-2">
-          <BookSearchLink href={bookHref} label="Search flights →" />
+        <div className="mt-2 flex flex-wrap gap-2">
+          <BookSearchLink href={bookHref} label="Search flights →" variant="primary" />
+          <BookSearchLink href={googleHref} label="Google" />
         </div>
       )}
     </div>

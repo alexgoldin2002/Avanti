@@ -10,6 +10,7 @@ import type { ParsedDestinationCard } from '@/lib/parse-destination-cards'
 import { STOP_OPTIONS } from '@/lib/preview-trip-storage'
 import { submitTripCards } from '@/lib/destination-decision/client-api'
 import SubmissionCountdown from '../../../components/SubmissionCountdown'
+import ExtendSubmissionWindow from '../../../components/ExtendSubmissionWindow'
 import { findTravelerForUser, patchTravelerStep2 } from '@/lib/traveler-lookup'
 
 export default function Step2() {
@@ -182,6 +183,18 @@ export default function Step2() {
       submissionDeadline &&
       new Date(submissionDeadline) > new Date())
   const alreadySubmitted = hasSubmittedCards
+  const canExtendWindow =
+    isOrganizer &&
+    !!decisionStatus &&
+    ['draft', 'suggestions_open', 'analyzing'].includes(decisionStatus)
+
+  const handleExtendedWindow = (result: {
+    submissionDeadline: string
+    status: string
+  }) => {
+    setSubmissionDeadline(result.submissionDeadline)
+    setDecisionStatus(result.status)
+  }
 
   const showQ2 = (typeof stage === 'number' && stage >= 2) || stage === 'generate' || stage === 'done' || editMode
   const showQ3 = editMode || stage === 'generate' || stage === 'done' || (typeof stage === 'number' && stage >= 3 && q2Valid)
@@ -395,8 +408,10 @@ export default function Step2() {
         void persistPartialCards(snapshot)
       }
       const hint =
-        message.includes('timed out') || message.includes('Failed')
-          ? ' If several people are generating at once, wait a moment and try again.'
+        message.includes('timed out') ||
+        message.includes('Failed') ||
+        message.includes('No destination cards')
+          ? ' If several people are generating at once, wait about 30 seconds and try again.'
           : ''
       setGenerateError(message + hint)
     } finally {
@@ -489,6 +504,26 @@ export default function Step2() {
               label="Submission window"
               hint="Submit your trip cards before this timer ends. You can update picks until it closes."
               variant="large"
+            />
+          </div>
+        )}
+
+        {canExtendWindow && submissionOpen && (
+          <div style={{ marginBottom: '32px' }}>
+            <ExtendSubmissionWindow
+              tripId={tripId}
+              closed={false}
+              onExtended={handleExtendedWindow}
+            />
+          </div>
+        )}
+
+        {canExtendWindow && !submissionOpen && (
+          <div style={{ marginBottom: '32px' }}>
+            <ExtendSubmissionWindow
+              tripId={tripId}
+              closed
+              onExtended={handleExtendedWindow}
             />
           </div>
         )}

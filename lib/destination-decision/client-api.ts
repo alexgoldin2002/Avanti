@@ -75,6 +75,25 @@ export async function closeSubmissions(decisionId: string) {
   return data
 }
 
+export async function extendSubmissionWindow(
+  tripId: string,
+  window: { days?: number; hours?: number; minutes?: number }
+) {
+  const res = await fetch('/api/destinations/decision/extend-submission', {
+    method: 'POST',
+    headers: await authHeaders(),
+    body: JSON.stringify({ tripId, ...window }),
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.error || 'Failed to extend window')
+  return data as {
+    ok: boolean
+    submissionDeadline: string
+    status: string
+    reopened?: boolean
+  }
+}
+
 export async function retryAnalysis(decisionId: string) {
   const res = await fetch('/api/destinations/decision/retry-analysis', {
     method: 'POST',

@@ -24,6 +24,7 @@ import {
   STATUS_HEADINGS,
 } from '@/lib/destination-decision/client-api'
 import SubmissionCountdown from '../../../components/SubmissionCountdown'
+import ExtendSubmissionWindow from '../../../components/ExtendSubmissionWindow'
 
 type DecisionPayload = Awaited<ReturnType<typeof fetchDecision>>
 
@@ -138,6 +139,8 @@ export default function ChooseDestinationPage() {
   const waitingForVoting = !votingOpen
   const submissionWindowOpen =
     !!submissionDeadline && new Date(submissionDeadline) > new Date()
+  const canExtendWindow =
+    isOrganizer && ['draft', 'suggestions_open', 'analyzing'].includes(status)
   const analysisComplete =
     status === 'analyzing' &&
     !!data?.analysisProgress &&
@@ -333,6 +336,11 @@ export default function ChooseDestinationPage() {
               />
             </div>
           )}
+          {canExtendWindow && !submissionWindowOpen && (
+            <div className="mb-6 text-left max-w-md mx-auto">
+              <ExtendSubmissionWindow tripId={tripId} closed onExtended={() => load()} />
+            </div>
+          )}
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <button type="button" onClick={() => router.push(`/trips/${tripId}/step2`)} className="avanti-btn avanti-btn-primary">
               Go to Brainstorm →
@@ -395,6 +403,11 @@ export default function ChooseDestinationPage() {
               {busy ? 'Starting…' : 'Start analysis →'}
             </button>
           )}
+          {canExtendWindow && !submissionWindowOpen && (
+            <div className="mt-8 text-left max-w-md mx-auto">
+              <ExtendSubmissionWindow tripId={tripId} closed onExtended={() => load()} />
+            </div>
+          )}
             </>
           )}
           {status === 'suggestions_open' && submissionWindowOpen && (
@@ -441,6 +454,11 @@ export default function ChooseDestinationPage() {
                 >
                   Close submission window early →
                 </button>
+              )}
+              {canExtendWindow && submissionWindowOpen && (
+                <div className="mt-6">
+                  <ExtendSubmissionWindow tripId={tripId} closed={false} onExtended={() => load()} />
+                </div>
               )}
             </div>
           )}

@@ -77,6 +77,14 @@ export async function POST(request: NextRequest) {
     if (!useStream) {
       const maxTokens = batch === 'wildcard-only' ? 1200 : batch === 'all' ? 3200 : 1800
       const result = await createDestinationCards(client, conversationMessages, maxTokens)
+      if (!result.cards.length) {
+        console.warn('generate-destinations: empty cards', {
+          tripId: tripId ?? 'preview',
+          batch,
+          preview: isPreview,
+          textPreview: result.message?.slice(0, 400),
+        })
+      }
       return NextResponse.json(result)
     }
 
