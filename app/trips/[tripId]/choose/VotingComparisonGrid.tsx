@@ -16,7 +16,12 @@ import type { DestinationTier } from '@/lib/destination-decision/types'
 
 function CostRangeCell({ col }: { col: VotingColumn }) {
   const costText = String(col.card.cost || '')
-  const range = parseCostRange(costText, col.tier, col.personalCost)
+  const range = parseCostRange(
+    costText,
+    col.tier,
+    col.personalCost,
+    Number(col.groupSummary.avg_cost) || null
+  )
   const symbolRange =
     range.tierLow === range.tierHigh
       ? range.symbolLow

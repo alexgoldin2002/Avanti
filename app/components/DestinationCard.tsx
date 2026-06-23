@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import DestinationLocatorMap from './DestinationLocatorMap'
 
 type CardData = {
   name: string
@@ -80,6 +81,7 @@ export default function DestinationCard({
           }}
         />
       )}
+      <DestinationLocatorMap destinationName={card.name} dark={isWildcard} />
       {isWildcard && (
         <div style={{ padding: '12px 20px 0' }}>
           <span style={{ fontSize: '9px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.45)', background: 'rgba(255,255,255,0.08)', padding: '3px 10px' }}>
@@ -87,7 +89,7 @@ export default function DestinationCard({
           </span>
         </div>
       )}
-      <div style={{ padding: isWildcard ? '14px 20px 18px' : '22px 20px 18px' }}>
+      <div style={{ padding: isWildcard ? '14px 20px 18px' : '22px 20px 18px', paddingRight: isWildcard ? '112px' : '120px' }}>
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '8px', marginBottom: '8px' }}>
           <h3 style={{ fontSize: '22px', fontWeight: 400, color: isWildcard ? '#fff' : '#1a1a1a', margin: 0, lineHeight: 1.2, ...s }}>
             {card.name}

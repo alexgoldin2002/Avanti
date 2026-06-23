@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import { supabase } from '@/lib/supabase'
 import SubpageShell from '../../../components/SubpageShell'
 import SuitcaseLoader from '../../../components/SuitcaseLoader'
 import MemberConstraintsModal from './MemberConstraintsModal'
@@ -54,28 +55,39 @@ export default function ChooseDestinationPage() {
   const [confirmMaxCost, setConfirmMaxCost] = useState('')
   const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
   const loadAbortRef = useRef<AbortController | null>(null)
-  const loadInFlightRef = useRef(false)
+  const loadRequestIdRef = useRef(0)
 
   const load = useCallback(async () => {
-    if (loadInFlightRef.current) return
-    loadInFlightRef.current = true
+    const requestId = ++loadRequestIdRef.current
     loadAbortRef.current?.abort()
     const controller = new AbortController()
     loadAbortRef.current = controller
 
     try {
-      const payload = await fetchDecision(tripId, { signal: controller.signal })
-      if (controller.signal.aborted) return
+      let payload = await fetchDecision(tripId, { signal: controller.signal })
+      if (requestId !== loadRequestIdRef.current) return
+
+      if (!payload.trip) {
+        const { data: tripRow } = await supabase
+          .from('trips')
+          .select('*')
+          .eq('id', tripId)
+          .maybeSingle()
+        if (tripRow) {
+          payload = { ...payload, trip: tripRow }
+        }
+      }
+
       setData(payload)
       setError(null)
     } catch (e) {
       if (e instanceof Error && e.name === 'AbortError') return
+      if (requestId !== loadRequestIdRef.current) return
       setError(e instanceof Error ? e.message : 'Failed to load')
     } finally {
-      if (loadAbortRef.current === controller) {
-        loadInFlightRef.current = false
+      if (requestId === loadRequestIdRef.current) {
+        setLoading(false)
       }
-      setLoading(false)
     }
   }, [tripId])
 
@@ -267,11 +279,21 @@ export default function ChooseDestinationPage() {
             </button>
           </div>
         ) : (
-          <p className="text-sm text-muted-foreground text-center">Trip not found.</p>
+          <div className="avanti-box border border-border bg-card px-6 py-8 text-center">
+            <p className="font-serif text-lg text-foreground mb-2">Couldn&apos;t load this trip</p>
+            <p className="text-sm text-muted-foreground mb-4">
+              You may not have access, or Step 2 hasn&apos;t been started yet.
+            </p>
+            <button type="button" onClick={() => router.push(`/trips/${tripId}`)} className="avanti-btn avanti-btn-primary">
+              Back to trip dashboard →
+            </button>
+          </div>
         )}
       </SubpageShell>
     )
   }
+
+  const analysisProgress = data.analysisProgress ?? { done: 0, total: 0 }
 
   const heading = STATUS_HEADINGS[status] || 'Choose destination'
   const deadline =
@@ -317,7 +339,7 @@ export default function ChooseDestinationPage() {
         deadline
           ? timeLeft(deadline) || undefined
           : status === 'analyzing'
-            ? `${data.analysisProgress.done} / ${data.analysisProgress.total} estimates ready`
+            ? `${analysisProgress.done} / ${analysisProgress.total} estimates ready`
             : undefined
       }
       maxWidth="max-w-5xl"
@@ -385,7 +407,7 @@ export default function ChooseDestinationPage() {
             <>
               <p className="font-serif text-xl text-foreground mb-2">Analysis complete</p>
               <p className="text-sm text-muted-foreground mb-2">
-                {data!.analysisProgress!.done} / {data!.analysisProgress!.total} estimates ready
+                {analysisProgress.done} / {analysisProgress.total} estimates ready
               </p>
               <p className="text-sm text-muted-foreground mb-6">
                 Next up: compare destinations side by side and set what matters most to you.

@@ -7,9 +7,49 @@ import { tryCreateAdminClient } from '@/lib/supabase-admin'
 import { personalCostFromScenarios } from '@/lib/destination-decision/scenario-utils'
 import { travelerCanVote } from '@/lib/account-companions'
 import type { FlightToggle, DateToggle } from '@/lib/destination-decision/types'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
 export const maxDuration = 60
 export const dynamic = 'force-dynamic'
+
+async function loadTripForRequest(supabase: SupabaseClient, tripId: string) {
+  const { data: trip } = await supabase.from('trips').select('*').eq('id', tripId).maybeSingle()
+  if (trip) return trip
+
+  const admin = tryCreateAdminClient()
+  if (!admin) return null
+
+  const { data: decisionRow } = await supabase
+    .from('destination_decisions')
+    .select('id')
+    .eq('trip_id', tripId)
+    .maybeSingle()
+  if (!decisionRow) return null
+
+  const { data: adminTrip } = await admin.from('trips').select('*').eq('id', tripId).maybeSingle()
+  return adminTrip
+}
+
+function emptyDecisionPayload(trip: Record<string, unknown> | null) {
+  return {
+    decision: null,
+    options: [],
+    metaVotes: [],
+    confirmations: [],
+    trip,
+    travelers: [],
+    winnerOption: null,
+    lockedOption: null,
+    myMetaVote: null,
+    myConfirmation: null,
+    isOrganizer: false,
+    userId: null,
+    myTravelerId: null,
+    canVote: true,
+    analysisProgress: { done: 0, total: 0 },
+    rankedOptions: [],
+  }
+}
 
 export async function GET(
   request: NextRequest,
@@ -26,8 +66,13 @@ export async function GET(
       .maybeSingle()
 
     if (!decision) {
-      const { data: tripOnly } = await supabase.from('trips').select('*').eq('id', tripId).maybeSingle()
-      return NextResponse.json({ decision: null, trip: tripOnly ?? null })
+      const tripOnly = await loadTripForRequest(supabase, tripId)
+      const { data: { user } } = await supabase.auth.getUser()
+      return NextResponse.json({
+        ...emptyDecisionPayload(tripOnly),
+        isOrganizer: !!(user && tripOnly && user.id === tripOnly.organizer_id),
+        userId: user?.id ?? null,
+      })
     }
 
     const statusBeforeTick = decision.status
@@ -69,7 +114,7 @@ export async function GET(
       ? await supabase.from('destination_option_votes').select('*').in('option_id', optionIds)
       : { data: [] }
 
-    const { data: trip } = await supabase.from('trips').select('*').eq('id', tripId).single()
+    const trip = await loadTripForRequest(supabase, tripId)
     const { data: travelers } = await supabase.from('travelers').select('*').eq('trip_id', tripId)
 
     const priority = (refreshed?.group_priority_mode || 'balance') as 'budget' | 'experience' | 'balance'

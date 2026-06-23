@@ -111,23 +111,65 @@ function parseUsdAmounts(text: string): number[] {
     .filter(n => n > 0)
 }
 
+/** Ignore daily/nightly line items — only all-in trip totals count. */
+const MIN_TRIP_TOTAL_USD = 250
+
+function parseUsdRangeOnLine(line: string): number[] {
+  const amounts = parseUsdAmounts(line)
+  const bareRange = line.match(/\$\s*([\d,]+)\s*[–-]\s*([\d,]+)/)
+  if (bareRange) {
+    amounts.push(parseInt(bareRange[1].replace(/,/g, ''), 10))
+    amounts.push(parseInt(bareRange[2].replace(/,/g, ''), 10))
+  }
+  return [...new Set(amounts.filter(n => n >= MIN_TRIP_TOTAL_USD))]
+}
+
+/** Card COST field: first line is ~$X,XXX–X,XXX/person total; bullets are daily breakdown. */
+function parseTripTotalFromCard(costText: string): number[] {
+  const lines = costText.split('\n').map(l => l.trim()).filter(Boolean)
+  if (!lines.length) return []
+
+  const fromFirst = parseUsdRangeOnLine(lines[0])
+  if (fromFirst.length) return fromFirst
+
+  for (const line of lines) {
+    if (/\/\s*(day|night|nt)\b|per\s+(day|night)|\/night|\/day/i.test(line)) continue
+    if (!/total|per person|\/person|all-in|estimate|~\$/i.test(line)) continue
+    const found = parseUsdRangeOnLine(line)
+    if (found.length) return found
+  }
+
+  return []
+}
+
 export function parseCostRange(
   costText: string,
   tier: DestinationTier,
-  personalCost?: number | null
+  personalCost?: number | null,
+  groupAvgCost?: number | null
 ): CostRangeDisplay {
-  const amounts = parseUsdAmounts(costText)
-  if (personalCost && personalCost > 0) amounts.push(Math.round(personalCost))
+  const amounts: number[] = []
+
+  if (groupAvgCost && groupAvgCost >= MIN_TRIP_TOTAL_USD) {
+    amounts.push(Math.round(groupAvgCost))
+  }
+  if (personalCost && personalCost >= MIN_TRIP_TOTAL_USD) {
+    amounts.push(Math.round(personalCost))
+  }
+
+  amounts.push(...parseTripTotalFromCard(costText))
+
+  const tripTotals = [...new Set(amounts.filter(n => n >= MIN_TRIP_TOTAL_USD))]
 
   let usdLow: number | null = null
   let usdHigh: number | null = null
 
-  if (amounts.length >= 2) {
-    usdLow = Math.min(...amounts)
-    usdHigh = Math.max(...amounts)
-  } else if (amounts.length === 1) {
-    usdLow = amounts[0]
-    usdHigh = Math.round(amounts[0] * 1.12)
+  if (tripTotals.length >= 2) {
+    usdLow = Math.min(...tripTotals)
+    usdHigh = Math.max(...tripTotals)
+  } else if (tripTotals.length === 1) {
+    usdLow = tripTotals[0]
+    usdHigh = Math.round(tripTotals[0] * 1.12)
   }
 
   let tierLow: number
@@ -334,7 +376,12 @@ export function weightedScore(
   weights: InterestWeights,
   desireScore: number | undefined
 ): number {
-  const cost = parseCostRange(field(col.card, 'cost'), col.tier, col.personalCost)
+  const cost = parseCostRange(
+    field(col.card, 'cost'),
+    col.tier,
+    col.personalCost,
+    Number(col.groupSummary.avg_cost) || null
+  )
   const costNorm = (5 - (cost.tierLow + cost.tierHigh) / 2) / 4
   const weather = parseWeatherDisplay(field(col.card, 'weather'))
   const weatherNorm = { sun: 1, mixed: 0.7, cloud: 0.5, rain: 0.3, snow: 0.4, wind: 0.55 }[weather.mood]
