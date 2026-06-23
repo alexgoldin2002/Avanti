@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import SubpageShell from '../../../components/SubpageShell'
 import SuitcaseLoader from '../../../components/SuitcaseLoader'
-import { TIER_LABELS } from '@/lib/destination-decision/client-api'
+import { TIER_LABELS } from '@/lib/trip-display'
 import {
   fetchFlightSession,
   setCoordination,
@@ -106,10 +106,8 @@ export default function FlightsPage() {
     return (
       <SubpageShell backHref={`/trips/${tripId}`} title="Flights">
         <div className="avanti-box border border-border bg-forest-mist px-6 py-10 text-center">
-          <p className="font-serif text-xl mb-2">Destination not locked yet</p>
-          <button type="button" onClick={() => router.push(`/trips/${tripId}/choose`)} className="avanti-btn avanti-btn-primary">
-            Go to Choose destination →
-          </button>
+          <p className="font-serif text-xl mb-2">Destination not set yet</p>
+          <p className="text-sm text-muted-foreground m-0">Set your trip destination before coordinating flights.</p>
         </div>
       </SubpageShell>
     )
@@ -490,15 +488,6 @@ export default function FlightsPage() {
           {analysis.price_drift_warning && (
             <div className="border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
               {analysis.price_drift_warning}
-              {isOrganizer && (
-                <button
-                  type="button"
-                  className="block mt-2 text-[10px] uppercase tracking-wider text-amber-950 underline"
-                  onClick={() => router.push(`/trips/${tripId}/choose`)}
-                >
-                  Reopen destination decision
-                </button>
-              )}
             </div>
           )}
 

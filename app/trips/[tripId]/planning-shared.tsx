@@ -98,9 +98,7 @@ export function LockedGate({
     <SubpageShell backHref={`/trips/${tripId}`} title="Not ready yet">
       <div className="avanti-box border border-border bg-forest-mist px-6 py-10 text-center">
         <p className="font-serif text-xl mb-2">Lock your destination first</p>
-        <button type="button" onClick={() => router.push(`/trips/${tripId}/choose`)} className="avanti-btn avanti-btn-primary">
-          Choose destination →
-        </button>
+        <p className="text-sm text-muted-foreground m-0">Set your trip destination from the trip dashboard.</p>
       </div>
     </SubpageShell>
   )

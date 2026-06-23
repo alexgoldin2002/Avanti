@@ -5,7 +5,7 @@ import DestinationCard from './DestinationCard'
 import ProtectedContent from './ProtectedContent'
 import { fetchPreviewDestinationCards } from '@/lib/fetch-destination-batches'
 import { savePreviewTrip, loadPreviewTrip, markPendingShare } from '@/lib/preview-trip-storage'
-import type { ParsedDestinationCard } from '@/lib/parse-destination-cards'
+import DateRangeFields, { isValidDateRange } from './DateRangeFields'
 
 type Stage = 1 | 2 | 3 | 'generate' | 'done'
 
@@ -52,7 +52,10 @@ export default function HomeTripPlanner({ onSignupRequest, onSigninRequest }: { 
       const a = saved.answers
       if (a.q1) setQ1(String(a.q1))
       if (a.departureCity) setDepartureCities(String(a.departureCity).split(',').map(c => c.trim()).filter(Boolean))
-      if (a.dates) setDates(String(a.dates))
+      if (a.dates) {
+        if (a.dates === 'Completely flexible') setDates('')
+        else setDates(String(a.dates))
+      }
       if (a.fixedDates) setFixedDates(a.fixedDates as { start: string; end: string })
       if (a.flexLength) setFlexLength(String(a.flexLength))
       if (a.domestic) setDomestic(String(a.domestic))
@@ -108,9 +111,9 @@ export default function HomeTripPlanner({ onSignupRequest, onSigninRequest }: { 
 
   const isQ2Complete = () => {
     if (departureCities.length === 0) return false
-    if (!dates) return false
-    if (dates === 'Fixed dates' && (!fixedDates.start || !fixedDates.end)) return false
-    if (dates === 'Flexible — I have a range' && (!fixedDates.start || !fixedDates.end || !flexLength)) return false
+    if (!dates || dates === 'Completely flexible') return false
+    if ((dates === 'Fixed dates' || dates === 'Flexible — I have a range') && !isValidDateRange(fixedDates.start, fixedDates.end)) return false
+    if (dates === 'Flexible — I have a range' && !flexLength) return false
     if (!domestic) return false
     if (domestic === 'International' && regions.length === 0) return false
     if (!stops) return false
@@ -324,23 +327,36 @@ export default function HomeTripPlanner({ onSignupRequest, onSigninRequest }: { 
 
               <div>
                 <span style={sectionLabel}>What are your dates?</span>
+                <p style={{ fontSize: '12px', color: 'var(--muted-foreground)', margin: '0 0 10px', lineHeight: 1.5, ...s }}>
+                  Pick a range — it can be wide, but we need start and end dates.
+                </p>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '12px' }}>
-                  {['Fixed dates', 'Flexible — I have a range', 'Completely flexible'].map(opt => (
+                  {['Fixed dates', 'Flexible — I have a range'].map(opt => (
                     <button key={opt} type="button" onClick={() => setDates(opt)} style={chipStyle(dates === opt)}>{opt}</button>
                   ))}
                 </div>
                 {dates === 'Fixed dates' && (
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                    <div><label style={labelStyle}>Departure</label><input type="date" style={inputStyle} value={fixedDates.start} onChange={e => setFixedDates(d => ({ ...d, start: e.target.value }))} /></div>
-                    <div><label style={labelStyle}>Return</label><input type="date" style={inputStyle} value={fixedDates.end} onChange={e => setFixedDates(d => ({ ...d, end: e.target.value }))} /></div>
-                  </div>
+                  <DateRangeFields
+                    start={fixedDates.start}
+                    end={fixedDates.end}
+                    onChange={setFixedDates}
+                    startLabel="Departure"
+                    endLabel="Return"
+                    inputStyle={inputStyle}
+                    labelStyle={labelStyle}
+                  />
                 )}
                 {dates === 'Flexible — I have a range' && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                      <div><label style={labelStyle}>Earliest departure</label><input type="date" style={inputStyle} value={fixedDates.start} onChange={e => setFixedDates(d => ({ ...d, start: e.target.value }))} /></div>
-                      <div><label style={labelStyle}>Latest return</label><input type="date" style={inputStyle} value={fixedDates.end} onChange={e => setFixedDates(d => ({ ...d, end: e.target.value }))} /></div>
-                    </div>
+                    <DateRangeFields
+                      start={fixedDates.start}
+                      end={fixedDates.end}
+                      onChange={setFixedDates}
+                      startLabel="Earliest departure"
+                      endLabel="Latest return"
+                      inputStyle={inputStyle}
+                      labelStyle={labelStyle}
+                    />
                     <div>
                       <label style={labelStyle}>Preferred trip length</label>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import SubpageShell from '../../../components/SubpageShell'
 import SuitcaseLoader from '../../../components/SuitcaseLoader'
 import BookSearchLink from '../../../components/BookSearchLink'
-import { TIER_LABELS } from '@/lib/destination-decision/client-api'
+import { TIER_LABELS } from '@/lib/trip-display'
 import {
   bookingComUrl,
   expediaHotelsUrl,

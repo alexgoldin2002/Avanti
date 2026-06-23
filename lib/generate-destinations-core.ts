@@ -44,7 +44,7 @@ BEFORE YOU WRITE ANYTHING — reason through all of these internally:
 
 5. WEATHER & TIMING:
 - What is the weather actually like during their specific travel dates? Give real temperatures in °F.
-- Is there risk of extreme weather (hurricane season, monsoon, extreme heat, floods)?
+- Only mention hurricanes, monsoons, floods, or other disasters if there is a real threat during their exact dates — never say "no hurricane risk" or reassure about disasters when there is none.
 - Are there major events, festivals, religious holidays, or government holidays during their dates that could impact availability, prices, or crowds — either as a risk or as a bonus opportunity?
 
 6. CULTURAL CONSIDERATIONS:
@@ -79,14 +79,16 @@ DESTINATIONS:
 
 ---
 NAME: [City/Region + Country]
-HIGHLIGHT: [2-3 words — single best thing for this group]
+HIGHLIGHT: [2-3 words — the single best thing about this place]
 CONSIDER: [2-3 words — one honest thing to know]
-SYNOPSIS: [2-3 sentences. Why this fits THIS group. Reference their actual inputs.]
+OVERVIEW: [2-3 sentences. What this destination IS — landscape, culture, reputation, trip feel. Written for any traveler reading a brochure. No "your group", no departure cities, no budget, no hotels or resorts.]
+SYNOPSIS: [2-3 sentences. Why this fits THIS specific group — reference their inputs. Group-specific only.]
 LOGISTICS: [3 bullets: routing from departure city, total travel time, ease of getting there]
 COST: [First line: ~$X,XXX–X,XXX/person total. Then 3 bullets: flights, accommodation/night, food + activities/day. Note how much of budget goes to travel vs. being there.]
-WEATHER: [2 bullets: actual temp in °F for their dates, any weather risk or festival bonus]
-ACTIVITIES: [4-5 bullets: specific named activities and places. Flag if off beaten path or touristy. Note if enough to fill their trip length.]
+WEATHER: [Forecast for their exact travel dates: temps in °F, conditions, rain, humidity, night temps. Spell out place names — never use abbreviations like TCI. Do NOT mention hurricanes or disasters unless there is a real dated threat — never say "no hurricane risk" or similar.]
+ACTIVITIES: [4-5 bullets: things to do and see in the destination — named places, nature, culture, food, adventure. Never mention resorts, hotels, or "arranged by property".]
 GROUP FIT: [2-3 bullets: accommodation for their size, organized group activity availability, appropriateness for their trip type]
+TRADEOFF: [1 honest sentence — the main downside or thing to know; required on every card]
 FOOTNOTES: [Only if triggered: safety flags, political situation, unusual laws, alcohol restrictions, visa, health risks. Omit entirely if nothing to flag.]
 ---
 
@@ -97,11 +99,12 @@ WILDCARD:
 NAME: [City/Region, Country — a real place only. Never put notes like "skipped" or "excluded" in NAME. Must be a country not used in any other card.]
 HIGHLIGHT: [2-3 words]
 CONSIDER: [2-3 words]
-SYNOPSIS: [2-3 sentences — enthusiastic, different voice]
+OVERVIEW: [2-3 sentences — the place itself, for any reader. No group references or hotels.]
+SYNOPSIS: [2-3 sentences — enthusiastic, why this group specifically. Place feel only in overview.]
 LOGISTICS: [3 bullets]
 COST: [Total + breakdown]
-WEATHER: [2 bullets]
-ACTIVITIES: [4-5 bullets]
+WEATHER: [Same rules as above — dates, temps, conditions only; disasters only if a real threat]
+ACTIVITIES: [4-5 bullets — destination activities only, no resort or hotel tie-ins]
 GROUP FIT: [2-3 bullets]
 TRADEOFF: [1 honest sentence — do not soften]
 FOOTNOTES: [If triggered]

@@ -5,10 +5,7 @@ import { addCompanionToTrip, companionErrorMessage } from '@/lib/add-companion-t
 import DateOfBirthSelect from '../../../components/DateOfBirthSelect'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { beginStep2 } from '@/lib/destination-decision/client-api'
-import { minutesToSubmissionWindow, formatSubmissionWindow } from '@/lib/submission-window'
 import Footer from '../../../components/Footer'
-import SubmissionCountdown from '../../../components/SubmissionCountdown'
 import { BackLink } from '../../../components/SubpageShell'
 
 export default function InviteGuests() {
@@ -38,11 +35,6 @@ export default function InviteGuests() {
   const [inviteLocked, setInviteLocked] = useState(false)
   const [showStartStep2, setShowStartStep2] = useState(false)
   const [startingStep2, setStartingStep2] = useState(false)
-  const [windowDays, setWindowDays] = useState('2')
-  const [windowHours, setWindowHours] = useState('0')
-  const [windowMinutes, setWindowMinutes] = useState('0')
-  const [decisionStarted, setDecisionStarted] = useState(false)
-  const [submissionDeadline, setSubmissionDeadline] = useState<string | null>(null)
   const [expandedParty, setExpandedParty] = useState<Set<string>>(new Set())
   const [showMemberConvos, setShowMemberConvos] = useState(true)
   const [addMode, setAddMode] = useState<'new' | 'saved'>('new')
@@ -73,21 +65,6 @@ export default function InviteGuests() {
       setTrip(tripData)
       setInvitesClosed(!!tripData.invites_closed)
       if (tripData.invite_locked) setInviteLocked(true)
-      if (tripData.submission_window_minutes) {
-        const w = minutesToSubmissionWindow(tripData.submission_window_minutes)
-        setWindowDays(String(w.days))
-        setWindowHours(String(w.hours))
-        setWindowMinutes(String(w.minutes))
-      }
-      if (tripData.destination_decision_id) {
-        setDecisionStarted(true)
-        const { data: dec } = await supabase
-          .from('destination_decisions')
-          .select('submission_deadline')
-          .eq('id', tripData.destination_decision_id)
-          .maybeSingle()
-        setSubmissionDeadline(dec?.submission_deadline ?? null)
-      }
       if (tripData?.show_member_conversations !== undefined) {
         setShowMemberConvos(tripData.show_member_conversations)
       }
@@ -233,14 +210,14 @@ export default function InviteGuests() {
   const handleBeginStep2 = async () => {
     setStartingStep2(true)
     try {
-      const result = await beginStep2(tripId, {
-        days: parseInt(windowDays, 10) || 0,
-        hours: parseInt(windowHours, 10) || 0,
-        minutes: parseInt(windowMinutes, 10) || 0,
+      const res = await fetch(`/api/trips/${tripId}/begin-step-2`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
       })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to close invites')
       setInvitesClosed(true)
-      setDecisionStarted(true)
-      setSubmissionDeadline(result.submissionDeadline ?? null)
       setTrip((t: any) => (t ? { ...t, invites_closed: true } : t))
       setShowStartStep2(false)
       router.push(`/trips/${tripId}/step2`)
@@ -808,23 +785,18 @@ export default function InviteGuests() {
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          {isOrganizer && !invitesClosed && !decisionStarted && (
+          {isOrganizer && !invitesClosed && (
             <button
               onClick={() => setShowStartStep2(true)}
               style={{ width: '100%', border: '1px solid var(--forest-deep)', background: 'var(--forest-deep)', color: '#fff', padding: '16px', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '0', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
-              Start Step 2 — Brainstorm →
+              Close invites & start planning →
             </button>
           )}
 
           {invitesClosed && (
             <div style={{ padding: '16px', background: 'var(--accent-light)', border: '0.5px solid #8aad7a', borderRadius: '0', textAlign: 'center' }}>
-              <p style={{ fontSize: '12px', color: 'var(--forest)', margin: '0 0 4px' }}>✓ Step 2 unlocked</p>
-              <p style={{ fontSize: '11px', color: 'var(--muted-foreground)', margin: '0 0 12px', lineHeight: 1.6 }}>Invite link closed · suggestion window is running</p>
-              {submissionDeadline && (
-                <div style={{ marginBottom: '16px' }}>
-                  <SubmissionCountdown deadline={submissionDeadline} label="Until voting opens" variant="compact" />
-                </div>
-              )}
+              <p style={{ fontSize: '12px', color: 'var(--forest)', margin: '0 0 4px' }}>✓ Invites closed</p>
+              <p style={{ fontSize: '11px', color: 'var(--muted-foreground)', margin: '0 0 12px', lineHeight: 1.6 }}>Your group can brainstorm destinations with Avanti.</p>
               <button
                 type="button"
                 onClick={() => router.push(`/trips/${tripId}/step2`)}
@@ -924,39 +896,10 @@ export default function InviteGuests() {
         <div style={{ position: 'fixed', inset: 0, background: 'var(--cream)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '32px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
           <div style={{ width: '100%', maxWidth: '420px' }}>
             <div style={{ textAlign: 'center', marginBottom: '28px' }}>
-              <p style={{ fontSize: '11px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--muted-foreground)', margin: '0 0 10px' }}>Start Step 2</p>
-              <h2 style={{ fontSize: '28px', fontWeight: 300, color: 'var(--foreground)', margin: '0 0 16px' }}>How long is the suggestion window?</h2>
+              <p style={{ fontSize: '11px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--muted-foreground)', margin: '0 0 10px' }}>Close invites</p>
+              <h2 style={{ fontSize: '28px', fontWeight: 300, color: 'var(--foreground)', margin: '0 0 16px' }}>Ready to start planning?</h2>
               <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', lineHeight: 1.8, margin: 0 }}>
-                This closes the invite link, unlocks Brainstorm, and starts the countdown until voting opens.
-              </p>
-            </div>
-
-            <div style={{ background: 'var(--card)', border: '0.5px solid var(--border)', padding: '20px', marginBottom: '20px' }}>
-              <p style={{ fontSize: '10px', letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--muted-foreground)', margin: '0 0 14px' }}>Suggestion window</p>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
-                {[
-                  { label: 'Days', value: windowDays, set: setWindowDays },
-                  { label: 'Hours', value: windowHours, set: setWindowHours },
-                  { label: 'Minutes', value: windowMinutes, set: setWindowMinutes },
-                ].map(field => (
-                  <div key={field.label}>
-                    <label style={{ fontSize: '10px', color: 'var(--muted-foreground)', display: 'block', marginBottom: '6px' }}>{field.label}</label>
-                    <input
-                      type="number"
-                      min={0}
-                      value={field.value}
-                      onChange={e => field.set(e.target.value)}
-                      style={{ width: '100%', border: '1px solid var(--border)', padding: '10px', fontSize: '16px', background: 'var(--cream)', fontFamily: 'inherit' }}
-                    />
-                  </div>
-                ))}
-              </div>
-              <p style={{ fontSize: '12px', color: 'var(--muted-foreground)', margin: '14px 0 0', fontStyle: 'italic' }}>
-                Total: {formatSubmissionWindow(
-                  (parseInt(windowDays, 10) || 0) * 24 * 60 +
-                  (parseInt(windowHours, 10) || 0) * 60 +
-                  (parseInt(windowMinutes, 10) || 0) || 48 * 60
-                )}
+                This closes the invite link so your group can move on to flights, stays, and activities.
               </p>
             </div>
 
@@ -972,7 +915,7 @@ export default function InviteGuests() {
                 disabled={startingStep2}
                 onClick={handleBeginStep2}
                 style={{ width: '100%', border: '1px solid var(--forest-deep)', background: 'var(--forest-deep)', color: '#fff', padding: '15px', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', cursor: startingStep2 ? 'wait' : 'pointer', opacity: startingStep2 ? 0.7 : 1, fontFamily: 'inherit' }}>
-                {startingStep2 ? 'Starting…' : 'Start Step 2 & begin timer →'}
+                {startingStep2 ? 'Closing…' : 'Close invites & continue →'}
               </button>
               <button
                 type="button"

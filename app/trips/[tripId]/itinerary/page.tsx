@@ -5,9 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import SubpageShell from '../../../components/SubpageShell'
 import SuitcaseLoader from '../../../components/SuitcaseLoader'
-import { formatCost, TIER_LABELS } from '@/lib/destination-decision/client-api'
-import { personalCostFromScenarios } from '@/lib/destination-decision/scenario-utils'
-import type { FlightToggle, DateToggle } from '@/lib/destination-decision/types'
+import { formatCost, TIER_LABELS } from '@/lib/trip-display'
 import { mergeFullItinerary } from '@/lib/trip-companion/merge-full-itinerary'
 import { fetchTripBookings } from '@/lib/bookings/client-api'
 import { fetchInspirations } from '@/lib/trip-companion/client-api'
@@ -23,8 +21,6 @@ export default function ItineraryPage() {
   const [loading, setLoading] = useState(true)
   const [trip, setTrip] = useState<any>(null)
   const [travelers, setTravelers] = useState<any[]>([])
-  const [lockedOption, setLockedOption] = useState<any>(null)
-  const [myAnalysis, setMyAnalysis] = useState<any>(null)
   const [itinerary, setItinerary] = useState<ItineraryData | null>(null)
   const [generating, setGenerating] = useState(false)
   const [activeDay, setActiveDay] = useState(0)
@@ -71,40 +67,6 @@ export default function ItineraryPage() {
     const { data: travelerData } = await supabase.from('travelers').select('*').eq('trip_id', tripId)
     setTravelers(travelerData || [])
 
-    const { data: decision } = await supabase
-      .from('destination_decisions')
-      .select('locked_option_id')
-      .eq('trip_id', tripId)
-      .maybeSingle()
-
-    if (decision?.locked_option_id) {
-      const { data: option } = await supabase
-        .from('destination_options')
-        .select('*')
-        .eq('id', decision.locked_option_id)
-        .single()
-      setLockedOption(option)
-
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        const { data: profile } = await supabase
-          .from('user_profiles')
-          .select('email')
-          .eq('user_id', user.id)
-          .maybeSingle()
-        const me = travelerData?.find(t => t.email?.toLowerCase() === profile?.email?.toLowerCase())
-        if (me) {
-          const { data: analysis } = await supabase
-            .from('destination_option_analysis')
-            .select('*')
-            .eq('option_id', decision.locked_option_id)
-            .eq('traveler_id', me.id)
-            .maybeSingle()
-          setMyAnalysis(analysis)
-        }
-      }
-    }
-
     setLoading(false)
   }, [tripId])
 
@@ -112,15 +74,8 @@ export default function ItineraryPage() {
     load()
   }, [load])
 
-  const estimatedAtVote = lockedOption?.group_summary?.avg_cost
-    ? Number(lockedOption.group_summary.avg_cost)
-    : null
-
-  const myScenarioCost = myAnalysis?.scenarios
-    ? personalCostFromScenarios(myAnalysis.scenarios, {
-        flight: (lockedOption?.group_summary?.recommended_flight as FlightToggle) || 'one_stop',
-        dates: (lockedOption?.group_summary?.recommended_dates as DateToggle) || 'best',
-      }).cost
+  const estimatedBudget = trip?.options?.budget_estimate
+    ? Number(trip.options.budget_estimate)
     : null
 
   const generateItinerary = async () => {
@@ -176,15 +131,15 @@ export default function ItineraryPage() {
     setDriftWarning(null)
     try {
       // Simulated live quote: AI estimate + small variance until real flight API is wired
-      const baseline = myScenarioCost || estimatedAtVote || 1200
+      const baseline = estimatedBudget || 1200
       const simulatedQuote = Math.round(baseline * (0.92 + Math.random() * 0.26))
       setFlightQuote(simulatedQuote)
 
-      const compareTo = myScenarioCost || estimatedAtVote
+      const compareTo = estimatedBudget
       if (compareTo && simulatedQuote > compareTo * (1 + DRIFT_THRESHOLD)) {
         const pct = Math.round(((simulatedQuote - compareTo) / compareTo) * 100)
         setDriftWarning(
-          `Live flight estimates are ~${pct}% above what the group voted on. You may want to reopen the destination decision or adjust tier/dates.`
+          `Live flight estimates are ~${pct}% above your planning budget. You may want to adjust dates or tier.`
         )
       }
     } finally {
@@ -198,11 +153,8 @@ export default function ItineraryPage() {
     return (
       <SubpageShell backHref={`/trips/${tripId}`} title="Itinerary & flights">
         <div className="avanti-box border border-border bg-forest-mist px-6 py-10 text-center">
-          <p className="font-serif text-xl mb-2">Destination not locked yet</p>
-          <p className="text-sm text-muted-foreground mb-6">Complete Choose destination first.</p>
-          <button type="button" onClick={() => router.push(`/trips/${tripId}/choose`)} className="avanti-btn avanti-btn-primary">
-            Go to Choose destination →
-          </button>
+          <p className="font-serif text-xl mb-2">Destination not set yet</p>
+          <p className="text-sm text-muted-foreground m-0">Set your trip destination before building an itinerary.</p>
         </div>
       </SubpageShell>
     )
@@ -233,9 +185,13 @@ export default function ItineraryPage() {
             <p className="text-xs text-muted-foreground mt-1 m-0">{dateLabel}</p>
           </div>
           <div className="text-right">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Est. at vote</p>
-            <p className="font-serif text-lg text-forest-deep m-0">{formatCost(myScenarioCost || estimatedAtVote)}</p>
-            <p className="text-[10px] text-muted-foreground m-0">per person · est. only</p>
+            {estimatedBudget != null && (
+              <>
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Planning budget</p>
+                <p className="font-serif text-lg text-forest-deep m-0">{formatCost(estimatedBudget)}</p>
+                <p className="text-[10px] text-muted-foreground m-0">per person · est. only</p>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -272,14 +228,7 @@ export default function ItineraryPage() {
           )}
           {driftWarning && (
             <div className="mt-4 border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-              <p className="m-0 mb-3">{driftWarning}</p>
-              <button
-                type="button"
-                onClick={() => router.push(`/trips/${tripId}/choose`)}
-                className="text-[10px] uppercase tracking-wider text-amber-900 underline"
-              >
-                Reopen destination decision
-              </button>
+              <p className="m-0">{driftWarning}</p>
             </div>
           )}
         </div>

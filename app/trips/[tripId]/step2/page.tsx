@@ -8,10 +8,8 @@ import { BackLink } from '../../../components/SubpageShell'
 import { fetchFullDestinationCards, fetchRemainingDestinationCards } from '@/lib/fetch-destination-batches'
 import type { ParsedDestinationCard } from '@/lib/parse-destination-cards'
 import { STOP_OPTIONS } from '@/lib/preview-trip-storage'
-import { submitTripCards } from '@/lib/destination-decision/client-api'
-import SubmissionCountdown from '../../../components/SubmissionCountdown'
-import ExtendSubmissionWindow from '../../../components/ExtendSubmissionWindow'
 import { findTravelerForUser, patchTravelerStep2 } from '@/lib/traveler-lookup'
+import SubmitChoicesButton from '@/components/voting/SubmitChoicesButton'
 
 export default function Step2() {
   const { tripId } = useParams() as { tripId: string }
@@ -58,12 +56,9 @@ export default function Step2() {
   const [votes, setVotes] = useState<Record<string, boolean>>({})
   const [maxVotes, setMaxVotes] = useState(2)
   const [isOrganizer, setIsOrganizer] = useState(false)
-  const [decisionStatus, setDecisionStatus] = useState<string | null>(null)
-  const [submissionDeadline, setSubmissionDeadline] = useState<string | null>(null)
-  const [submittingCards, setSubmittingCards] = useState(false)
-  const [showSubmitConfirm, setShowSubmitConfirm] = useState(false)
   const [travelerId, setTravelerId] = useState<string | null>(null)
-  const [hasSubmittedCards, setHasSubmittedCards] = useState(false)
+  const [choicesSubmitted, setChoicesSubmitted] = useState(false)
+  const [submitToast, setSubmitToast] = useState('')
 
   const s = { fontFamily: 'var(--font-cormorant), Georgia, serif' }
   const inputStyle = { width: '100%', borderBottom: '1px solid #d4d4c8', background: 'transparent', padding: '8px 0', fontSize: '15px', color: 'var(--foreground)', outline: 'none', ...s }
@@ -105,7 +100,10 @@ export default function Step2() {
       }
       if (user) {
         const traveler = await findTravelerForUser(supabase, tripId, user.id)
-        if (traveler) setTravelerId(traveler.id)
+        if (traveler) {
+          setTravelerId(traveler.id)
+          setChoicesSubmitted(!!(traveler as { choices_submitted?: boolean }).choices_submitted)
+        }
         if (traveler?.step2) {
           const s2 = traveler.step2 as Record<string, unknown>
           if (s2.q1) { setQ1(s2.q1 as string) }
@@ -133,21 +131,10 @@ export default function Step2() {
             if (s2.cardVotes && typeof s2.cardVotes === 'object') {
               setVotes(s2.cardVotes as Record<string, boolean>)
             }
+            if (s2.submittedCardPicks) {
+              setChoicesSubmitted(true)
+            }
             setStage('done')
-          }
-        }
-
-        const { data: decision } = await supabase
-          .from('destination_decisions')
-          .select('status, submission_deadline, settings')
-          .eq('trip_id', tripId)
-          .maybeSingle()
-        if (decision) {
-          setDecisionStatus(decision.status)
-          setSubmissionDeadline(decision.submission_deadline)
-          const subs = (decision.settings as { submissions_by_traveler?: Record<string, unknown> })?.submissions_by_traveler
-          if (traveler?.id && subs?.[traveler.id]) {
-            setHasSubmittedCards(true)
           }
         }
       }
@@ -177,24 +164,6 @@ export default function Step2() {
 
   const q2Valid = isQ2Complete()
 
-  const submissionOpen =
-    decisionStatus === 'draft' ||
-    (decisionStatus === 'suggestions_open' &&
-      submissionDeadline &&
-      new Date(submissionDeadline) > new Date())
-  const alreadySubmitted = hasSubmittedCards
-  const canExtendWindow =
-    isOrganizer &&
-    !!decisionStatus &&
-    ['draft', 'suggestions_open', 'analyzing'].includes(decisionStatus)
-
-  const handleExtendedWindow = (result: {
-    submissionDeadline: string
-    status: string
-  }) => {
-    setSubmissionDeadline(result.submissionDeadline)
-    setDecisionStatus(result.status)
-  }
 
   const showQ2 = (typeof stage === 'number' && stage >= 2) || stage === 'generate' || stage === 'done' || editMode
   const showQ3 = editMode || stage === 'generate' || stage === 'done' || (typeof stage === 'number' && stage >= 3 && q2Valid)
@@ -496,37 +465,6 @@ export default function Step2() {
             {trip?.name}
           </p>
         </div>
-
-        {submissionDeadline && submissionOpen && (
-          <div style={{ marginBottom: '32px', padding: '24px 16px', border: '1px solid var(--border)', background: 'var(--card)' }}>
-            <SubmissionCountdown
-              deadline={submissionDeadline}
-              label="Submission window"
-              hint="Submit your trip cards before this timer ends. You can update picks until it closes."
-              variant="large"
-            />
-          </div>
-        )}
-
-        {canExtendWindow && submissionOpen && (
-          <div style={{ marginBottom: '32px' }}>
-            <ExtendSubmissionWindow
-              tripId={tripId}
-              closed={false}
-              onExtended={handleExtendedWindow}
-            />
-          </div>
-        )}
-
-        {canExtendWindow && !submissionOpen && (
-          <div style={{ marginBottom: '32px' }}>
-            <ExtendSubmissionWindow
-              tripId={tripId}
-              closed
-              onExtended={handleExtendedWindow}
-            />
-          </div>
-        )}
 
         {(stage === 1 || editMode) && (
           <>
@@ -971,96 +909,40 @@ export default function Step2() {
           </div>
         )}
 
-        {!generating && cards.length >= 4 && submissionOpen && (
-          <div style={{ marginTop: '8px', marginBottom: '32px' }}>
-            <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', textAlign: 'center', marginBottom: '16px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+        {!generating && cards.length >= 4 && (
+          <>
+            <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', textAlign: 'center', marginBottom: '8px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
               {Object.values(votes).filter(Boolean).length} of {maxVotes} cards selected · {cards.length} destinations ready
-              {alreadySubmitted && submissionDeadline && (
-                <> · you can change picks until the window closes</>
-              )}
             </p>
-            <button
-              type="button"
-              disabled={submittingCards || Object.values(votes).filter(Boolean).length === 0}
-              onClick={() => setShowSubmitConfirm(true)}
-              style={{
-                width: '100%', padding: '16px',
-                border: 'none', background: 'var(--forest-deep)', color: '#fafaf8',
-                fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase',
-                cursor: submittingCards ? 'wait' : 'pointer',
-                opacity: Object.values(votes).filter(Boolean).length === 0 ? 0.5 : 1,
-                fontFamily: 'var(--font-cormorant), Georgia, serif',
+            <SubmitChoicesButton
+              tripId={tripId}
+              selectedCount={Object.values(votes).filter(Boolean).length}
+              requiredCount={maxVotes}
+              alreadySubmitted={choicesSubmitted}
+              onSuccess={({ votingRound }) => {
+                setChoicesSubmitted(true)
+                setSubmitToast('Choices submitted ✓')
+                setTimeout(() => setSubmitToast(''), 2500)
+                if (votingRound != null) {
+                  router.push(`/trips/${tripId}/vote`)
+                }
               }}
-            >
-              {alreadySubmitted ? 'Update my trip cards →' : 'Send in my trip cards to the voting page →'}
-            </button>
-          </div>
+            />
+          </>
         )}
 
-        {alreadySubmitted && !submissionOpen && (
-          <div style={{ marginTop: '24px', marginBottom: '32px', textAlign: 'center' }}>
-            <p style={{ fontSize: '14px', color: 'var(--forest-deep)', marginBottom: '12px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
-              ✓ Cards submitted — submission window closed.
+        {choicesSubmitted && (
+          <div style={{ marginTop: '16px', marginBottom: '32px', textAlign: 'center' }}>
+            <p style={{ fontSize: '14px', color: 'var(--forest-deep)', margin: '0 0 12px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+              ✓ Your card choices are in.
             </p>
             <button
               type="button"
-              onClick={() => router.push(`/trips/${tripId}/choose`)}
-              style={{ padding: '12px 24px', border: '1px solid var(--forest-deep)', background: 'var(--forest-deep)', color: '#fafaf8', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', cursor: 'pointer', fontFamily: 'var(--font-cormorant), Georgia, serif' }}
+              onClick={() => router.push(`/trips/${tripId}/vote`)}
+              style={{ padding: '12px 24px', border: '1px solid var(--forest-deep)', background: 'transparent', color: 'var(--forest-deep)', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', cursor: 'pointer', fontFamily: 'var(--font-cormorant), Georgia, serif' }}
             >
-              Go to Choose destination →
+              Go to group vote →
             </button>
-          </div>
-        )}
-
-        {showSubmitConfirm && (
-          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '24px' }}>
-            <div style={{ background: 'var(--cream)', maxWidth: '400px', width: '100%', padding: '28px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
-              <p style={{ fontSize: '11px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--muted-foreground)', margin: '0 0 8px' }}>Submit cards</p>
-              <h2 style={{ fontSize: '24px', fontWeight: 300, margin: '0 0 12px' }}>Send to the voting page?</h2>
-              <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', lineHeight: 1.7, margin: '0 0 16px' }}>
-                You can change your selections until the submission window closes. After that, your picks are locked in.
-              </p>
-              <div style={{ background: '#fef9ec', border: '1px solid #f0c040', padding: '12px', marginBottom: '20px' }}>
-                <p style={{ fontSize: '12px', color: '#8a6a10', margin: 0, lineHeight: 1.6 }}>
-                  Submitting {Object.entries(votes).filter(([, v]) => v).map(([name]) => name).join(', ')}
-                </p>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <button
-                  type="button"
-                  disabled={submittingCards}
-                  onClick={async () => {
-                    setSubmittingCards(true)
-                    try {
-                      const selected = Object.entries(votes).filter(([, v]) => v).map(([name]) => name)
-                      await submitTripCards(tripId, selected)
-                      setDecisionStatus('suggestions_open')
-                      setHasSubmittedCards(true)
-                      setShowSubmitConfirm(false)
-                      router.push(`/trips/${tripId}/choose`)
-                    } catch (e) {
-                      alert(e instanceof Error ? e.message : 'Failed to submit')
-                    } finally {
-                      setSubmittingCards(false)
-                    }
-                  }}
-                  style={{ width: '100%', padding: '14px', border: 'none', background: 'var(--forest-deep)', color: '#fff', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', cursor: 'pointer' }}
-                >
-                  {submittingCards ? 'Submitting…' : 'Yes, send them in →'}
-                </button>
-                <button type="button" onClick={() => setShowSubmitConfirm(false)} style={{ width: '100%', padding: '14px', border: '1px solid var(--border)', background: 'transparent', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', cursor: 'pointer' }}>
-                  ← Go back
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {!generating && cards.length >= 4 && !isOrganizer && !decisionStatus && (
-          <div style={{ marginTop: '24px', marginBottom: '32px', textAlign: 'center' }}>
-            <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
-              Waiting for the organizer to start Step 2 from Invite guests.
-            </p>
           </div>
         )}
 
@@ -1171,6 +1053,12 @@ export default function Step2() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {submitToast && (
+        <div style={{ position: 'fixed', bottom: '24px', left: '50%', transform: 'translateX(-50%)', background: 'var(--forest-deep)', color: '#ffffff', padding: '10px 20px', borderRadius: '24px', fontSize: '12px', letterSpacing: '0.1em', zIndex: 100, ...s }}>
+          {submitToast}
         </div>
       )}
     </main>

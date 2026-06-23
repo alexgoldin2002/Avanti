@@ -2,6 +2,10 @@ export type ParsedDestinationCard = {
   name: string
   highlight?: string
   consider?: string
+  /** General destination intro — same for every voter. */
+  overview?: string
+  /** Destination reputation icons — Round 1 voting. */
+  bestKnownFor?: string
   synopsis: string
   logistics: string
   cost: string
@@ -79,6 +83,8 @@ export function parseDestinationCards(text: string): ParseDestinationCardsResult
       name,
       highlight: getField(clean, 'HIGHLIGHT') || undefined,
       consider: getField(clean, 'CONSIDER') || undefined,
+      overview: getField(clean, 'OVERVIEW') || undefined,
+      bestKnownFor: getField(clean, 'BEST KNOWN FOR') || undefined,
       synopsis: getField(clean, 'SYNOPSIS'),
       logistics: getField(clean, 'LOGISTICS'),
       cost: getField(clean, 'COST'),

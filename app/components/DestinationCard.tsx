@@ -25,6 +25,7 @@ export default function DestinationCard({
   isVoted = false,
   onVote,
   previewMode = false,
+  hideMap = false,
   locked = false,
 }: {
   card: CardData
@@ -32,6 +33,7 @@ export default function DestinationCard({
   isVoted?: boolean
   onVote?: () => void
   previewMode?: boolean
+  hideMap?: boolean
   locked?: boolean
 }) {
   const [open, setOpen] = useState<string | null>(null)
@@ -81,7 +83,7 @@ export default function DestinationCard({
           }}
         />
       )}
-      <DestinationLocatorMap destinationName={card.name} dark={isWildcard} />
+      {!hideMap && <DestinationLocatorMap destinationName={card.name} dark={isWildcard} />}
       {isWildcard && (
         <div style={{ padding: '12px 20px 0' }}>
           <span style={{ fontSize: '9px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.45)', background: 'rgba(255,255,255,0.08)', padding: '3px 10px' }}>

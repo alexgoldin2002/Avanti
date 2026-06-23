@@ -6,7 +6,6 @@ import { deleteTripPermanently, leaveTripAsMember } from '@/lib/trip-lifecycle'
 import SuitcaseLoader from '../../../components/SuitcaseLoader'
 import SubpageShell from '../../../components/SubpageShell'
 import AvantiCard from '../../../components/AvantiCard'
-import { minutesToSubmissionWindow, submissionWindowToMinutes, formatSubmissionWindow } from '@/lib/submission-window'
 import DangerConfirmModal from '../../../components/DangerConfirmModal'
 
 const DELETE_STEPS = [
@@ -71,10 +70,6 @@ export default function TripSettings() {
   const [saved, setSaved] = useState(false)
   const [trip, setTrip] = useState<any>(null)
   const [maxVotes, setMaxVotes] = useState(2)
-  const [windowDays, setWindowDays] = useState('2')
-  const [windowHours, setWindowHours] = useState('0')
-  const [windowMinutes, setWindowMinutes] = useState('0')
-  const [decisionStatus, setDecisionStatus] = useState<string | null>(null)
   const [travelerCount, setTravelerCount] = useState(0)
   const [isOrganizer, setIsOrganizer] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
@@ -99,18 +94,6 @@ export default function TripSettings() {
         const tc = count || 0
         setTravelerCount(tc)
         setMaxVotes(tripData.max_votes ?? (tc <= 8 ? 2 : 1))
-        if (tripData.submission_window_minutes) {
-          const w = minutesToSubmissionWindow(tripData.submission_window_minutes)
-          setWindowDays(String(w.days))
-          setWindowHours(String(w.hours))
-          setWindowMinutes(String(w.minutes))
-        }
-        const { data: decision } = await supabase
-          .from('destination_decisions')
-          .select('status')
-          .eq('trip_id', tripId)
-          .maybeSingle()
-        setDecisionStatus(decision?.status ?? null)
       }
 
       const { data: myTraveler } = await supabase
@@ -128,26 +111,9 @@ export default function TripSettings() {
 
   const save = async () => {
     setSaving(true)
-    const submissionMinutes = submissionWindowToMinutes({
-      days: parseInt(windowDays, 10) || 0,
-      hours: parseInt(windowHours, 10) || 0,
-      minutes: parseInt(windowMinutes, 10) || 0,
-    })
     await supabase.from('trips').update({
       max_votes: maxVotes,
-      submission_window_minutes: submissionMinutes,
     }).eq('id', tripId)
-
-    if (isOrganizer && decisionStatus === 'draft') {
-      const deadline = new Date(Date.now() + submissionMinutes * 60 * 1000).toISOString()
-      await supabase
-        .from('destination_decisions')
-        .update({
-          submission_deadline: deadline,
-          settings: { submission_minutes: submissionMinutes },
-        })
-        .eq('trip_id', tripId)
-    }
 
     setSaving(false)
     setSaved(true)
@@ -220,42 +186,6 @@ export default function TripSettings() {
             ))}
           </div>
         </AvantiCard>
-
-        {isOrganizer && (
-          <AvantiCard shade="ivory" className="!px-6 !py-6 mb-8">
-            <label className="eyebrow text-muted-foreground block mb-2">Suggestion window</label>
-            <p className="text-xs text-muted-foreground mb-5 leading-relaxed">
-              How long the group has to brainstorm and submit cards before voting opens.
-              {decisionStatus && decisionStatus !== 'draft' && ' Window is locked once Brainstorm cards are submitted.'}
-            </p>
-            <div className="grid grid-cols-3 gap-3 mb-4">
-              {[
-                { label: 'Days', value: windowDays, set: setWindowDays },
-                { label: 'Hours', value: windowHours, set: setWindowHours },
-                { label: 'Minutes', value: windowMinutes, set: setWindowMinutes },
-              ].map(field => (
-                <div key={field.label}>
-                  <label className="text-[10px] text-muted-foreground block mb-1">{field.label}</label>
-                  <input
-                    type="number"
-                    min={0}
-                    value={field.value}
-                    disabled={!!decisionStatus && decisionStatus !== 'draft'}
-                    onChange={e => field.set(e.target.value)}
-                    className="avanti-input w-full"
-                  />
-                </div>
-              ))}
-            </div>
-            <p className="text-xs text-muted-foreground italic m-0 mb-4">
-              {formatSubmissionWindow(submissionWindowToMinutes({
-                days: parseInt(windowDays, 10) || 0,
-                hours: parseInt(windowHours, 10) || 0,
-                minutes: parseInt(windowMinutes, 10) || 0,
-              }))}
-            </p>
-          </AvantiCard>
-        )}
 
         <button
           type="button"

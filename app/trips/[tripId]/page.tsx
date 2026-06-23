@@ -11,7 +11,6 @@ import { fetchTripBookings } from '@/lib/bookings/client-api'
 import { fetchInspirations } from '@/lib/trip-companion/client-api'
 import type { ItineraryData, TripBooking } from '@/lib/bookings/types'
 import type { TripInspirationRow } from '@/lib/trip-companion/merge-inspirations'
-import SubmissionCountdown from '../../components/SubmissionCountdown'
 
 type StepState = 'done' | 'active' | 'locked' | 'open'
 
@@ -94,8 +93,6 @@ export default function TripDashboard() {
   const tripId = params.tripId as string
   const [trip, setTrip] = useState<any>(null)
   const [travelers, setTravelers] = useState<any[]>([])
-  const [votes, setVotes] = useState<any[]>([])
-  const [decision, setDecision] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'prep' | 'gametime'>('prep')
   const [userId, setUserId] = useState<string | null>(null)
@@ -175,24 +172,11 @@ export default function TripDashboard() {
         }
       }
       const { data: travelerData } = await supabase.from('travelers').select('*').eq('trip_id', tripId)
-      const { data: voteData } = await supabase
-        .from('group_votes')
-        .select('id, vote_type, options, status, submission_deadline, voting_deadline, deadline, created_at')
-        .eq('trip_id', tripId)
-        .neq('status', 'closed')
-        .order('created_at', { ascending: false })
-      const { data: decisionData } = await supabase
-        .from('destination_decisions')
-        .select('id, status, submission_deadline, voting_deadline')
-        .eq('trip_id', tripId)
-        .maybeSingle()
       if (tripData) {
         setTrip(tripData)
         if (tripData.image_position) setImagePosition(tripData.image_position)
       }
       if (travelerData) setTravelers(travelerData)
-      if (voteData) setVotes(voteData)
-      if (decisionData) setDecision(decisionData)
       setLoading(false)
     }
     load()
@@ -272,10 +256,9 @@ export default function TripDashboard() {
 
   const getActiveStep = () => {
     if (!trip?.invites_closed) return 1
-    if (decision && !['locked', 'cancelled', 'draft'].includes(decision.status)) return 3
-    if (decision && decision.status === 'draft') return 2
+    if (trip?.voting_round && !trip?.winning_destination_id) return 3
+    if (!trip?.destination || trip.destination === 'TBD') return 2
     if (trip?.destination && trip.destination !== 'TBD' && !trip?.flights_locked) return 4
-    if (!trip?.destination || trip?.destination === 'TBD') return 2
     return 5
   }
 
@@ -288,16 +271,6 @@ export default function TripDashboard() {
   }
 
   const guestCount = travelers.filter(t => t.role !== 'organizer').length
-
-  const decisionStatusLabel: Record<string, string> = {
-    suggestions_open: 'Add suggestions',
-    analyzing: 'Analyzing',
-    meta_vote: 'Set priority',
-    voting: 'Vote open',
-    results: 'Results',
-    confirming: 'Confirm',
-    locked: 'Locked',
-  }
 
   const steps: StepDef[] = [
     {
@@ -312,20 +285,23 @@ export default function TripDashboard() {
       key: 'brainstorm',
       number: 2,
       title: 'Brainstorm',
-      subtitle: 'Plan with Avanti AI',
+      subtitle: trip?.invites_closed ? 'Plan with Avanti AI' : 'Opens after invites close',
       icon: 'ti-brain',
       path: `/trips/${tripId}/step2`,
     },
     {
-      key: 'choose',
+      key: 'vote',
       number: 3,
-      title: 'Choose destination',
-      subtitle: decision
-        ? decisionStatusLabel[decision.status] || 'Group decision'
-        : 'Vote with cost estimates',
-      icon: 'ti-map-pin',
-      path: `/trips/${tripId}/choose`,
-      badge: decision && decision.status !== 'draft' ? '·' : undefined,
+      title: 'Group vote',
+      subtitle: trip?.voting_round
+        ? trip.voting_round === 1
+          ? 'Round 1 — Rank choices'
+          : 'Round 2 — Split your vote'
+        : trip?.winning_destination_id
+          ? 'Complete'
+          : 'After card choices submitted',
+      icon: 'ti-checkbox',
+      path: `/trips/${tripId}/vote`,
     },
     {
       key: 'flights',
@@ -335,7 +311,7 @@ export default function TripDashboard() {
         ? 'Dates locked'
         : trip?.destination && trip.destination !== 'TBD'
           ? 'Coordinate & book'
-          : 'After destination lock',
+          : 'Set destination first',
       icon: 'ti-plane',
       path: `/trips/${tripId}/flights`,
     },
@@ -343,14 +319,6 @@ export default function TripDashboard() {
     { key: 'activities', number: 6, title: 'Activities', subtitle: 'Things to do', icon: 'ti-compass', path: `/trips/${tripId}/activities` },
     { key: 'dining', number: 7, title: 'Dining', subtitle: 'Restaurants and reservations', icon: 'ti-tools-kitchen-2', path: `/trips/${tripId}/dining` },
   ]
-
-  const getDaysLeft = (deadline: string) => {
-    const diff = new Date(deadline).getTime() - Date.now()
-    const days = Math.ceil(diff / (1000 * 60 * 60 * 24))
-    if (days <= 0) return 'Closing today'
-    if (days === 1) return '1 day left'
-    return `${days} days left`
-  }
 
   if (loading) return <SuitcaseLoader message="Loading your trip" />
   if (!trip) return null
@@ -367,18 +335,6 @@ export default function TripDashboard() {
 
   const activeStep = getActiveStep()
   const readyCount = travelers.filter(t => t.profile_complete).length
-
-  const showSubmissionCountdown =
-    decision?.submission_deadline &&
-    !['meta_vote', 'voting', 'results', 'confirming', 'locked'].includes(decision.status) &&
-    new Date(decision.submission_deadline) > new Date()
-
-  const countdownHint =
-    decision?.status === 'draft'
-      ? 'Complete Brainstorm and submit your trip cards before time runs out.'
-      : decision?.status === 'analyzing'
-        ? 'Avanti is analyzing options — voting opens when the window closes.'
-        : 'Voting opens when the submission window closes and analysis finishes.'
 
   return (
     <>
@@ -539,99 +495,16 @@ export default function TripDashboard() {
           ))}
         </div>
 
-        {activeTab === 'prep' && showSubmissionCountdown && (
-          <section className="mt-8">
-            <div className="avanti-box border border-forest-deep/25 bg-forest-pale px-6 py-8">
-              <SubmissionCountdown
-                deadline={decision.submission_deadline}
-                label="Until voting opens"
-                hint={countdownHint}
-                variant="compact"
-              />
-            </div>
-          </section>
-        )}
-
         {activeTab === 'prep' && (
           <>
             {/* To do */}
             <section className="mt-8">
               <div className="text-[10px] tracking-[0.35em] uppercase text-muted-foreground">To do</div>
-              {!decision && votes.length === 0 ? (
-                <div className="avanti-box mt-3 flex items-center gap-3 rounded-none border border-border bg-card px-5 py-4">
-                  <span className="h-2 w-2 rounded-full bg-sage" />
-                  <span className="font-serif italic text-muted-foreground">No actions at this time</span>
-                </div>
-              ) : (
-                <div className="mt-3 flex flex-col gap-2">
-                  {decision && decision.status !== 'locked' && (
-                    <button
-                      type="button"
-                      onClick={() => router.push(`/trips/${tripId}/choose`)}
-                      className="group avanti-box flex items-center justify-between rounded-none border border-forest-deep bg-card px-5 py-4 text-left transition-all duration-200 ease-out hover:-translate-y-px hover:border-forest-deep hover:[box-shadow:var(--shadow-box-hover)]"
-                    >
-                      <div className="flex items-center gap-3">
-                        <span className="h-2 w-2 rounded-full bg-forest-deep transition-transform duration-200 group-hover:scale-125" />
-                        <div>
-                          <p className="font-serif text-base transition-colors duration-200 group-hover:text-forest-deep">Choose destination</p>
-                          <p className="text-[11px] text-muted-foreground m-0">
-                            {decisionStatusLabel[decision.status] || decision.status}
-                          </p>
-                        </div>
-                      </div>
-                      <i className="ti ti-chevron-right text-muted-foreground transition-transform duration-200 group-hover:translate-x-0.5" aria-hidden />
-                    </button>
-                  )}
-                  {decision && decision.status === 'locked' && !trip?.flights_locked && (
-                    <button
-                      type="button"
-                      onClick={() => router.push(`/trips/${tripId}/flights`)}
-                      className="group avanti-box flex items-center justify-between rounded-none border border-forest-deep bg-card px-5 py-4 text-left transition-all duration-200 ease-out hover:-translate-y-px hover:border-forest-deep hover:[box-shadow:var(--shadow-box-hover)]"
-                    >
-                      <div className="flex items-center gap-3">
-                        <span className="h-2 w-2 rounded-full bg-forest-deep transition-transform duration-200 group-hover:scale-125" />
-                        <div>
-                          <p className="font-serif text-base transition-colors duration-200 group-hover:text-forest-deep">Plan flights</p>
-                          <p className="text-[11px] text-muted-foreground m-0">Coordinate routes and lock travel dates</p>
-                        </div>
-                      </div>
-                      <i className="ti ti-chevron-right text-muted-foreground transition-transform duration-200 group-hover:translate-x-0.5" aria-hidden />
-                    </button>
-                  )}
-                  {(!decision || decision.status === 'draft') && votes.filter(v => v.id).map(vote => (
-                    <button
-                      key={vote.id}
-                      type="button"
-                      onClick={() => router.push(`/trips/${tripId}/vote/${vote.id}`)}
-                      className="group avanti-box flex items-center justify-between rounded-none border border-forest-deep bg-card px-5 py-4 text-left transition-all duration-200 ease-out hover:-translate-y-px hover:border-forest-deep hover:[box-shadow:var(--shadow-box-hover)]"
-                    >
-                      <div className="flex items-center gap-3">
-                        <span className="h-2 w-2 rounded-full bg-forest-deep transition-transform duration-200 group-hover:scale-125" />
-                        <div>
-                          <p className="font-serif text-base transition-colors duration-200 group-hover:text-forest-deep">Vote — {vote.vote_type}</p>
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            {vote.voting_deadline ? getDaysLeft(vote.voting_deadline) : vote.submission_deadline ? getDaysLeft(vote.submission_deadline) : vote.deadline ? getDaysLeft(vote.deadline) : 'No deadline'} · {(vote.options || []).length} options
-                          </p>
-                        </div>
-                      </div>
-                      <i className="ti ti-arrow-right text-sm text-muted-foreground transition-all duration-200 group-hover:translate-x-1 group-hover:text-foreground" aria-hidden />
-                    </button>
-                  ))}
-                </div>
-              )}
+              <div className="avanti-box mt-3 flex items-center gap-3 rounded-none border border-border bg-card px-5 py-4">
+                <span className="h-2 w-2 rounded-full bg-sage" />
+                <span className="font-serif italic text-muted-foreground">No actions at this time</span>
+              </div>
             </section>
-
-            {/* Decisions */}
-            <button
-              type="button"
-              onClick={() => router.push(`/trips/${tripId}/decisions`)}
-              className="group avanti-box mt-3 flex w-full items-center justify-between rounded-none border border-border bg-card px-5 py-4 text-left transition-all duration-200 ease-out hover:-translate-y-px hover:border-forest-deep/40 hover:[box-shadow:var(--shadow-box-hover)]"
-            >
-              <span className="font-serif text-lg transition-colors duration-200 group-hover:text-forest-deep">Decisions</span>
-              <span className="inline-flex items-center gap-2 text-[11px] tracking-[0.3em] uppercase text-muted-foreground transition-colors duration-200 group-hover:text-foreground">
-                View all <i className="ti ti-arrow-right text-xs transition-transform duration-200 group-hover:translate-x-1" aria-hidden />
-              </span>
-            </button>
 
             {/* Planning steps */}
             <section className="mt-8">
@@ -671,10 +544,7 @@ export default function TripDashboard() {
             {!trip?.destination || trip.destination === 'TBD' ? (
               <div className="avanti-box border border-border bg-card px-5 py-8 text-center">
                 <p className="font-serif text-lg mb-2">Game time unlocks after destination</p>
-                <p className="text-xs text-muted-foreground mb-4">Lock your destination in Prep to see your full itinerary here.</p>
-                <button type="button" onClick={() => router.push(`/trips/${tripId}/choose`)} className="text-[10px] uppercase tracking-wider text-forest-deep hover:underline">
-                  Choose destination →
-                </button>
+                <p className="text-xs text-muted-foreground mb-0">Set your trip destination in Prep to see your full itinerary here.</p>
               </div>
             ) : (
               <>

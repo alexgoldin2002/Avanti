@@ -13,28 +13,12 @@ async function ensureSession(supabase: ReturnType<typeof adminOrAnon>, tripId: s
     .maybeSingle()
 
   if (!session) {
-    const { data: decision } = await supabase
-      .from('destination_decisions')
-      .select('locked_option_id')
-      .eq('trip_id', tripId)
-      .maybeSingle()
-
-    let voteEstimate: number | null = null
-    if (decision?.locked_option_id) {
-      const { data: option } = await supabase
-        .from('destination_options')
-        .select('group_summary')
-        .eq('id', decision.locked_option_id)
-        .maybeSingle()
-      voteEstimate = Number((option?.group_summary as Record<string, unknown>)?.avg_cost) || null
-    }
-
     const { data: created } = await supabase
       .from('trip_flight_sessions')
       .insert({
         trip_id: tripId,
         status: 'setup',
-        vote_estimate_per_person: voteEstimate,
+        vote_estimate_per_person: null,
       })
       .select()
       .single()
