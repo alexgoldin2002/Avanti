@@ -9,12 +9,34 @@ async function authHeaders(): Promise<HeadersInit> {
   return headers
 }
 
-export async function fetchDecision(tripId: string) {
-  const res = await fetch(`/api/destinations/decision/${tripId}`, {
-    headers: await authHeaders(),
+async function apiFetch(
+  input: RequestInfo | URL,
+  init?: RequestInit
+): Promise<Response> {
+  try {
+    return await fetch(input, init)
+  } catch (e) {
+    if (e instanceof Error && e.name === 'AbortError') throw e
+    throw new Error('Could not reach the server. Check your connection and try again.')
+  }
+}
+
+async function parseJsonResponse(res: Response): Promise<Record<string, unknown>> {
+  try {
+    return await res.json()
+  } catch {
+    throw new Error('Invalid response from server')
+  }
+}
+
+export async function fetchDecision(tripId: string, init?: RequestInit) {
+  const res = await apiFetch(`/api/destinations/decision/${tripId}`, {
+    ...init,
+    headers: { ...(await authHeaders()), ...(init?.headers || {}) },
   })
-  if (!res.ok) throw new Error((await res.json()).error || 'Failed to load')
-  return res.json()
+  const data = await parseJsonResponse(res)
+  if (!res.ok) throw new Error(String(data.error || 'Failed to load'))
+  return data
 }
 
 export async function beginStep2(
@@ -118,13 +140,13 @@ export async function submitMetaVote(
     }
   }
 ) {
-  const res = await fetch('/api/destinations/decision/meta-vote', {
+  const res = await apiFetch('/api/destinations/decision/meta-vote', {
     method: 'POST',
     headers: await authHeaders(),
     body: JSON.stringify({ decisionId, ...payload }),
   })
-  const data = await res.json()
-  if (!res.ok) throw new Error(data.error || 'Failed')
+  const data = await parseJsonResponse(res)
+  if (!res.ok) throw new Error(String(data.error || 'Failed to save weights'))
   return data
 }
 
@@ -135,13 +157,13 @@ export async function submitOptionVote(payload: {
   toggles?: { flight?: string; dates?: string }
   privateMax?: boolean
 }) {
-  const res = await fetch('/api/destinations/decision/vote', {
+  const res = await apiFetch('/api/destinations/decision/vote', {
     method: 'POST',
     headers: await authHeaders(),
     body: JSON.stringify(payload),
   })
-  const data = await res.json()
-  if (!res.ok) throw new Error(data.error || 'Failed')
+  const data = await parseJsonResponse(res)
+  if (!res.ok) throw new Error(String(data.error || 'Failed to save vote'))
   return data
 }
 

@@ -53,31 +53,52 @@ export default function ChooseDestinationPage() {
   const [constraintsDone, setConstraintsDone] = useState(false)
   const [confirmMaxCost, setConfirmMaxCost] = useState('')
   const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
+  const loadAbortRef = useRef<AbortController | null>(null)
+  const loadInFlightRef = useRef(false)
 
   const load = useCallback(async () => {
+    if (loadInFlightRef.current) return
+    loadInFlightRef.current = true
+    loadAbortRef.current?.abort()
+    const controller = new AbortController()
+    loadAbortRef.current = controller
+
     try {
-      const payload = await fetchDecision(tripId)
+      const payload = await fetchDecision(tripId, { signal: controller.signal })
+      if (controller.signal.aborted) return
       setData(payload)
       setError(null)
     } catch (e) {
+      if (e instanceof Error && e.name === 'AbortError') return
       setError(e instanceof Error ? e.message : 'Failed to load')
     } finally {
+      if (loadAbortRef.current === controller) {
+        loadInFlightRef.current = false
+      }
       setLoading(false)
     }
   }, [tripId])
 
   useEffect(() => {
-    load()
-    const interval = setInterval(load, 30000)
-    return () => clearInterval(interval)
+    void load()
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') void load()
+    }, 30000)
+    return () => {
+      clearInterval(interval)
+      loadAbortRef.current?.abort()
+    }
   }, [load])
 
   useEffect(() => {
     if (!data?.analysisProgress) return
     const { done, total } = data.analysisProgress
     if (data.decision?.status !== 'analyzing' || total === 0 || done < total) return
-    load()
-    const fast = setInterval(load, 3000)
+
+    void load()
+    const fast = setInterval(() => {
+      if (document.visibilityState === 'visible') void load()
+    }, 5000)
     return () => clearInterval(fast)
   }, [data?.decision?.status, data?.analysisProgress?.done, data?.analysisProgress?.total, load])
 
@@ -234,7 +255,23 @@ export default function ChooseDestinationPage() {
   }
 
   if (loading) return <SuitcaseLoader message="Loading destination decision" />
-  if (!data?.trip) return null
+
+  if (!data?.trip) {
+    return (
+      <SubpageShell backHref={`/trips/${tripId}`} backLabel="Trip" title="Choose destination">
+        {error ? (
+          <div className="avanti-box border border-red-200 bg-red-50 px-4 py-6 text-center">
+            <p className="text-sm text-red-800 mb-4">{error}</p>
+            <button type="button" onClick={() => { setLoading(true); void load() }} className="avanti-btn avanti-btn-primary">
+              Try again
+            </button>
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground text-center">Trip not found.</p>
+        )}
+      </SubpageShell>
+    )
+  }
 
   const heading = STATUS_HEADINGS[status] || 'Choose destination'
   const deadline =

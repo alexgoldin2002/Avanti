@@ -53,15 +53,36 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    await supabase.from('destination_meta_votes').upsert(
-      {
-        decision_id: decisionId,
-        user_id: user.id,
-        priority: resolvedPriority,
-        weights: resolvedWeights,
-      },
-      { onConflict: 'decision_id,user_id' }
-    )
+    const upsertPayload: Record<string, unknown> = {
+      decision_id: decisionId,
+      user_id: user.id,
+      priority: resolvedPriority,
+    }
+    if (resolvedWeights) upsertPayload.weights = resolvedWeights
+
+    let { error: upsertError } = await supabase
+      .from('destination_meta_votes')
+      .upsert(upsertPayload, { onConflict: 'decision_id,user_id' })
+
+    if (
+      upsertError &&
+      resolvedWeights &&
+      (upsertError.message.includes('weights') || upsertError.message.includes('column'))
+    ) {
+      const fallback = await supabase.from('destination_meta_votes').upsert(
+        {
+          decision_id: decisionId,
+          user_id: user.id,
+          priority: resolvedPriority,
+        },
+        { onConflict: 'decision_id,user_id' }
+      )
+      upsertError = fallback.error
+    }
+
+    if (upsertError) {
+      return NextResponse.json({ error: upsertError.message }, { status: 500 })
+    }
 
     const { data: allMeta } = await supabase
       .from('destination_meta_votes')

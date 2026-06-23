@@ -8,6 +8,9 @@ import { personalCostFromScenarios } from '@/lib/destination-decision/scenario-u
 import { travelerCanVote } from '@/lib/account-companions'
 import type { FlightToggle, DateToggle } from '@/lib/destination-decision/types'
 
+export const maxDuration = 60
+export const dynamic = 'force-dynamic'
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ tripId: string }> }
@@ -23,7 +26,8 @@ export async function GET(
       .maybeSingle()
 
     if (!decision) {
-      return NextResponse.json({ decision: null })
+      const { data: tripOnly } = await supabase.from('trips').select('*').eq('id', tripId).maybeSingle()
+      return NextResponse.json({ decision: null, trip: tripOnly ?? null })
     }
 
     const statusBeforeTick = decision.status
@@ -132,9 +136,14 @@ export async function GET(
       )
       const myVote = votes?.find(v => v.option_id === o.id && v.user_id === user?.id)
       const toggles = (myVote?.toggles || {}) as { flight?: FlightToggle; dates?: DateToggle }
-      const personal = myAnalysis?.scenarios
-        ? personalCostFromScenarios(myAnalysis.scenarios, toggles)
-        : null
+      let personal: { cost: number; works: string } | null = null
+      try {
+        personal = myAnalysis?.scenarios
+          ? personalCostFromScenarios(myAnalysis.scenarios, toggles)
+          : null
+      } catch {
+        personal = null
+      }
 
       return {
         ...o,
