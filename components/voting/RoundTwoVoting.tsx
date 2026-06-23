@@ -42,9 +42,14 @@ export default function RoundTwoVoting({
   const remaining = 100 - total
   const canSubmit = total === 100 && destinations.length > 0
 
-  const setAllocation = (id: string, value: number) => {
-    const clamped = Math.max(0, Math.min(100, Math.round(value)))
-    setAllocations(prev => ({ ...prev, [id]: clamped }))
+  const setAllocation = (id: string, raw: string) => {
+    if (raw === '') {
+      setAllocations(prev => ({ ...prev, [id]: 0 }))
+      return
+    }
+    const n = Number(raw)
+    if (Number.isNaN(n)) return
+    setAllocations(prev => ({ ...prev, [id]: Math.max(0, Math.min(100, Math.round(n))) }))
   }
 
   const handleSubmit = async () => {
@@ -59,122 +64,80 @@ export default function RoundTwoVoting({
 
   return (
     <div className="pb-28">
-      <div className="grid grid-cols-1 lg:grid-cols-[minmax(280px,320px)_1fr] gap-6 lg:gap-8 items-start">
-        {/* Allocation sidebar — stays visible beside the cards */}
-        <aside className="avanti-box border border-forest-deep/25 bg-card lg:sticky lg:top-4 z-10">
-          <div className="border-b border-border px-5 py-4 bg-forest-pale/60">
-            <p className="font-serif text-lg text-forest-deep m-0 mb-1">Your percentages</p>
-            <p className="text-sm text-muted-foreground m-0">
-              Split <strong>100%</strong> across destinations — higher % means you want to go there more.
-            </p>
-          </div>
+      <div className="avanti-box border border-forest-deep/25 bg-card mb-8">
+        <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 px-4 py-3 border-b border-border bg-forest-pale/50">
+          <p className="font-serif text-base text-forest-deep m-0">Round 2 — split 100%</p>
+          <p
+            className="text-sm tabular-nums m-0 font-serif"
+            style={{ color: remaining === 0 ? 'var(--forest-deep)' : remaining < 0 ? '#a32d2d' : '#6a6a6a' }}
+          >
+            <span className="text-xs uppercase tracking-wider text-muted-foreground mr-2">Left</span>
+            {remaining}%
+          </p>
+        </div>
 
-          <div className="px-5 py-4 border-b border-border">
-            <div className="flex items-baseline justify-between gap-3 mb-2">
-              <span className="text-xs uppercase tracking-wider text-muted-foreground">Remaining</span>
-              <span
-                className="font-serif text-3xl tabular-nums"
-                style={{ color: remaining === 0 ? 'var(--forest-deep)' : remaining < 0 ? '#a32d2d' : '#1a1a1a' }}
-              >
-                {remaining}%
+        <div className="px-4 py-4 flex flex-wrap gap-3">
+          {destinations.map(d => (
+            <label
+              key={d.id}
+              className="flex flex-col gap-1 min-w-[88px] max-w-[140px] flex-1"
+              style={{ flexBasis: '88px' }}
+            >
+              <span className="text-[11px] text-muted-foreground truncate leading-tight" title={d.destination_name}>
+                {shortDestinationName(d.destination_name)}
               </span>
-            </div>
-            <div className="h-2 bg-forest-mist rounded-full overflow-hidden">
-              <div
-                className="h-full transition-all duration-200 rounded-full"
-                style={{
-                  width: `${Math.min(100, total)}%`,
-                  background: total === 100 ? 'var(--forest-deep)' : total > 100 ? '#a32d2d' : '#6b9080',
-                }}
-              />
-            </div>
-            <p className="text-xs text-muted-foreground mt-2 mb-0">
-              {total}% allocated · must total exactly 100% to submit
-            </p>
-          </div>
+              <div className="flex items-center border border-border bg-white focus-within:border-forest-deep">
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  inputMode="numeric"
+                  value={allocations[d.id] || 0}
+                  onChange={e => setAllocation(d.id, e.target.value)}
+                  className="w-full min-w-0 border-0 bg-transparent px-2 py-1.5 text-sm text-center tabular-nums outline-none font-serif"
+                  aria-label={`Percent for ${d.destination_name}`}
+                />
+                <span className="text-[10px] text-muted-foreground pr-2 shrink-0">%</span>
+              </div>
+            </label>
+          ))}
+        </div>
 
-          <ul className="list-none m-0 p-0 divide-y divide-border">
-            {destinations.map(d => {
-              const pct = allocations[d.id] || 0
-              return (
-                <li key={d.id} className="px-5 py-3 flex items-center gap-3">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-serif text-foreground m-0 truncate">
-                      {shortDestinationName(d.destination_name)}
-                    </p>
-                    <input
-                      type="range"
-                      min={0}
-                      max={100}
-                      value={pct}
-                      onChange={e => setAllocation(d.id, Number(e.target.value))}
-                      className="w-full mt-2"
-                      aria-label={`Percentage for ${d.destination_name}`}
-                    />
-                  </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <input
-                      type="number"
-                      min={0}
-                      max={100}
-                      value={pct}
-                      onChange={e => setAllocation(d.id, Number(e.target.value))}
-                      className="avanti-input w-14 text-center tabular-nums px-1"
-                      aria-label={`Percentage for ${d.destination_name}`}
-                    />
-                    <span className="text-xs text-muted-foreground">%</span>
-                  </div>
-                </li>
-              )
-            })}
-          </ul>
-        </aside>
+        <p className="text-[11px] text-muted-foreground px-4 pb-3 m-0">
+          {total}% assigned · must total 100% to submit
+        </p>
+      </div>
 
-        {/* Destination cards */}
-        <div className="flex flex-col gap-8 min-w-0">
-          <div className="avanti-box border border-forest-deep/20 bg-forest-pale px-5 py-4 lg:hidden">
-            <p className="font-serif text-lg text-forest-deep m-0 mb-1">Round 2 — Final vote</p>
-            <p className="text-sm text-muted-foreground m-0">
-              Use the panel above to assign percentages, then review each destination below.
-            </p>
-          </div>
-
-          {destinations.map(d => {
-            const personal = personalizedByDest[d.id] || PLACEHOLDER_ROUND_TWO_PERSONAL
-            const card = (d.card_snapshot || {}) as ParsedDestinationCard
-            const pct = allocations[d.id] || 0
-            return (
-              <section key={d.id} className="avanti-box border border-border bg-card overflow-hidden">
-                <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-border bg-forest-mist/30">
-                  <p className="font-serif text-lg text-forest-deep m-0 truncate">
-                    {d.destination_name}
-                  </p>
-                  <span className="text-sm tabular-nums text-forest-deep font-serif shrink-0">
-                    Your vote: {pct}%
+      <div className="flex flex-col gap-8">
+        {destinations.map(d => {
+          const personal = personalizedByDest[d.id] || PLACEHOLDER_ROUND_TWO_PERSONAL
+          const card = (d.card_snapshot || {}) as ParsedDestinationCard
+          return (
+            <section key={d.id} className="avanti-box border border-border bg-card overflow-hidden">
+              <div className="px-5 py-3 border-b border-border bg-forest-mist/30">
+                <p className="font-serif text-lg text-forest-deep m-0 truncate">{d.destination_name}</p>
+              </div>
+              <GroupDestinationCard card={{ ...card, name: d.destination_name }} tripId={tripId} hideMap />
+              <div className="border-t border-border px-5 py-5 bg-forest-mist/40">
+                <div className="flex items-center justify-between gap-4 mb-3">
+                  <p className="eyebrow text-forest m-0">Personalized for you</p>
+                  <span className="text-xs tracking-wider uppercase text-forest-deep font-serif">
+                    Match: {personal.fit_score}/10
                   </span>
                 </div>
-                <GroupDestinationCard card={{ ...card, name: d.destination_name }} tripId={tripId} hideMap />
-                <div className="border-t border-border px-5 py-5 bg-forest-mist/40">
-                  <div className="flex items-center justify-between gap-4 mb-3">
-                    <p className="eyebrow text-forest m-0">Personalized for you</p>
-                    <span className="text-xs tracking-wider uppercase text-forest-deep font-serif">
-                      Match: {personal.fit_score}/10
-                    </span>
-                  </div>
-                  <p className="text-sm text-foreground leading-relaxed mb-3">{personal.personal_fit_summary}</p>
-                  <ul className="text-sm text-muted-foreground space-y-1 mb-3 list-none p-0 m-0">
-                    {personal.top_picks_for_you.map(item => (
-                      <li key={item}>— {item}</li>
-                    ))}
-                  </ul>
-                  <p className="text-xs text-amber-900 bg-amber-50 border border-amber-200 px-3 py-2 m-0">
-                    {personal.watch_out_for}
-                  </p>
-                </div>
-              </section>
-            )
-          })}
-        </div>
+                <p className="text-sm text-foreground leading-relaxed mb-3">{personal.personal_fit_summary}</p>
+                <ul className="text-sm text-muted-foreground space-y-1 mb-3 list-none p-0 m-0">
+                  {personal.top_picks_for_you.map(item => (
+                    <li key={item}>— {item}</li>
+                  ))}
+                </ul>
+                <p className="text-xs text-amber-900 bg-amber-50 border border-amber-200 px-3 py-2 m-0">
+                  {personal.watch_out_for}
+                </p>
+              </div>
+            </section>
+          )
+        })}
       </div>
 
       <div
