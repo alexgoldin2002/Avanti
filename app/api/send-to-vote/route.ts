@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { tryCreateAdminClient } from '@/lib/supabase-admin'
 
 export async function POST(request: NextRequest) {
   try {
     const { tripId, options, voteType } = await request.json()
-    
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
+
+    const supabase = tryCreateAdminClient()
+    if (!supabase) {
+      return NextResponse.json({ error: 'Server configuration error' }, { status: 500 })
+    }
 
     const { data, error } = await supabase.from('group_votes').insert({
       trip_id: tripId,

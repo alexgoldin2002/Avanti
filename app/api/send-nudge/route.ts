@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
 import { tryCreateAdminClient } from '@/lib/supabase-admin'
 import { phoneToE164 } from '@/lib/phone'
 import { sendSms } from '@/lib/sms/send-sms'
@@ -56,10 +55,10 @@ export async function POST(request: NextRequest) {
       senderName,
     } = await request.json()
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    )
+    const supabase = tryCreateAdminClient()
+    if (!supabase) {
+      return NextResponse.json({ error: 'Server configuration error' }, { status: 500 })
+    }
 
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
     const { data: recentNudge } = await supabase
