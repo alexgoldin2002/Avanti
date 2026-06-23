@@ -3,38 +3,46 @@
 import type { ReactNode } from 'react'
 import {
   activitiesSummary,
-  costDollarCount,
   logisticsSummary,
-  weatherMood,
+  parseCostRange,
+  parseGroupFitDisplay,
+  parseWeatherDisplay,
   weightedScore,
   type InterestWeights,
   type VotingColumn,
 } from '@/lib/destination-decision/voting-display'
-import { formatCost, TIER_LABELS } from '@/lib/destination-decision/client-api'
+import { TIER_LABELS } from '@/lib/destination-decision/client-api'
 import type { DestinationTier } from '@/lib/destination-decision/types'
 
-function WeatherIcons({ mood }: { mood: ReturnType<typeof weatherMood> }) {
-  const icon = (name: string) => (
-    <i className={`ti ti-${name} text-lg text-forest-deep/80`} aria-hidden />
-  )
-  if (mood === 'sun') return <span className="flex gap-1 justify-center">{icon('sun')}</span>
-  if (mood === 'rain') return <span className="flex gap-1 justify-center">{icon('cloud-rain')}</span>
-  if (mood === 'snow') return <span className="flex gap-1 justify-center">{icon('snowflake')}</span>
-  if (mood === 'cloud') return <span className="flex gap-1 justify-center">{icon('cloud')}</span>
+function CostRangeCell({ col }: { col: VotingColumn }) {
+  const costText = String(col.card.cost || '')
+  const range = parseCostRange(costText, col.tier, col.personalCost)
+  const symbolRange =
+    range.tierLow === range.tierHigh
+      ? range.symbolLow
+      : `${range.symbolLow} – ${range.symbolHigh}`
+
   return (
-    <span className="flex gap-1 justify-center">
-      {icon('sun')}
-      {icon('cloud')}
-    </span>
+    <div className="text-center">
+      <p className="font-serif text-lg text-forest-deep tracking-tight m-0 mb-1">{symbolRange}</p>
+      {range.usdLabel && (
+        <p className="text-[10px] text-muted-foreground m-0 tabular-nums leading-snug">{range.usdLabel}</p>
+      )}
+    </div>
   )
 }
 
-function DollarIcons({ count }: { count: number }) {
+function WeatherCell({ col }: { col: VotingColumn }) {
+  const weather = parseWeatherDisplay(String(col.card.weather || ''))
   return (
-    <span className="font-serif text-forest-deep tracking-tight">
-      {'$'.repeat(count)}
-      <span className="text-border">{'$'.repeat(Math.max(0, 4 - count))}</span>
-    </span>
+    <div className="text-center">
+      <p className="text-2xl m-0 mb-1 leading-none" aria-hidden>
+        {weather.emoji}
+      </p>
+      <p className="font-serif text-base text-forest-deep m-0 tabular-nums">
+        {weather.tempLabel ?? '—'}
+      </p>
+    </div>
   )
 }
 
@@ -42,10 +50,12 @@ function StarRow({
   value,
   onChange,
   disabled,
+  size = 'base',
 }: {
   value: number
   onChange?: (n: number) => void
   disabled?: boolean
+  size?: 'sm' | 'base'
 }) {
   return (
     <div className="flex justify-center gap-0.5">
@@ -55,7 +65,7 @@ function StarRow({
           type="button"
           disabled={disabled || !onChange}
           onClick={() => onChange?.(n)}
-          className={`text-base leading-none p-0.5 ${
+          className={`${size === 'sm' ? 'text-sm' : 'text-base'} leading-none p-0.5 ${
             value >= n ? 'text-forest-deep' : 'text-border'
           } ${onChange && !disabled ? 'cursor-pointer hover:text-forest-deep/70' : 'cursor-default'}`}
           aria-label={`${n} stars`}
@@ -67,9 +77,59 @@ function StarRow({
   )
 }
 
+function GroupFitCell({
+  col,
+  userScore,
+  onUserScore,
+  readOnly,
+}: {
+  col: VotingColumn
+  userScore: number
+  onUserScore?: (n: number) => void
+  readOnly?: boolean
+}) {
+  const fit = parseGroupFitDisplay(col.card, col.groupSummary, col.worksForYou)
+
+  return (
+    <div className="text-center space-y-3 px-1">
+      <div>
+        <p className="text-[9px] uppercase tracking-[0.14em] text-muted-foreground mb-1">Avanti</p>
+        <StarRow value={fit.avantiStars} disabled size="sm" />
+        {fit.membersTotal != null && fit.membersTotal > 0 && (
+          <p className="text-[10px] text-muted-foreground mt-1 mb-0">
+            {fit.membersYes}/{fit.membersTotal} budgets work
+          </p>
+        )}
+        {fit.worksForYou && (
+          <p className="text-[10px] text-muted-foreground mt-0.5 mb-0 capitalize">
+            You: {fit.worksForYou}
+          </p>
+        )}
+        {fit.cardSnippet && (
+          <p className="text-[10px] text-muted-foreground mt-1 mb-0 line-clamp-2 leading-snug">
+            {fit.cardSnippet}
+          </p>
+        )}
+      </div>
+      {!readOnly && (
+        <div className="border-t border-border/60 pt-2">
+          <p className="text-[9px] uppercase tracking-[0.14em] text-muted-foreground mb-1">Your score</p>
+          <StarRow
+            value={userScore}
+            onChange={onUserScore}
+            disabled={readOnly}
+            size="sm"
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+
 type RowDef = {
   id: string
   label: string
+  hint?: string
   render: (col: VotingColumn) => ReactNode
 }
 
@@ -101,19 +161,7 @@ export default function VotingComparisonGrid({
     {
       id: 'cost',
       label: 'Cost range',
-      render: col => {
-        const costText = String(col.card.cost || '')
-        return (
-          <div className="text-center">
-            <DollarIcons count={costDollarCount(col.tier, costText)} />
-            {col.personalCost != null && (
-              <p className="text-[10px] text-muted-foreground mt-1 mb-0 tabular-nums">
-                {formatCost(col.personalCost)}
-              </p>
-            )}
-          </div>
-        )
-      },
+      render: col => <CostRangeCell col={col} />,
     },
     {
       id: 'gettingThere',
@@ -130,9 +178,7 @@ export default function VotingComparisonGrid({
     {
       id: 'weather',
       label: 'Weather',
-      render: col => (
-        <WeatherIcons mood={weatherMood(String(col.card.weather || ''))} />
-      ),
+      render: col => <WeatherCell col={col} />,
     },
     {
       id: 'activities',
@@ -157,11 +203,13 @@ export default function VotingComparisonGrid({
     {
       id: 'groupFit',
       label: 'Group fit',
+      hint: 'Avanti = feasibility for the whole group. Your score = how much you want this place.',
       render: col => (
-        <StarRow
-          value={votes[col.id]?.desire_score ?? 0}
-          onChange={readOnly ? undefined : n => onDesireChange(col.id, n)}
-          disabled={readOnly}
+        <GroupFitCell
+          col={col}
+          userScore={votes[col.id]?.desire_score ?? 0}
+          onUserScore={readOnly ? undefined : n => onDesireChange(col.id, n)}
+          readOnly={readOnly}
         />
       ),
     },
@@ -239,6 +287,11 @@ export default function VotingComparisonGrid({
                 <span className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground font-normal leading-tight block">
                   {row.label}
                 </span>
+                {row.hint && (
+                  <span className="text-[9px] text-muted-foreground/80 leading-snug block mt-1 max-w-[100px]">
+                    {row.hint}
+                  </span>
+                )}
               </th>
               {columns.map(col => (
                 <td key={col.id} className="py-4 px-3 align-top border-l border-border/50">

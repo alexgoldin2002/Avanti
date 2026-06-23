@@ -498,7 +498,9 @@ export default function ChooseDestinationPage() {
       {showVotingMatrix && (
         <div className="avanti-box border border-border bg-card p-4 sm:p-6">
           <p className="text-sm text-muted-foreground mb-6 leading-relaxed">
-            Compare destinations at a glance. Rate group fit with stars, check the places you&apos;d go, then set how much each row matters to you below.
+            Compare destinations at a glance. Cost shows an affordability band ($ – $$$$) plus dollar range.
+            Weather shows average daytime temp and conditions. Group fit combines Avanti&apos;s feasibility read for
+            everyone with your personal star rating.
           </p>
 
           <VotingComparisonGrid

@@ -80,26 +80,157 @@ export function costRangeLabel(tier: DestinationTier, costText: string): string 
 }
 
 export function costDollarCount(tier: DestinationTier, costText: string): number {
-  const label = costRangeLabel(tier, costText)
-  if (label.startsWith('$')) {
-    const n = (label.match(/\$/g) || []).length
-    if (n >= 2) return Math.min(n, 4)
-  }
-  if (tier === 'budget') return 2
-  if (tier === 'luxury') return 4
-  return 3
+  const range = parseCostRange(costText, tier)
+  return Math.round((range.tierLow + range.tierHigh) / 2)
 }
 
-export type WeatherMood = 'sun' | 'cloud' | 'rain' | 'snow' | 'mixed'
+export type CostRangeDisplay = {
+  tierLow: number
+  tierHigh: number
+  symbolLow: string
+  symbolHigh: string
+  usdLow: number | null
+  usdHigh: number | null
+  usdLabel: string | null
+}
+
+function usdToAffordabilityTier(usd: number): number {
+  if (usd < 1800) return 1
+  if (usd < 3200) return 2
+  if (usd < 5200) return 3
+  return 4
+}
+
+function tierSymbols(tier: number): string {
+  return '$'.repeat(Math.max(1, Math.min(4, tier)))
+}
+
+function parseUsdAmounts(text: string): number[] {
+  return [...text.matchAll(/\$\s*([\d,]+)/g)]
+    .map(m => parseInt(m[1].replace(/,/g, ''), 10))
+    .filter(n => n > 0)
+}
+
+export function parseCostRange(
+  costText: string,
+  tier: DestinationTier,
+  personalCost?: number | null
+): CostRangeDisplay {
+  const amounts = parseUsdAmounts(costText)
+  if (personalCost && personalCost > 0) amounts.push(Math.round(personalCost))
+
+  let usdLow: number | null = null
+  let usdHigh: number | null = null
+
+  if (amounts.length >= 2) {
+    usdLow = Math.min(...amounts)
+    usdHigh = Math.max(...amounts)
+  } else if (amounts.length === 1) {
+    usdLow = amounts[0]
+    usdHigh = Math.round(amounts[0] * 1.12)
+  }
+
+  let tierLow: number
+  let tierHigh: number
+
+  if (usdLow != null && usdHigh != null) {
+    tierLow = usdToAffordabilityTier(usdLow)
+    tierHigh = usdToAffordabilityTier(usdHigh)
+    if (tierHigh < tierLow) tierHigh = tierLow
+  } else {
+    const fallback = tier === 'budget' ? 2 : tier === 'luxury' ? 4 : 3
+    tierLow = fallback
+    tierHigh = fallback
+  }
+
+  const fmt = (n: number) => `$${n.toLocaleString()}`
+  const usdLabel =
+    usdLow != null && usdHigh != null
+      ? usdLow === usdHigh
+        ? `${fmt(usdLow)}/person`
+        : `${fmt(usdLow)} – ${fmt(usdHigh)}`
+      : null
+
+  return {
+    tierLow,
+    tierHigh,
+    symbolLow: tierSymbols(tierLow),
+    symbolHigh: tierSymbols(tierHigh),
+    usdLow,
+    usdHigh,
+    usdLabel,
+  }
+}
+
+export type WeatherMood = 'sun' | 'cloud' | 'rain' | 'snow' | 'wind' | 'mixed'
 
 export function weatherMood(text: string): WeatherMood {
   const t = text.toLowerCase()
-  if (/snow|cold|freezing|winter/.test(t)) return 'snow'
-  if (/rain|storm|hurricane|monsoon|wet/.test(t)) return 'rain'
+  if (/wind|windy|gust|breezy/.test(t)) return 'wind'
+  if (/snow|cold|freezing|winter|blizzard/.test(t)) return 'snow'
+  if (/rain|storm|hurricane|monsoon|wet|shower/.test(t)) return 'rain'
   if (/sun|warm|dry|clear|sunny/.test(t) && /cloud|overcast|mixed/.test(t)) return 'mixed'
   if (/sun|warm|dry|clear|sunny/.test(t)) return 'sun'
   if (/cloud|overcast|mild/.test(t)) return 'cloud'
   return 'mixed'
+}
+
+export function weatherEmoji(mood: WeatherMood): string {
+  switch (mood) {
+    case 'sun':
+      return '☀️'
+    case 'rain':
+      return '🌧️'
+    case 'snow':
+      return '❄️'
+    case 'wind':
+      return '💨'
+    case 'cloud':
+      return '☁️'
+    default:
+      return '⛅'
+  }
+}
+
+/** Average daytime °F parsed from card weather bullets. */
+export function parseDaytimeTempF(text: string): number | null {
+  if (!text.trim()) return null
+
+  const explicit = [...text.matchAll(/(?:avg|average|daytime|highs?|around|~)\s*(\d{2,3})\s*°?\s*F/gi)]
+  if (explicit.length) {
+    const temps = explicit.map(m => parseInt(m[1], 10))
+    return Math.round(temps.reduce((a, b) => a + b, 0) / temps.length)
+  }
+
+  const allF = [...text.matchAll(/(\d{2,3})\s*°?\s*F/gi)].map(m => parseInt(m[1], 10))
+  if (allF.length) {
+    return Math.round(allF.reduce((a, b) => a + b, 0) / allF.length)
+  }
+
+  const range = text.match(/(\d{2,3})\s*[-–]\s*(\d{2,3})/)
+  if (range) {
+    return Math.round((parseInt(range[1], 10) + parseInt(range[2], 10)) / 2)
+  }
+
+  return null
+}
+
+export type WeatherDisplay = {
+  mood: WeatherMood
+  emoji: string
+  tempF: number | null
+  tempLabel: string | null
+}
+
+export function parseWeatherDisplay(text: string): WeatherDisplay {
+  const mood = weatherMood(text)
+  const tempF = parseDaytimeTempF(text)
+  return {
+    mood,
+    emoji: weatherEmoji(mood),
+    tempF,
+    tempLabel: tempF != null ? `${tempF}°F avg` : null,
+  }
 }
 
 export function logisticsSummary(card: CardSnapshot): string {
@@ -122,11 +253,44 @@ export function groupFitStarsFromCard(card: CardSnapshot): number {
   return 3
 }
 
+export type GroupFitDisplay = {
+  /** Stars from post-analysis budget/feasibility check (group_fit_yes / total). */
+  avantiStars: number
+  membersYes: number | null
+  membersTotal: number | null
+  cardSnippet: string
+  worksForYou: string | null
+}
+
+export function parseGroupFitDisplay(
+  card: CardSnapshot,
+  groupSummary: CardSnapshot,
+  worksForYou: string | null
+): GroupFitDisplay {
+  const yes = Number(groupSummary.group_fit_yes)
+  const total = Number(groupSummary.group_fit_total)
+  const cardSnippet = bullets(field(card, 'groupFit', 'group_fit'), 1)[0] || ''
+
+  let avantiStars = groupFitStarsFromCard(card)
+  if (Number.isFinite(yes) && Number.isFinite(total) && total > 0) {
+    avantiStars = Math.max(1, Math.min(5, Math.round((yes / total) * 5)))
+  }
+
+  return {
+    avantiStars,
+    membersYes: Number.isFinite(yes) ? yes : null,
+    membersTotal: Number.isFinite(total) ? total : null,
+    cardSnippet,
+    worksForYou,
+  }
+}
+
 export type VotingColumn = {
   id: string
   name: string
   tier: DestinationTier
   card: CardSnapshot
+  groupSummary: CardSnapshot
   personalCost: number | null
   worksForYou: string | null
 }
@@ -138,6 +302,7 @@ export function columnsForVoting(
     name: string
     tier: DestinationTier
     card_snapshot: CardSnapshot
+    group_summary?: CardSnapshot
     personalCost?: number | null
     worksForYou?: string | null
   }>
@@ -152,6 +317,7 @@ export function columnsForVoting(
       name: o.name,
       tier: o.tier,
       card: o.card_snapshot || {},
+      groupSummary: o.group_summary || {},
       personalCost: o.personalCost ?? null,
       worksForYou: o.worksForYou ?? null,
     }
@@ -168,12 +334,14 @@ export function weightedScore(
   weights: InterestWeights,
   desireScore: number | undefined
 ): number {
-  const cost = costDollarCount(col.tier, field(col.card, 'cost'))
-  const costNorm = (5 - cost) / 4
+  const cost = parseCostRange(field(col.card, 'cost'), col.tier, col.personalCost)
+  const costNorm = (5 - (cost.tierLow + cost.tierHigh) / 2) / 4
+  const weather = parseWeatherDisplay(field(col.card, 'weather'))
+  const weatherNorm = { sun: 1, mixed: 0.7, cloud: 0.5, rain: 0.3, snow: 0.4, wind: 0.55 }[weather.mood]
   const logisticsNorm = Math.min(1, logisticsSummary(col.card).length / 40)
-  const weatherNorm = { sun: 1, mixed: 0.7, cloud: 0.5, rain: 0.3, snow: 0.4 }[weatherMood(field(col.card, 'weather'))]
   const actNorm = Math.min(1, activitiesSummary(col.card).length / 2)
-  const fitNorm = (desireScore ?? groupFitStarsFromCard(col.card)) / 5
+  const fit = parseGroupFitDisplay(col.card, col.groupSummary, col.worksForYou)
+  const fitNorm = (desireScore ?? fit.avantiStars) / 5
 
   const w = weightsTotal(weights) || 100
   return (
