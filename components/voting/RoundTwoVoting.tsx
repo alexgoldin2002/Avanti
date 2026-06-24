@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import type { DestinationAnalysisRow, RoundTwoPersonalContent } from '@/lib/voting/types'
-import { GroupDestinationCard, PLACEHOLDER_ROUND_TWO_PERSONAL } from '@/components/voting/DestinationCard'
+import { buildFallbackRoundTwoPersonalContent } from '@/lib/voting/step2-preferences'
 import type { ParsedDestinationCard } from '@/lib/parse-destination-cards'
 
 type RoundTwoVotingProps = {
@@ -110,7 +110,11 @@ export default function RoundTwoVoting({
 
       <div className="flex flex-col gap-8">
         {destinations.map(d => {
-          const personal = personalizedByDest[d.id] || PLACEHOLDER_ROUND_TWO_PERSONAL
+          const personal = personalizedByDest[d.id] || buildFallbackRoundTwoPersonalContent(
+            d.destination_name,
+            null,
+            d.card_snapshot as Record<string, unknown> | null
+          )
           const card = (d.card_snapshot || {}) as ParsedDestinationCard
           return (
             <section key={d.id} className="avanti-box border border-border bg-card overflow-hidden">
