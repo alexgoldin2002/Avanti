@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseFromRequest, requireUser } from '@/lib/destination-decision/supabase-server'
 import { findTravelerForUser } from '@/lib/traveler-lookup'
-import { applyRoundTwoWinner, allTravelersSubmittedRoundTwo } from '@/lib/voting'
+import { applyRoundTwoWinner, allTravelersSubmittedRoundTwo, getRoundTwoTally } from '@/lib/voting'
 
 export async function POST(request: NextRequest) {
   try {
@@ -34,11 +34,14 @@ export async function POST(request: NextRequest) {
     await supabase.from('travelers').update({ round_two_submitted: true }).eq('id', traveler.id)
 
     let winnerId: string | null = null
-    if (await allTravelersSubmittedRoundTwo(supabase, tripId)) {
+    let tally = null
+    const allComplete = await allTravelersSubmittedRoundTwo(supabase, tripId)
+    if (allComplete) {
       winnerId = await applyRoundTwoWinner(supabase, tripId)
+      tally = await getRoundTwoTally(supabase, tripId)
     }
 
-    return NextResponse.json({ ok: true, winnerId })
+    return NextResponse.json({ ok: true, winnerId, allComplete, tally })
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'Unknown error'
     const status = msg === 'Unauthorized' ? 401 : 500

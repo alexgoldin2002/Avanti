@@ -124,6 +124,18 @@ export default function VotePage() {
     if (usePlaceholder) setData(placeholderPayload(previewRound))
   }, [usePlaceholder, previewRound])
 
+  useEffect(() => {
+    if (loading || usePlaceholder || !data?.trip) return
+    const t = data.trip
+    const shouldReveal =
+      !!t.winning_destination_id ||
+      (!!t.destination &&
+        t.destination !== 'TBD' &&
+        t.voting_round === 2 &&
+        data.traveler?.round_two_submitted)
+    if (shouldReveal) router.replace(`/trips/${tripId}/vote/reveal`)
+  }, [loading, usePlaceholder, data, tripId, router])
+
   if (loading) return <SuitcaseLoader message="Loading voting" />
 
   const trip = data?.trip
@@ -183,20 +195,6 @@ export default function VotePage() {
     )
   }
 
-  if (trip?.winning_destination_id) {
-    return (
-      <SubpageShell backHref={`/trips/${tripId}`} title="Winner">
-        <div className="avanti-box border border-forest-deep/25 bg-forest-pale px-6 py-10 text-center">
-          <p className="eyebrow text-forest mb-2">Destination locked</p>
-          <p className="font-serif text-3xl text-forest-deep mb-4">{trip.destination || 'Your destination'}</p>
-          <button type="button" onClick={() => router.push(`/trips/${tripId}/flights`)} className="avanti-btn avanti-btn-primary">
-            Plan flights →
-          </button>
-        </div>
-      </SubpageShell>
-    )
-  }
-
   const handleRoundOne = async (votes: Array<{ destinationAnalysisId: string; rank: number }>) => {
     if (usePlaceholder) {
       setPreviewRound(2)
@@ -219,13 +217,13 @@ export default function VotePage() {
     allocations: Array<{ destinationAnalysisId: string; percentage: number }>
   ) => {
     if (usePlaceholder) {
-      alert('Preview mode — winner would be calculated here.')
+      router.push(`/trips/${tripId}/vote/reveal`)
       return
     }
     setSubmitting(true)
     try {
       await submitRoundTwoVotes(tripId, allocations)
-      await load()
+      router.push(`/trips/${tripId}/vote/reveal`)
     } catch (e) {
       alert(e instanceof Error ? e.message : 'Failed to submit')
     } finally {
@@ -285,7 +283,31 @@ export default function VotePage() {
         />
       )}
 
-      {round === 2 && data && (
+      {round === 2 && data && data.traveler?.round_two_submitted && (
+        <div className="avanti-box border border-forest-deep/25 bg-forest-pale px-6 py-10 text-center max-w-xl mx-auto">
+          <p className="eyebrow text-forest mb-2">Round 2</p>
+          <p className="font-serif text-2xl text-forest-deep mb-3">Your votes are in ✓</p>
+          {data.roundTwoStatus && data.roundTwoStatus.submitted < data.roundTwoStatus.eligible ? (
+            <p className="text-sm text-muted-foreground mb-6">
+              {data.roundTwoStatus.submitted} of {data.roundTwoStatus.eligible} travelers have submitted.
+              {data.roundTwoStatus.pendingNicknames?.length
+                ? ` Still waiting on ${data.roundTwoStatus.pendingNicknames.join(', ')}.`
+                : ' Waiting on the rest of the group.'}
+            </p>
+          ) : (
+            <p className="text-sm text-muted-foreground mb-6">Opening the reveal…</p>
+          )}
+          <button
+            type="button"
+            onClick={() => router.push(`/trips/${tripId}/vote/reveal`)}
+            className="avanti-btn avanti-btn-primary"
+          >
+            Go to reveal →
+          </button>
+        </div>
+      )}
+
+      {round === 2 && data && !data.traveler?.round_two_submitted && (
         <RoundTwoVoting
           tripId={tripId}
           destinations={data.roundTwoDestinations}

@@ -48,3 +48,27 @@ export type RoundTwoVoteRow = {
   destination_analysis_id: string
   percentage: number
 }
+
+export type RoundTwoTallyEntry = {
+  destinationAnalysisId: string
+  destinationName: string
+  averagePercentage: number
+  voteCount: number
+}
+
+export type VotingResultsPayload = {
+  trip: {
+    id: string
+    name: string
+    destination: string | null
+    winning_destination_id: string | null
+    voting_round: number | null
+  }
+  tally: RoundTwoTallyEntry[]
+  roundTwoStatus: { eligible: number; submitted: number; pendingNicknames: string[] }
+  winner: DestinationAnalysisRow | null
+  finalistOptions: DestinationAnalysisRow[]
+  allVotingCards: DestinationAnalysisRow[]
+  isOrganizer: boolean
+  ready: boolean
+}

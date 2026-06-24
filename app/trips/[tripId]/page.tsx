@@ -254,9 +254,12 @@ export default function TripDashboard() {
     setEditingName(false)
   }
 
+  const votingComplete =
+    !!trip?.winning_destination_id || (!!trip?.destination && trip.destination !== 'TBD' && !!trip?.voting_round)
+
   const getActiveStep = () => {
     if (!trip?.invites_closed) return 1
-    if (trip?.voting_round && !trip?.winning_destination_id) return 3
+    if (trip?.voting_round && !votingComplete) return 3
     if (!trip?.destination || trip.destination === 'TBD') return 2
     if (trip?.destination && trip.destination !== 'TBD' && !trip?.flights_locked) return 4
     return 5
@@ -294,14 +297,14 @@ export default function TripDashboard() {
       number: 3,
       title: 'Group vote',
       subtitle: trip?.voting_round
-        ? trip.voting_round === 1
-          ? 'Round 1 — Rank choices'
-          : 'Round 2 — Split your vote'
-        : trip?.winning_destination_id
+        ? votingComplete
           ? 'Complete'
-          : 'After card choices submitted',
+          : trip.voting_round === 1
+            ? 'Round 1 — Rank choices'
+            : 'Round 2 — Split your vote'
+        : 'After card choices submitted',
       icon: 'ti-checkbox',
-      path: `/trips/${tripId}/vote`,
+      path: votingComplete ? `/trips/${tripId}/vote/reveal` : `/trips/${tripId}/vote`,
     },
     {
       key: 'flights',

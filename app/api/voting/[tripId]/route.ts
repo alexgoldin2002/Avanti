@@ -6,8 +6,10 @@ import {
   allTravelersSubmittedRoundOne,
   applyRoundOneAdvancers,
   ensureVotingKickoff,
+  ensureRoundTwoWinner,
   getChoicesSubmissionStatus,
   getRoundOneSubmissionStatus,
+  getRoundTwoSubmissionStatus,
 } from '@/lib/voting'
 import { PLACEHOLDER_ROUND_TWO_PERSONAL } from '@/components/voting/DestinationCard'
 import { generateRoundTwoPersonalContent } from '@/lib/voting/generate-content'
@@ -52,6 +54,20 @@ export async function GET(
       }
     }
 
+    if (trip?.voting_round === 2) {
+      try {
+        await ensureRoundTwoWinner(db, tripId)
+        const { data: refreshedTrip } = await userClient
+          .from('trips')
+          .select('id, name, voting_round, total_cards, winning_destination_id, destination, max_votes')
+          .eq('id', tripId)
+          .single()
+        if (refreshedTrip) Object.assign(trip, refreshedTrip)
+      } catch {
+        /* winner not ready yet */
+      }
+    }
+
     const submissionStatus = await getChoicesSubmissionStatus(
       db,
       tripId,
@@ -60,6 +76,9 @@ export async function GET(
 
     const roundOneStatus =
       trip?.voting_round === 1 ? await getRoundOneSubmissionStatus(db, tripId) : undefined
+
+    const roundTwoStatus =
+      trip?.voting_round === 2 ? await getRoundTwoSubmissionStatus(db, tripId) : undefined
 
     const { data: destinations } = await userClient
       .from('destination_analysis')
@@ -144,6 +163,7 @@ export async function GET(
       trip,
       submissionStatus,
       roundOneStatus,
+      roundTwoStatus,
       kickoffError,
       roundOneAdvanceError,
       traveler: {

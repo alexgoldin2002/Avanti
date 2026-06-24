@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { RoundOneTallyEntry } from './types'
+import type { RoundOneTallyEntry, RoundTwoTallyEntry } from './types'
 import {
   getVotingEligibleTravelers,
   travelerCanVoteInRound,
@@ -109,17 +109,17 @@ export async function applyRoundOneAdvancers(
   return advancerIds
 }
 
-export async function calculateRoundTwoWinner(
+export async function getRoundTwoTally(
   supabase: SupabaseClient,
   tripId: string
-): Promise<string | null> {
+): Promise<RoundTwoTallyEntry[]> {
   const { data: destinations } = await supabase
     .from('destination_analysis')
-    .select('id')
+    .select('id, destination_name')
     .eq('trip_id', tripId)
     .eq('advanced_to_round_two', true)
 
-  if (!destinations?.length) return null
+  if (!destinations?.length) return []
 
   const ids = destinations.map(d => d.id)
   const { data: votes } = await supabase
@@ -129,31 +129,66 @@ export async function calculateRoundTwoWinner(
     .in('destination_analysis_id', ids)
 
   const sums = new Map<string, { total: number; count: number }>()
-  for (const id of ids) sums.set(id, { total: 0, count: 0 })
+  for (const d of destinations) sums.set(d.id, { total: 0, count: 0 })
   for (const v of votes || []) {
     const cur = sums.get(v.destination_analysis_id)!
     cur.total += v.percentage
     cur.count += 1
   }
 
-  const averages = [...sums.entries()]
+  const nameMap = new Map(destinations.map(d => [d.id, d.destination_name]))
+
+  return [...sums.entries()]
     .map(([id, { total, count }]) => ({
-      id,
-      avg: count > 0 ? total / count : 0,
+      destinationAnalysisId: id,
+      destinationName: nameMap.get(id) || '',
+      averagePercentage: count > 0 ? Math.round((total / count) * 10) / 10 : 0,
+      voteCount: count,
     }))
-    .sort((a, b) => b.avg - a.avg)
+    .sort((a, b) => b.averagePercentage - a.averagePercentage)
+}
 
-  if (!averages.length) return null
+export async function getRoundTwoSubmissionStatus(
+  supabase: SupabaseClient,
+  tripId: string
+): Promise<{ eligible: number; submitted: number; pendingNicknames: string[] }> {
+  const { data: rows } = await supabase
+    .from('travelers')
+    .select('id, nickname, full_name, round_two_submitted, fills_own_preferences, can_vote')
+    .eq('trip_id', tripId)
 
-  const topAvg = averages[0].avg
-  const tied = averages.filter(a => a.avg === topAvg)
-  if (tied.length === 1) return tied[0].id
+  const voters = (rows || []).filter(travelerCanVoteInRound)
+  const pending = voters.filter(t => !t.round_two_submitted)
+  return {
+    eligible: voters.length,
+    submitted: voters.length - pending.length,
+    pendingNicknames: pending.map(t => {
+      const row = t as { nickname?: string; full_name?: string }
+      return row.nickname || row.full_name || 'A traveler'
+    }),
+  }
+}
 
-  const tally = await getRoundOneTally(supabase, tripId)
-  const rankSumMap = new Map(tally.map(t => [t.destinationAnalysisId, t.rankSum]))
+export async function calculateRoundTwoWinner(
+  supabase: SupabaseClient,
+  tripId: string
+): Promise<string | null> {
+  const tally = await getRoundTwoTally(supabase, tripId)
+  if (!tally.length) return null
 
-  tied.sort((a, b) => (rankSumMap.get(a.id) || Infinity) - (rankSumMap.get(b.id) || Infinity))
-  return tied[0]?.id ?? null
+  const topAvg = tally[0].averagePercentage
+  const tied = tally.filter(t => t.averagePercentage === topAvg)
+  if (tied.length === 1) return tied[0].destinationAnalysisId
+
+  const roundOneTally = await getRoundOneTally(supabase, tripId)
+  const rankSumMap = new Map(roundOneTally.map(t => [t.destinationAnalysisId, t.rankSum]))
+
+  tied.sort(
+    (a, b) =>
+      (rankSumMap.get(a.destinationAnalysisId) || Infinity) -
+      (rankSumMap.get(b.destinationAnalysisId) || Infinity)
+  )
+  return tied[0]?.destinationAnalysisId ?? null
 }
 
 export async function applyRoundTwoWinner(
@@ -202,16 +237,61 @@ export async function allTravelersSubmittedRoundTwo(
   supabase: SupabaseClient,
   tripId: string
 ): Promise<boolean> {
-  const { count: travelerCount } = await supabase
-    .from('travelers')
-    .select('id', { count: 'exact', head: true })
-    .eq('trip_id', tripId)
+  const status = await getRoundTwoSubmissionStatus(supabase, tripId)
+  return status.eligible > 0 && status.submitted === status.eligible
+}
 
-  const { count: submittedCount } = await supabase
-    .from('travelers')
-    .select('id', { count: 'exact', head: true })
-    .eq('trip_id', tripId)
-    .eq('round_two_submitted', true)
+export async function applyDestinationOverride(
+  supabase: SupabaseClient,
+  tripId: string,
+  opts: { destinationAnalysisId?: string; destinationName?: string }
+): Promise<void> {
+  if (opts.destinationAnalysisId) {
+    const { data: dest } = await supabase
+      .from('destination_analysis')
+      .select('destination_name')
+      .eq('id', opts.destinationAnalysisId)
+      .eq('trip_id', tripId)
+      .single()
+    if (!dest) throw new Error('Destination not found')
 
-  return (travelerCount || 0) > 0 && submittedCount === travelerCount
+    const { error } = await supabase
+      .from('trips')
+      .update({
+        winning_destination_id: opts.destinationAnalysisId,
+        destination: dest.destination_name,
+      })
+      .eq('id', tripId)
+    if (error) throw new Error(error.message)
+    return
+  }
+
+  const name = opts.destinationName?.trim()
+  if (!name) throw new Error('Destination name required')
+
+  const { error } = await supabase
+    .from('trips')
+    .update({
+      winning_destination_id: null,
+      destination: name,
+    })
+    .eq('id', tripId)
+  if (error) throw new Error(error.message)
+}
+
+export async function ensureRoundTwoWinner(
+  supabase: SupabaseClient,
+  tripId: string
+): Promise<string | null> {
+  const { data: trip } = await supabase
+    .from('trips')
+    .select('winning_destination_id, voting_round')
+    .eq('id', tripId)
+    .single()
+
+  if (trip?.winning_destination_id) return trip.winning_destination_id
+  if (trip?.voting_round !== 2) return null
+  if (!(await allTravelersSubmittedRoundTwo(supabase, tripId))) return null
+
+  return applyRoundTwoWinner(supabase, tripId)
 }

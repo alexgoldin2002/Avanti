@@ -154,7 +154,7 @@ export default function RoundTwoVoting({
             onClick={() => void handleSubmit()}
             className="avanti-btn avanti-btn-primary w-full sm:w-auto sm:min-w-[280px] disabled:opacity-50"
           >
-            {submitting ? 'Submitting…' : 'Submit Round 2 Votes'}
+            {submitting ? 'Submitting…' : 'Submit votes'}
           </button>
         </div>
       </div>

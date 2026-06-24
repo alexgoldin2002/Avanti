@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase'
-import type { DestinationAnalysisRow, RoundTwoPersonalContent } from '@/lib/voting/types'
+import type { DestinationAnalysisRow, RoundTwoPersonalContent, VotingResultsPayload } from '@/lib/voting/types'
 
 async function authHeaders(): Promise<HeadersInit> {
   const { data: { session } } = await supabase.auth.getSession()
@@ -19,6 +19,7 @@ export type VotingPayload = {
   }
   submissionStatus?: { eligible: number; submitted: number; pendingNicknames?: string[] }
   roundOneStatus?: { eligible: number; submitted: number; pendingNicknames?: string[] }
+  roundTwoStatus?: { eligible: number; submitted: number; pendingNicknames?: string[] }
   kickoffError?: string | null
   roundOneAdvanceError?: string | null
   traveler?: {
@@ -89,7 +90,7 @@ export async function forceVotingKickoff(tripId: string): Promise<{
 export async function submitRoundTwoVotes(
   tripId: string,
   allocations: Array<{ destinationAnalysisId: string; percentage: number }>
-): Promise<void> {
+): Promise<{ winnerId: string | null; allComplete: boolean }> {
   const res = await fetch('/api/voting/round-two', {
     method: 'POST',
     headers: await authHeaders(),
@@ -97,4 +98,28 @@ export async function submitRoundTwoVotes(
   })
   const data = await res.json()
   if (!res.ok) throw new Error(data.error || 'Failed to submit')
+  return {
+    winnerId: data.winnerId ?? null,
+    allComplete: !!data.allComplete,
+  }
+}
+
+export async function fetchVotingResults(tripId: string): Promise<VotingResultsPayload> {
+  const res = await fetch(`/api/voting/${tripId}/results`, { headers: await authHeaders() })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.error || 'Failed to load results')
+  return data as VotingResultsPayload
+}
+
+export async function overrideTripDestination(
+  tripId: string,
+  opts: { destinationAnalysisId?: string; destinationName?: string }
+): Promise<void> {
+  const res = await fetch('/api/voting/override-destination', {
+    method: 'POST',
+    headers: await authHeaders(),
+    body: JSON.stringify({ tripId, ...opts }),
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.error || 'Failed to override destination')
 }
