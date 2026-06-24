@@ -19,23 +19,24 @@ function parseCountry(name: string): string | null {
   return parts.length >= 2 ? parts[parts.length - 1] : null
 }
 
+/** Card names locked in via "Submit my trip card choices" — not draft "Add to vote" taps. */
+export function getSubmittedCardNames(
+  step2: Record<string, unknown> | null | undefined,
+  maxVotes: number
+): string[] {
+  const picks = (step2 || {}).submittedCardPicks
+  if (Array.isArray(picks) && picks.length > 0) {
+    return picks.map(String).slice(0, maxVotes)
+  }
+  return []
+}
+
+/** @deprecated Use getSubmittedCardNames — cardVotes are draft selections only. */
 export function getSelectedCardNames(
   step2: Record<string, unknown> | null | undefined,
   maxVotes: number
 ): string[] {
-  const s2 = step2 || {}
-  const picks = s2.submittedCardPicks
-  if (Array.isArray(picks) && picks.length > 0) {
-    return picks.map(String).slice(0, maxVotes)
-  }
-  const cardVotes = s2.cardVotes as Record<string, boolean> | undefined
-  if (cardVotes) {
-    const selected = Object.entries(cardVotes)
-      .filter(([, v]) => v)
-      .map(([name]) => name)
-    if (selected.length > 0) return selected.slice(0, maxVotes)
-  }
-  return []
+  return getSubmittedCardNames(step2, maxVotes)
 }
 
 export function travelerNeedsOwnChoices(traveler: TravelerChoiceRow): boolean {
@@ -52,12 +53,8 @@ export function travelerHasSubmittedChoices(
 ): boolean {
   if (!travelerNeedsOwnChoices(traveler)) return true
   if (traveler.choices_submitted) return true
-  const picks = getSelectedCardNames(traveler.step2, maxVotes)
-  if (Array.isArray((traveler.step2 || {}).submittedCardPicks) &&
-      ((traveler.step2 || {}).submittedCardPicks as unknown[]).length > 0) {
-    return true
-  }
-  return picks.length >= maxVotes
+  const picks = getSubmittedCardNames(traveler.step2, maxVotes)
+  return picks.length === maxVotes
 }
 
 export async function getVotingEligibleTravelers(
@@ -175,7 +172,7 @@ export async function ensureVotingKickoff(
   const budgetBounds = computeGroupBudgetBounds(allTravelers || [])
 
   for (const traveler of eligible) {
-    const selectedNames = getSelectedCardNames(traveler.step2, maxVotes)
+    const selectedNames = getSubmittedCardNames(traveler.step2, maxVotes)
     if (selectedNames.length === 0) continue
 
     await upsertTravelerDestinations(supabase, tripId, traveler, selectedNames, budgetBounds)

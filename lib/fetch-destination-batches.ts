@@ -14,7 +14,7 @@ type FetchOptions = {
   messages?: ChatMessage[]
 }
 
-const BATCH_RETRIES = 2
+const BATCH_RETRIES = 4
 
 async function fetchBatchOnce(
   answers: DestinationAnswersPayload,
@@ -163,25 +163,34 @@ export async function fetchRemainingDestinationCards(
         .map(c => extractCountryFromDestinationName(c.name))
         .filter(Boolean) as string[]
 
-    if (mains().length < 3) {
+    while (mains().length < 3 && parsed.length < 4) {
       options.onStatus?.('Adding more destinations…')
-      const batch = await fetchBatch(answers, 'half2', options, mainCountries())
+      const batch =
+        mains().length === 0
+          ? await fetchBatch(answers, 'half1', options)
+          : await fetchBatch(answers, 'half2', options, mainCountries())
+      const before = parsed.length
       parsed = dedupeCardsByCountry([...parsed, ...batch])
       options.onPartialCards?.(parsed)
+      if (parsed.length === before) break
     }
 
     if ((!hasWildcard() || parsed.length < 4) && parsed.length < 4) {
       options.onStatus?.('Picking a wildcard…')
       const excludeAll = mainCountries()
-      const wildcardBatch = await fetchBatch(answers, 'wildcard-only', options, excludeAll)
-      const freshWildcard = wildcardBatch.find(c => c.isWildcard) || wildcardBatch[0]
-      if (freshWildcard && isValidDestinationCardName(freshWildcard.name)) {
-        const mainsOnly = parsed.filter(c => !c.isWildcard)
-        parsed = dedupeCardsByCountry([...mainsOnly, { ...freshWildcard, isWildcard: true }])
-      } else if (wildcardBatch.length > 0) {
-        parsed = dedupeCardsByCountry([...parsed, ...wildcardBatch])
+      try {
+        const wildcardBatch = await fetchBatch(answers, 'wildcard-only', options, excludeAll)
+        const freshWildcard = wildcardBatch.find(c => c.isWildcard) || wildcardBatch[0]
+        if (freshWildcard && isValidDestinationCardName(freshWildcard.name)) {
+          const mainsOnly = parsed.filter(c => !c.isWildcard)
+          parsed = dedupeCardsByCountry([...mainsOnly, { ...freshWildcard, isWildcard: true }])
+        } else if (wildcardBatch.length > 0) {
+          parsed = dedupeCardsByCountry([...parsed, ...wildcardBatch])
+        }
+        options.onPartialCards?.(parsed)
+      } catch {
+        /* keep partial mains if wildcard batch fails */
       }
-      options.onPartialCards?.(parsed)
     }
 
     if (parsed.length === 0) {

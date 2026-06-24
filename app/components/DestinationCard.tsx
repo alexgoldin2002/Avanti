@@ -148,7 +148,7 @@ export default function DestinationCard({
           )}
         </div>
       ))}
-      {!previewMode && (
+      {!previewMode && onVote && (
       <div style={{ padding: '14px 20px', borderTop: `1px solid ${isWildcard ? 'rgba(255,255,255,0.1)' : '#f0f0e8'}`, marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <button
               type="button"

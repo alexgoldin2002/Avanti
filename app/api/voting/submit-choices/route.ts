@@ -60,6 +60,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const cardNames = new Set(cards.map(c => c.name))
+    const invalid = selectedNames.filter(name => !cardNames.has(name))
+    if (invalid.length > 0) {
+      return NextResponse.json(
+        { error: 'Some selected cards are no longer available — refresh and pick again.' },
+        { status: 400 }
+      )
+    }
+
     const { data: travelers } = await supabase
       .from('travelers')
       .select('id, nickname, full_name, step2, fills_own_preferences')

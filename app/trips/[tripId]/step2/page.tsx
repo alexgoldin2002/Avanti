@@ -938,7 +938,7 @@ export default function Step2() {
                 card={card}
                 tripId={tripId}
                 isVoted={!!votes[card.name]}
-                onVote={() => {
+                onVote={!canEditBrainstorm || choicesSubmitted ? undefined : () => {
                   const currentCount = Object.values(votes).filter(Boolean).length
                   const isCurrentlyVoted = votes[card.name]
                   if (!isCurrentlyVoted && currentCount >= maxVotes) return
@@ -965,10 +965,11 @@ export default function Step2() {
           </div>
         )}
 
-        {!generating && cards.length >= 4 && (
+        {!generating && cards.length >= maxVotes && (
           <>
             <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', textAlign: 'center', marginBottom: '8px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
-              {Object.values(votes).filter(Boolean).length} of {maxVotes} cards selected · {cards.length} destinations ready
+              {Object.values(votes).filter(Boolean).length} of {maxVotes} cards selected · {cards.length} destination{cards.length === 1 ? '' : 's'} ready
+              {cards.length < 4 && ' — tap Finish generating above for a full set of 4'}
             </p>
             {datesBlockSubmit && !choicesSubmitted && (
               <p style={{ fontSize: '12px', color: '#a32d2d', textAlign: 'center', margin: '0 0 12px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
