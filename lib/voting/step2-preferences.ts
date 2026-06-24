@@ -1,5 +1,4 @@
 import type { RoundTwoPersonalContent } from './types'
-import { PLACEHOLDER_ROUND_TWO_PERSONAL } from '@/components/voting/DestinationCard'
 
 function asString(value: unknown): string {
   if (typeof value === 'string') return value.trim()
@@ -71,15 +70,6 @@ export function summarizeStep2ForPrompt(step2: Record<string, unknown> | null | 
 export function hasStep2Preferences(step2: Record<string, unknown> | null | undefined): boolean {
   const summary = summarizeStep2ForPrompt(step2)
   return summary !== 'No Step 2 preferences saved yet.'
-}
-
-export function isPlaceholderPersonalContent(content: unknown): boolean {
-  if (!content || typeof content !== 'object') return true
-  const c = content as RoundTwoPersonalContent
-  return (
-    c.personal_fit_summary === PLACEHOLDER_ROUND_TWO_PERSONAL.personal_fit_summary ||
-    c.top_picks_for_you?.join('|') === PLACEHOLDER_ROUND_TWO_PERSONAL.top_picks_for_you.join('|')
-  )
 }
 
 function destinationShortName(destinationName: string): string {

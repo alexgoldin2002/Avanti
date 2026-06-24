@@ -1,6 +1,9 @@
 import type { ParsedDestinationCard } from '@/lib/parse-destination-cards'
-import type { RoundOneContent, RoundTwoPersonalContent } from '@/lib/voting/types'
+import type { RoundOneContent } from '@/lib/voting/types'
+import { PLACEHOLDER_ROUND_TWO_PERSONAL } from '@/lib/voting/constants'
 import BaseDestinationCard from '@/app/components/DestinationCard'
+
+export { PLACEHOLDER_ROUND_TWO_PERSONAL }
 
 export const PLACEHOLDER_GROUP_BUDGET = {
   min: 900,
@@ -26,18 +29,6 @@ export const PLACEHOLDER_ROUND_ONE: RoundOneContent = {
     'Beach club afternoons',
   ],
   weather: 'Late June: ~82°F, virtually no rain, strong afternoon winds off the sea.',
-}
-
-export const PLACEHOLDER_ROUND_TWO_PERSONAL: RoundTwoPersonalContent = {
-  personal_fit_summary:
-    'You said you wanted beaches, nightlife, and a celebratory vibe with friends — Santorini delivers on all three without feeling like a generic resort strip. The tradeoff is peak-season crowds in the main towns.',
-  top_picks_for_you: [
-    'Sunset catamaran with onboard dinner',
-    'Beach club day in Perissa',
-    'Late-night bars in Fira',
-  ],
-  watch_out_for: 'July prices run high — your stated budget is workable but tight if the group wants private boat days.',
-  fit_score: 8,
 }
 
 export const PLACEHOLDER_DESTINATION: ParsedDestinationCard = {

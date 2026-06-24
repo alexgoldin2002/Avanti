@@ -690,17 +690,29 @@ export default function Dashboard() {
   const [showModal, setShowModal] = useState(false)
 
   const loadData = async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { router.push('/'); return }
+    setLoading(true)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        router.push('/')
+        return
+      }
 
-    const { data: prof } = await supabase
-      .from('user_profiles').select('*').eq('user_id', user.id).maybeSingle()
-    if (!prof?.profile_complete) { router.push('/profile'); return }
-    setProfile(prof)
+      const { data: prof } = await supabase
+        .from('user_profiles').select('*').eq('user_id', user.id).maybeSingle()
+      if (!prof?.profile_complete) {
+        router.push('/profile')
+        return
+      }
+      setProfile(prof)
 
-    const tripData = await fetchUserTrips(supabase, user.id)
-    setTrips(tripData as Trip[])
-    setLoading(false)
+      const tripData = await fetchUserTrips(supabase, user.id)
+      setTrips(tripData as Trip[])
+    } catch (e) {
+      console.error('Dashboard load failed:', e)
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => { loadData() }, [])

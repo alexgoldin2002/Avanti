@@ -104,6 +104,20 @@ export async function submitRoundTwoVotes(
   }
 }
 
+export async function fetchPersonalizedPanel(
+  tripId: string,
+  destinationAnalysisId: string
+): Promise<RoundTwoPersonalContent> {
+  const res = await fetch('/api/voting/personalize', {
+    method: 'POST',
+    headers: await authHeaders(),
+    body: JSON.stringify({ tripId, destinationAnalysisId }),
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.error || 'Failed to personalize')
+  return data.content as RoundTwoPersonalContent
+}
+
 export async function fetchVotingResults(tripId: string): Promise<VotingResultsPayload> {
   const res = await fetch(`/api/voting/${tripId}/results`, { headers: await authHeaders() })
   const data = await res.json()

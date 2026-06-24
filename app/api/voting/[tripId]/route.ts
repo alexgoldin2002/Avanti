@@ -11,7 +11,7 @@ import {
   getRoundOneSubmissionStatus,
   getRoundTwoSubmissionStatus,
 } from '@/lib/voting'
-import { ensureRoundTwoPersonalContent } from '@/lib/voting/personalized-content'
+import { resolveRoundTwoPersonalContent } from '@/lib/voting/personalized-content'
 
 export async function GET(
   request: NextRequest,
@@ -137,7 +137,7 @@ export async function GET(
           .eq('destination_analysis_id', d.id)
           .maybeSingle()
 
-        personalized[d.id] = await ensureRoundTwoPersonalContent(db, {
+        personalized[d.id] = await resolveRoundTwoPersonalContent(db, {
           tripId,
           travelerId: traveler.id,
           destinationAnalysisId: d.id,

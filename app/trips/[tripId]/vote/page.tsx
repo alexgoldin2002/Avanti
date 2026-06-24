@@ -103,18 +103,20 @@ export default function VotePage() {
   const [previewRound, setPreviewRound] = useState<1 | 2>(1)
 
   const load = useCallback(async () => {
+    setLoading(true)
     try {
       const json = await fetchVotingState(tripId)
       setData(json)
+      setUsePlaceholder(false)
       setError(null)
     } catch (e) {
-      setUsePlaceholder(true)
-      setData(placeholderPayload(previewRound))
-      setError(e instanceof Error ? e.message : null)
+      setUsePlaceholder(false)
+      setData(null)
+      setError(e instanceof Error ? e.message : 'Failed to load voting')
     } finally {
       setLoading(false)
     }
-  }, [tripId, previewRound])
+  }, [tripId])
 
   useEffect(() => {
     void load()
@@ -137,6 +139,20 @@ export default function VotePage() {
   }, [loading, usePlaceholder, data, tripId, router])
 
   if (loading) return <SuitcaseLoader message="Loading voting" />
+
+  if (error && !data) {
+    return (
+      <SubpageShell backHref={`/trips/${tripId}`} title="Group vote">
+        <div className="avanti-box border border-red-200 bg-red-50 px-6 py-10 text-center max-w-xl mx-auto">
+          <p className="font-serif text-xl mb-2">Could not load voting</p>
+          <p className="text-sm text-muted-foreground mb-6">{error}</p>
+          <button type="button" onClick={() => void load()} className="avanti-btn avanti-btn-primary">
+            Try again →
+          </button>
+        </div>
+      </SubpageShell>
+    )
+  }
 
   const trip = data?.trip
   const round = usePlaceholder ? previewRound : trip?.voting_round

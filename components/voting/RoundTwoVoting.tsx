@@ -1,8 +1,10 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { DestinationAnalysisRow, RoundTwoPersonalContent } from '@/lib/voting/types'
 import { buildFallbackRoundTwoPersonalContent } from '@/lib/voting/step2-preferences'
+import { GroupDestinationCard } from '@/components/voting/DestinationCard'
+import { fetchPersonalizedPanel } from '@/lib/voting/client-api'
 import type { ParsedDestinationCard } from '@/lib/parse-destination-cards'
 
 type RoundTwoVotingProps = {
@@ -34,6 +36,32 @@ export default function RoundTwoVoting({
     }
     return init
   })
+  const [personalPanels, setPersonalPanels] = useState<Record<string, RoundTwoPersonalContent>>(
+    () => ({ ...personalizedByDest })
+  )
+
+  useEffect(() => {
+    setPersonalPanels({ ...personalizedByDest })
+  }, [personalizedByDest])
+
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      for (const d of destinations) {
+        try {
+          const content = await fetchPersonalizedPanel(tripId, d.id)
+          if (!cancelled) {
+            setPersonalPanels(prev => ({ ...prev, [d.id]: content }))
+          }
+        } catch {
+          /* keep instant fallback from GET */
+        }
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [tripId, destinations])
 
   const total = useMemo(
     () => Object.values(allocations).reduce((sum, n) => sum + n, 0),
@@ -110,7 +138,7 @@ export default function RoundTwoVoting({
 
       <div className="flex flex-col gap-8">
         {destinations.map(d => {
-          const personal = personalizedByDest[d.id] || buildFallbackRoundTwoPersonalContent(
+          const personal = personalPanels[d.id] || buildFallbackRoundTwoPersonalContent(
             d.destination_name,
             null,
             d.card_snapshot as Record<string, unknown> | null
