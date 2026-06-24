@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
 
     const { data: existing } = await db
       .from('travelers')
-      .select('id')
+      .select('id, status')
       .eq('trip_id', trip.id)
       .eq('user_id', user.id)
       .maybeSingle()
@@ -118,7 +118,12 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    return NextResponse.json({ ok: true, tripId: trip.id, tripName: trip.name })
+    return NextResponse.json({
+      ok: true,
+      tripId: trip.id,
+      tripName: trip.name,
+      status: existing?.status || 'pending',
+    })
   } catch (e) {
     const msg =
       e && typeof e === 'object' && 'message' in e

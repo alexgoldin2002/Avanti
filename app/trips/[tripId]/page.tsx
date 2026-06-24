@@ -145,6 +145,11 @@ export default function TripDashboard() {
     if (searchParams.get('tab') === 'gametime') setActiveTab('gametime')
   }, [searchParams])
 
+  const dateOverlap = useMemo(() => {
+    if (!trip?.invites_closed || (trip.destination && trip.destination !== 'TBD')) return null
+    return analyzeGroupDateOverlap(travelerProfilesFromRows(travelers))
+  }, [trip?.invites_closed, trip?.destination, travelers])
+
   useEffect(() => {
     const load = async () => {
       const { data: { user } } = await supabase.auth.getUser()
@@ -357,11 +362,6 @@ export default function TripDashboard() {
 
   const activeStep = getActiveStep()
   const readyCount = travelers.filter(t => t.profile_complete).length
-
-  const dateOverlap = useMemo(() => {
-    if (!trip?.invites_closed || (trip.destination && trip.destination !== 'TBD')) return null
-    return analyzeGroupDateOverlap(travelerProfilesFromRows(travelers))
-  }, [trip?.invites_closed, trip?.destination, travelers])
 
   return (
     <>

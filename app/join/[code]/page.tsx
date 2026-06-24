@@ -247,6 +247,7 @@ export default function JoinTrip() {
   const handleJoin = async () => {
     setJoining(true)
     setJoinError('')
+    let navigated = false
     try {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) {
@@ -289,11 +290,18 @@ export default function JoinTrip() {
       }
 
       localStorage.removeItem('pending_join_code')
-      window.location.href = `/join/pending?trip=${encodeURIComponent(data.tripName || trip.name)}&tripId=${data.tripId || trip.id}`
+      navigated = true
+      const tripId = data.tripId || trip.id
+      const tripName = data.tripName || trip.name
+      if (data.status === 'approved') {
+        router.push(`/trips/${tripId}`)
+      } else {
+        router.push(`/join/pending?trip=${encodeURIComponent(tripName)}&tripId=${tripId}`)
+      }
     } catch {
       setJoinError('Something went wrong. Please try again.')
     } finally {
-      setJoining(false)
+      if (!navigated) setJoining(false)
     }
   }
 
