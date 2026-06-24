@@ -8,6 +8,7 @@ import HomeTripPlanner from './components/HomeTripPlanner'
 import { getPostAuthPath, hasPreviewAnswers, isPendingShare, markPendingShare, loadPreviewTrip, savePreviewTrip } from '@/lib/preview-trip-storage'
 import PhoneAuthForm from './components/PhoneAuthForm'
 import { syncUserPhoneToProfile } from '@/lib/auth/sync-user-phone'
+import { SIGNUP_PASSWORD_HINT, validateSignupPassword } from '@/lib/auth/password-strength'
 
 const HERO_VIDEO =
   process.env.NEXT_PUBLIC_HERO_VIDEO ??
@@ -112,6 +113,12 @@ export default function Home() {
     e.preventDefault()
     setLoading(true)
     setError('')
+    const passwordError = validateSignupPassword(password, email)
+    if (passwordError) {
+      setError(passwordError)
+      setLoading(false)
+      return
+    }
     const { error: signUpError } = await supabase.auth.signUp({ email, password })
     if (signUpError) {
       setError(signUpError.message)
@@ -389,11 +396,15 @@ export default function Home() {
                   <input
                     type="password"
                     required
+                    minLength={authMode === 'signup' ? 10 : undefined}
                     value={password}
                     onChange={e => setPassword(e.target.value)}
                     className="w-full border-b border-border bg-transparent py-2 font-serif text-foreground outline-none"
                     placeholder="••••••••"
                   />
+                  {authMode === 'signup' && (
+                    <p className="mt-2 text-xs text-muted-foreground leading-relaxed">{SIGNUP_PASSWORD_HINT}</p>
+                  )}
                 </div>
                 {authMode === 'signin' && (
                   <label className="flex items-center gap-2 eyebrow text-muted-foreground cursor-pointer">

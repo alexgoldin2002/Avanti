@@ -14,6 +14,7 @@ import {
   type AccountCompanion,
 } from '@/lib/account-companions'
 import { addCompanionToTrip } from '@/lib/add-companion-to-trip'
+import { SIGNUP_PASSWORD_HINT, validateSignupPassword } from '@/lib/auth/password-strength'
 
 type JoinStep = 'landing' | 'nickname' | 'travel_party' | 'companion'
 type TravelMode = 'self' | 'manage'
@@ -98,6 +99,12 @@ export default function JoinTrip() {
     setAuthLoading(true)
     setAuthError('')
     if (authMode === 'signup') {
+      const passwordError = validateSignupPassword(password, email)
+      if (passwordError) {
+        setAuthError(passwordError)
+        setAuthLoading(false)
+        return
+      }
       const { data, error } = await supabase.auth.signUp({ email, password })
       if (error) { setAuthError(error.message); setAuthLoading(false); return }
       if (data.user) {
@@ -582,7 +589,10 @@ export default function JoinTrip() {
                 </div>
                 <div>
                   <label style={labelStyle}>Password</label>
-                  <input type="password" required value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" style={inputStyle} />
+                  <input type="password" required minLength={authMode === 'signup' ? 10 : undefined} value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" style={inputStyle} />
+                  {authMode === 'signup' && (
+                    <p style={{ fontSize: '11px', color: 'var(--muted-foreground)', margin: '8px 0 0', lineHeight: 1.5 }}>{SIGNUP_PASSWORD_HINT}</p>
+                  )}
                 </div>
                 <button type="submit" disabled={authLoading}
                   style={{ width: '100%', border: '1px solid var(--forest-deep)', background: 'var(--forest-deep)', color: '#fff', padding: '14px', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '0', opacity: authLoading ? 0.6 : 1, marginTop: '8px', ...s }}>
