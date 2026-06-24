@@ -10,6 +10,7 @@ type RoundOneVotingProps = {
   initialRanks?: Record<string, number>
   onSubmit: (votes: Array<{ destinationAnalysisId: string; rank: number }>) => Promise<void>
   submitting?: boolean
+  readOnly?: boolean
 }
 
 function sortByInitialRanks(
@@ -38,6 +39,7 @@ export default function RoundOneVoting({
   initialRanks = {},
   onSubmit,
   submitting = false,
+  readOnly = false,
 }: RoundOneVotingProps) {
   const [ordered, setOrdered] = useState<DestinationAnalysisRow[]>(() =>
     sortByInitialRanks(destinations, initialRanks)
@@ -111,9 +113,9 @@ export default function RoundOneVoting({
           <div
             key={d.id}
             className="h-full min-h-0"
-            onDragOver={handleDragOver(d.id)}
-            onDrop={handleDrop(d.id)}
-            onDragLeave={() => setDragOverId(null)}
+            onDragOver={readOnly ? undefined : handleDragOver(d.id)}
+            onDrop={readOnly ? undefined : handleDrop(d.id)}
+            onDragLeave={readOnly ? undefined : () => setDragOverId(null)}
             style={{
               opacity: draggingId === d.id ? 0.5 : 1,
               outline: dragOverId === d.id && draggingId !== d.id ? '2px solid var(--forest-deep)' : 'none',
@@ -126,16 +128,21 @@ export default function RoundOneVoting({
               destination={d}
               rank={rankById[d.id]}
               tripId={tripId}
-              dragProps={{
-                draggable: true,
-                onDragStart: handleDragStart(d.id),
-                onDragEnd: handleDragEnd,
-              }}
+              dragProps={
+                readOnly
+                  ? undefined
+                  : {
+                      draggable: true,
+                      onDragStart: handleDragStart(d.id),
+                      onDragEnd: handleDragEnd,
+                    }
+              }
             />
           </div>
         ))}
       </div>
 
+      {!readOnly && (
       <div
         className="fixed bottom-0 left-0 right-0 border-t border-border bg-card px-6 py-4 z-40"
         style={{ boxShadow: '0 -4px 24px rgba(0,0,0,0.06)' }}
@@ -151,6 +158,7 @@ export default function RoundOneVoting({
           </button>
         </div>
       </div>
+      )}
     </div>
   )
 }

@@ -3,6 +3,7 @@ import { supabaseFromRequest, requireUser } from '@/lib/destination-decision/sup
 import { findTravelerForUser } from '@/lib/traveler-lookup'
 import { tryCreateAdminClient } from '@/lib/supabase-admin'
 import { ensureVotingKickoff } from '@/lib/voting/kickoff'
+import { analyzeGroupDateOverlap, travelerProfilesFromRows } from '@/lib/group-date-overlap'
 
 /** Force-sync brainstorm picks → destination_analysis and start voting if ready. */
 export async function POST(request: NextRequest) {
@@ -16,6 +17,19 @@ export async function POST(request: NextRequest) {
     if (!traveler) return NextResponse.json({ error: 'Not a trip member' }, { status: 403 })
 
     const db = tryCreateAdminClient() ?? userClient
+
+    const { data: travelers } = await userClient
+      .from('travelers')
+      .select('id, nickname, full_name, step2, fills_own_preferences')
+      .eq('trip_id', tripId)
+    const overlap = analyzeGroupDateOverlap(travelerProfilesFromRows(travelers || []))
+    if (overlap.status === 'no_overlap' || overlap.status === 'too_short') {
+      return NextResponse.json(
+        { error: overlap.summary, dateOverlap: overlap },
+        { status: 403 }
+      )
+    }
+
     const result = await ensureVotingKickoff(db, tripId)
 
     if (!result) {

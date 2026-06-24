@@ -1,11 +1,13 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import SuitcaseLoader from '../../components/SuitcaseLoader'
 import { BackLink } from '../../components/SubpageShell'
 import GameTimeItinerary from '../../components/GameTimeItinerary'
+import GroupDateOverlapBanner from '@/components/trip/GroupDateOverlapBanner'
+import { analyzeGroupDateOverlap, travelerProfilesFromRows } from '@/lib/group-date-overlap'
 import { mergeFullItinerary } from '@/lib/trip-companion/merge-full-itinerary'
 import { fetchTripBookings } from '@/lib/bookings/client-api'
 import { fetchInspirations } from '@/lib/trip-companion/client-api'
@@ -259,17 +261,20 @@ export default function TripDashboard() {
 
   const getActiveStep = () => {
     if (!trip?.invites_closed) return 1
-    if (trip?.voting_round && !votingComplete) return 3
-    if (!trip?.destination || trip.destination === 'TBD') return 2
-    if (trip?.destination && trip.destination !== 'TBD' && !trip?.flights_locked) return 4
-    return 5
+    if (!trip?.voting_round && !votingComplete) return 2
+    if (trip?.voting_round === 1 && !votingComplete) return 3
+    if (trip?.voting_round === 2 && !votingComplete) return 4
+    if (!votingComplete) return 4
+    if (votingComplete && (!trip?.destination || trip.destination === 'TBD')) return 5
+    if (trip?.destination && trip.destination !== 'TBD' && !trip?.flights_locked) return 6
+    return 7
   }
 
   const getStepState = (stepNum: number): StepState => {
     const active = getActiveStep()
     if (stepNum < active) return 'done'
     if (stepNum === active) return 'active'
-    if (stepNum === active + 1 && stepNum <= 7) return 'open'
+    if (stepNum === active + 1 && stepNum <= 9) return 'open'
     return 'locked'
   }
 
@@ -288,27 +293,41 @@ export default function TripDashboard() {
       key: 'brainstorm',
       number: 2,
       title: 'Brainstorm',
-      subtitle: trip?.invites_closed ? 'Plan with Avanti AI' : 'Opens after invites close',
+      subtitle: trip?.brainstorm_deadline_at
+        ? '48h card window'
+        : trip?.invites_closed
+        ? 'Plan with Avanti AI'
+        : 'Opens after invites close',
       icon: 'ti-brain',
       path: `/trips/${tripId}/step2`,
     },
     {
-      key: 'vote',
+      key: 'round_one',
       number: 3,
-      title: 'Group vote',
-      subtitle: trip?.voting_round
-        ? votingComplete
-          ? 'Complete'
-          : trip.voting_round === 1
-            ? 'Round 1 — Rank choices'
-            : 'Round 2 — Split your vote'
-        : 'After card choices submitted',
-      icon: 'ti-checkbox',
-      path: votingComplete ? `/trips/${tripId}/vote/reveal` : `/trips/${tripId}/vote`,
+      title: 'Round 1',
+      subtitle: trip?.voting_round === 1 ? 'Rank choices · 24h' : trip?.voting_round ? 'Complete' : 'After cards submitted',
+      icon: 'ti-list-numbers',
+      path: `/trips/${tripId}/vote/round-one`,
+    },
+    {
+      key: 'round_two',
+      number: 4,
+      title: 'Round 2',
+      subtitle: trip?.voting_round === 2 && !votingComplete ? 'Split your vote · 48h' : trip?.voting_round === 2 ? 'Complete' : 'After Round 1',
+      icon: 'ti-chart-pie',
+      path: `/trips/${tripId}/vote/round-two`,
+    },
+    {
+      key: 'reveal',
+      number: 5,
+      title: 'Destination',
+      subtitle: votingComplete ? (trip?.destination || 'Revealed') : 'After Round 2',
+      icon: 'ti-map-pin',
+      path: `/trips/${tripId}/vote/reveal`,
     },
     {
       key: 'flights',
-      number: 4,
+      number: 6,
       title: 'Flights',
       subtitle: trip?.flights_locked
         ? 'Dates locked'
@@ -318,9 +337,9 @@ export default function TripDashboard() {
       icon: 'ti-plane',
       path: `/trips/${tripId}/flights`,
     },
-    { key: 'stay', number: 5, title: 'Accommodation', subtitle: 'Hotels and Airbnbs', icon: 'ti-building', path: `/trips/${tripId}/accommodation` },
-    { key: 'activities', number: 6, title: 'Activities', subtitle: 'Things to do', icon: 'ti-compass', path: `/trips/${tripId}/activities` },
-    { key: 'dining', number: 7, title: 'Dining', subtitle: 'Restaurants and reservations', icon: 'ti-tools-kitchen-2', path: `/trips/${tripId}/dining` },
+    { key: 'stay', number: 7, title: 'Accommodation', subtitle: 'Hotels and Airbnbs', icon: 'ti-building', path: `/trips/${tripId}/accommodation` },
+    { key: 'activities', number: 8, title: 'Activities', subtitle: 'Things to do', icon: 'ti-compass', path: `/trips/${tripId}/activities` },
+    { key: 'dining', number: 9, title: 'Dining', subtitle: 'Restaurants and reservations', icon: 'ti-tools-kitchen-2', path: `/trips/${tripId}/dining` },
   ]
 
   if (loading) return <SuitcaseLoader message="Loading your trip" />
@@ -338,6 +357,11 @@ export default function TripDashboard() {
 
   const activeStep = getActiveStep()
   const readyCount = travelers.filter(t => t.profile_complete).length
+
+  const dateOverlap = useMemo(() => {
+    if (!trip?.invites_closed || (trip.destination && trip.destination !== 'TBD')) return null
+    return analyzeGroupDateOverlap(travelerProfilesFromRows(travelers))
+  }, [trip?.invites_closed, trip?.destination, travelers])
 
   return (
     <>
@@ -508,6 +532,18 @@ export default function TripDashboard() {
                 <span className="font-serif italic text-muted-foreground">No actions at this time</span>
               </div>
             </section>
+
+            {/* Group date alignment */}
+            {dateOverlap && dateOverlap.status !== 'waiting' && (
+              <section className="mt-8">
+                <GroupDateOverlapBanner result={dateOverlap} />
+              </section>
+            )}
+            {dateOverlap && dateOverlap.status === 'waiting' && travelers.length > 1 && (
+              <section className="mt-8">
+                <GroupDateOverlapBanner result={dateOverlap} compact />
+              </section>
+            )}
 
             {/* Planning steps */}
             <section className="mt-8">

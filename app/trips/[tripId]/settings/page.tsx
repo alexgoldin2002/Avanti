@@ -6,7 +6,13 @@ import { deleteTripPermanently, leaveTripAsMember } from '@/lib/trip-lifecycle'
 import SuitcaseLoader from '../../../components/SuitcaseLoader'
 import SubpageShell from '../../../components/SubpageShell'
 import AvantiCard from '../../../components/AvantiCard'
-import DangerConfirmModal from '../../../components/DangerConfirmModal'
+import { savePhaseDurations } from '@/lib/trip-phases/client-api'
+import { minutesToSubmissionWindow, submissionWindowToMinutes, formatSubmissionWindow } from '@/lib/submission-window'
+import {
+  DEFAULT_BRAINSTORM_MINUTES,
+  DEFAULT_ROUND_ONE_MINUTES,
+  DEFAULT_ROUND_TWO_MINUTES,
+} from '@/lib/trip-phases/types'
 
 const DELETE_STEPS = [
   {
@@ -70,6 +76,9 @@ export default function TripSettings() {
   const [saved, setSaved] = useState(false)
   const [trip, setTrip] = useState<any>(null)
   const [maxVotes, setMaxVotes] = useState(2)
+  const [brainstormWindow, setBrainstormWindow] = useState({ days: 2, hours: 0, minutes: 0 })
+  const [roundOneWindow, setRoundOneWindow] = useState({ days: 1, hours: 0, minutes: 0 })
+  const [roundTwoWindow, setRoundTwoWindow] = useState({ days: 2, hours: 0, minutes: 0 })
   const [travelerCount, setTravelerCount] = useState(0)
   const [isOrganizer, setIsOrganizer] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
@@ -94,6 +103,9 @@ export default function TripSettings() {
         const tc = count || 0
         setTravelerCount(tc)
         setMaxVotes(tripData.max_votes ?? (tc <= 8 ? 2 : 1))
+        setBrainstormWindow(minutesToSubmissionWindow(tripData.brainstorm_duration_minutes ?? DEFAULT_BRAINSTORM_MINUTES))
+        setRoundOneWindow(minutesToSubmissionWindow(tripData.round_one_duration_minutes ?? DEFAULT_ROUND_ONE_MINUTES))
+        setRoundTwoWindow(minutesToSubmissionWindow(tripData.round_two_duration_minutes ?? DEFAULT_ROUND_TWO_MINUTES))
       }
 
       const { data: myTraveler } = await supabase
@@ -114,6 +126,18 @@ export default function TripSettings() {
     await supabase.from('trips').update({
       max_votes: maxVotes,
     }).eq('id', tripId)
+
+    if (isOrganizer && !trip?.voting_round) {
+      try {
+        await savePhaseDurations(tripId, {
+          brainstormDurationMinutes: submissionWindowToMinutes(brainstormWindow),
+          roundOneDurationMinutes: submissionWindowToMinutes(roundOneWindow),
+          roundTwoDurationMinutes: submissionWindowToMinutes(roundTwoWindow),
+        })
+      } catch (e) {
+        alert(e instanceof Error ? e.message : 'Failed to save phase timers')
+      }
+    }
 
     setSaving(false)
     setSaved(true)
@@ -186,6 +210,45 @@ export default function TripSettings() {
             ))}
           </div>
         </AvantiCard>
+
+        {isOrganizer && !trip?.voting_round && (
+          <AvantiCard shade="ivory" className="!px-6 !py-6 mt-6">
+            <label className="eyebrow text-muted-foreground block mb-2">Phase timers</label>
+            <p className="text-xs text-muted-foreground mb-5 leading-relaxed">
+              Default windows: Brainstorm {formatSubmissionWindow(DEFAULT_BRAINSTORM_MINUTES)}, Round 1{' '}
+              {formatSubmissionWindow(DEFAULT_ROUND_ONE_MINUTES)}, Round 2{' '}
+              {formatSubmissionWindow(DEFAULT_ROUND_TWO_MINUTES)}. Hosts can extend time on each page after a phase opens.
+            </p>
+            {[
+              { label: 'Brainstorm & card submission', value: brainstormWindow, set: setBrainstormWindow },
+              { label: 'Round 1 voting', value: roundOneWindow, set: setRoundOneWindow },
+              { label: 'Round 2 voting', value: roundTwoWindow, set: setRoundTwoWindow },
+            ].map(row => (
+              <div key={row.label} className="mb-5">
+                <p className="text-sm font-serif mb-2">{row.label}</p>
+                <div className="flex gap-3">
+                  {(['days', 'hours', 'minutes'] as const).map(unit => (
+                    <label key={unit} className="flex-1 text-xs text-muted-foreground">
+                      {unit}
+                      <input
+                        type="number"
+                        min={0}
+                        value={row.value[unit]}
+                        onChange={e =>
+                          row.set(prev => ({
+                            ...prev,
+                            [unit]: Math.max(0, parseInt(e.target.value || '0', 10)),
+                          }))
+                        }
+                        className="mt-1 w-full border-b border-border bg-transparent py-1 text-sm text-foreground outline-none font-serif"
+                      />
+                    </label>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </AvantiCard>
+        )}
 
         <button
           type="button"

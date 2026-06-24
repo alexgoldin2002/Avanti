@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import SuitcaseLoader from '../../../components/SuitcaseLoader'
@@ -10,6 +10,11 @@ import type { ParsedDestinationCard } from '@/lib/parse-destination-cards'
 import { STOP_OPTIONS } from '@/lib/preview-trip-storage'
 import { findTravelerForUser, patchTravelerStep2 } from '@/lib/traveler-lookup'
 import SubmitChoicesButton from '@/components/voting/SubmitChoicesButton'
+import PhaseBanner from '@/components/trip-phases/PhaseBanner'
+import PhaseLockedScreen from '@/components/trip-phases/PhaseLockedScreen'
+import { useTripPhase } from '@/lib/trip-phases/useTripPhase'
+import GroupDateOverlapBanner, { groupDatesBlockSubmission } from '@/components/trip/GroupDateOverlapBanner'
+import { analyzeGroupDateOverlap, travelerProfilesFromRows } from '@/lib/group-date-overlap'
 
 export default function Step2() {
   const { tripId } = useParams() as { tripId: string }
@@ -59,6 +64,21 @@ export default function Step2() {
   const [travelerId, setTravelerId] = useState<string | null>(null)
   const [choicesSubmitted, setChoicesSubmitted] = useState(false)
   const [submitToast, setSubmitToast] = useState('')
+  const [groupTravelers, setGroupTravelers] = useState<any[]>([])
+
+  const {
+    phase: brainstormPhase,
+    loading: phaseLoading,
+    canEdit: canEditBrainstorm,
+    canView: canViewBrainstorm,
+    reload: reloadPhase,
+  } = useTripPhase(tripId, 'brainstorm')
+
+  const dateOverlap = useMemo(
+    () => analyzeGroupDateOverlap(travelerProfilesFromRows(groupTravelers)),
+    [groupTravelers]
+  )
+  const datesBlockSubmit = groupDatesBlockSubmission(dateOverlap)
 
   const s = { fontFamily: 'var(--font-cormorant), Georgia, serif' }
   const inputStyle = { width: '100%', borderBottom: '1px solid #d4d4c8', background: 'transparent', padding: '8px 0', fontSize: '15px', color: 'var(--foreground)', outline: 'none', ...s }
@@ -104,7 +124,12 @@ export default function Step2() {
           setTravelerId(traveler.id)
           setChoicesSubmitted(!!(traveler as { choices_submitted?: boolean }).choices_submitted)
         }
-        if (traveler?.step2) {
+        const { data: allTravelers } = await supabase
+          .from('travelers')
+          .select('id, nickname, full_name, step2, fills_own_preferences')
+          .eq('trip_id', tripId)
+        if (allTravelers) setGroupTravelers(allTravelers)
+        if (traveler) {
           const s2 = traveler.step2 as Record<string, unknown>
           if (s2.q1) { setQ1(s2.q1 as string) }
           if (s2.departureCity) setDepartureCities((s2.departureCity as string).split(',').map((c: string) => c.trim()).filter(Boolean))
@@ -434,7 +459,19 @@ export default function Step2() {
     </div>
   )
 
-  if (loading) return <SuitcaseLoader message="Loading" />
+  if (loading || phaseLoading) return <SuitcaseLoader message="Loading" />
+
+  if (brainstormPhase && !canViewBrainstorm) {
+    return (
+      <main style={{ minHeight: '100vh', background: 'transparent', paddingBottom: '140px', ...s }}>
+        <div style={{ maxWidth: '640px', margin: '0 auto', padding: '48px 24px' }}>
+          <BackLink href={`/trips/${tripId}`} wrapperClassName="mb-8 flex justify-end" />
+          <PhaseBanner tripId={tripId} phase={brainstormPhase} isOrganizer={isOrganizer} onUpdated={() => void reloadPhase()} />
+          <PhaseLockedScreen phase={brainstormPhase} backHref={`/trips/${tripId}`} />
+        </div>
+      </main>
+    )
+  }
 
   if (trip && !trip.invites_closed) {
     return (
@@ -460,6 +497,25 @@ export default function Step2() {
     <main style={{ minHeight: '100vh', background: 'transparent', paddingBottom: '140px', ...s }}>
       <div style={{ maxWidth: '640px', margin: '0 auto', padding: '48px 24px' }}>
         <BackLink href={`/trips/${tripId}`} wrapperClassName="mb-8 flex justify-end" />
+        {brainstormPhase && (
+          <PhaseBanner
+            tripId={tripId}
+            phase={brainstormPhase}
+            isOrganizer={isOrganizer}
+            onUpdated={() => void reloadPhase()}
+          />
+        )}
+        {!canEditBrainstorm && canViewBrainstorm && (
+          <div className="avanti-box border border-border bg-secondary/30 px-4 py-3 mb-6 text-sm text-muted-foreground">
+            View only — your card choices are locked. You can review but not change them.
+          </div>
+        )}
+        {groupTravelers.length > 1 && dateOverlap.status !== 'waiting' && (
+          <GroupDateOverlapBanner result={dateOverlap} />
+        )}
+        {groupTravelers.length > 1 && dateOverlap.status === 'waiting' && (
+          <GroupDateOverlapBanner result={dateOverlap} compact />
+        )}
         <div style={{ marginBottom: '40px', textAlign: 'center' }}>
           <p style={{ fontSize: '18px', fontWeight: 400, color: 'var(--foreground)', margin: 0, ...s }}>
             {trip?.name}
@@ -914,11 +970,17 @@ export default function Step2() {
             <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', textAlign: 'center', marginBottom: '8px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
               {Object.values(votes).filter(Boolean).length} of {maxVotes} cards selected · {cards.length} destinations ready
             </p>
+            {datesBlockSubmit && !choicesSubmitted && (
+              <p style={{ fontSize: '12px', color: '#a32d2d', textAlign: 'center', margin: '0 0 12px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+                Fix group date alignment above before submitting card choices.
+              </p>
+            )}
             <SubmitChoicesButton
               tripId={tripId}
               selectedCount={Object.values(votes).filter(Boolean).length}
               requiredCount={maxVotes}
               alreadySubmitted={choicesSubmitted}
+              disabled={!canEditBrainstorm || datesBlockSubmit}
               onSuccess={({ votingRound }) => {
                 setChoicesSubmitted(true)
                 setSubmitToast('Choices submitted ✓')

@@ -3,6 +3,7 @@ import { supabaseFromRequest, requireUser } from '@/lib/destination-decision/sup
 import { findTravelerForUser } from '@/lib/traveler-lookup'
 import { tryCreateAdminClient } from '@/lib/supabase-admin'
 import { getRoundOneSubmissionStatus, applyRoundOneAdvancers, allTravelersSubmittedRoundOne } from '@/lib/voting'
+import { stampRoundTwoOpened } from '@/lib/trip-phases/stamp'
 
 function validateRanks(
   votes: Array<{ destinationAnalysisId: string; rank: number }>,
@@ -50,6 +51,11 @@ export async function POST(request: NextRequest) {
 
     const db = tryCreateAdminClient() ?? supabase
 
+    const phaseCheck = await assertPhaseEditable(db, tripId, traveler.id, user.id, 'round_one')
+    if (!phaseCheck.ok) {
+      return NextResponse.json({ error: phaseCheck.error }, { status: phaseCheck.status })
+    }
+
     const rows = votes.map((v: { destinationAnalysisId: string; rank: number }) => ({
       trip_id: tripId,
       traveler_id: traveler.id,
@@ -76,6 +82,7 @@ export async function POST(request: NextRequest) {
     let advanced = false
     if (await allTravelersSubmittedRoundOne(db, tripId)) {
       await applyRoundOneAdvancers(db, tripId)
+      await stampRoundTwoOpened(db, tripId)
       advanced = true
     }
 

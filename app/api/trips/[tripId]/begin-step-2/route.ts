@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseFromRequest, requireOrganizer } from '@/lib/destination-decision/supabase-server'
 import { tryCreateAdminClient } from '@/lib/supabase-admin'
+import { openBrainstormTimestamps } from '@/lib/trip-phases/finalize'
 
 /** Organizer closes invites and unlocks planning (no voting flow). */
 export async function POST(
@@ -14,9 +15,10 @@ export async function POST(
     const supabase = tryCreateAdminClient() ?? userClient
 
     const now = new Date()
+    const { data: trip } = await supabase.from('trips').select('*').eq('id', tripId).single()
     const { error } = await supabase
       .from('trips')
-      .update({ invites_closed: true, updated_at: now.toISOString() })
+      .update(openBrainstormTimestamps(trip || {}, now))
       .eq('id', tripId)
 
     if (error) {

@@ -196,7 +196,7 @@ export default function DestinationReveal({ tripId, initialResults = null }: Des
                 onClick={() => router.push(`/trips/${tripId}/flights`)}
                 className="avanti-btn avanti-btn-primary"
               >
-                Plan flights →
+                Lock in our destination and plan flights →
               </button>
             </div>
           )}

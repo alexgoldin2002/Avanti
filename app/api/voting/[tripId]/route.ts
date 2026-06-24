@@ -12,6 +12,8 @@ import {
   getRoundTwoSubmissionStatus,
 } from '@/lib/voting'
 import { resolveRoundTwoPersonalContent } from '@/lib/voting/personalized-content'
+import { finalizeExpiredPhases } from '@/lib/trip-phases/finalize'
+import { stampRoundTwoOpened } from '@/lib/trip-phases/stamp'
 
 export async function GET(
   request: NextRequest,
@@ -25,6 +27,7 @@ export async function GET(
     if (!traveler) return NextResponse.json({ error: 'Not a trip member' }, { status: 403 })
 
     const db = tryCreateAdminClient() ?? userClient
+    await finalizeExpiredPhases(db, tripId)
     let kickoffError: string | null = null
     let roundOneAdvanceError: string | null = null
     try {
@@ -42,6 +45,7 @@ export async function GET(
     if (trip?.voting_round === 1 && (await allTravelersSubmittedRoundOne(db, tripId))) {
       try {
         await applyRoundOneAdvancers(db, tripId)
+        await stampRoundTwoOpened(db, tripId)
         const { data: refreshedTrip } = await userClient
           .from('trips')
           .select('id, name, voting_round, total_cards, winning_destination_id, destination, max_votes, start_date, end_date')

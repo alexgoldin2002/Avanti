@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { computeGroupBudgetBounds } from '@/lib/group-budget'
 import type { ParsedDestinationCard } from '@/lib/parse-destination-cards'
 import { PLACEHOLDER_ROUND_ONE } from '@/components/voting/DestinationCard'
+import { stampVotingOpened } from '@/lib/trip-phases/stamp'
 
 export type TravelerChoiceRow = {
   id: string
@@ -208,6 +209,8 @@ export async function ensureVotingKickoff(
       .eq('pushed_to_vote', true)
     if (error) throw new Error(error.message)
   }
+
+  await stampVotingOpened(supabase, tripId, votingRound)
 
   return { votingRound, totalCards }
 }

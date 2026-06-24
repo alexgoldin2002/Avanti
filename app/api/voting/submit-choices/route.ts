@@ -8,6 +8,8 @@ import { tryCreateAdminClient } from '@/lib/supabase-admin'
 import { PLACEHOLDER_ROUND_ONE } from '@/components/voting/DestinationCard'
 import { generateRoundOneContent } from '@/lib/voting/generate-content'
 import type { ParsedDestinationCard } from '@/lib/parse-destination-cards'
+import { assertPhaseEditable } from '@/lib/trip-phases/guards'
+import { analyzeGroupDateOverlap, travelerProfilesFromRows } from '@/lib/group-date-overlap'
 
 function parseCountry(name: string): string | null {
   const parts = name.split(',').map(s => s.trim())
@@ -39,6 +41,11 @@ export async function POST(request: NextRequest) {
 
     const db = tryCreateAdminClient() ?? supabase
 
+    const phaseCheck = await assertPhaseEditable(db, tripId, traveler.id, user.id, 'brainstorm')
+    if (!phaseCheck.ok) {
+      return NextResponse.json({ error: phaseCheck.error }, { status: phaseCheck.status })
+    }
+
     const step2 = (traveler.step2 || {}) as Record<string, unknown>
     const cardVotes = (step2.cardVotes || {}) as Record<string, boolean>
     const cards = (step2.cards || []) as ParsedDestinationCard[]
@@ -53,7 +60,23 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { data: travelers } = await supabase.from('travelers').select('id, step2').eq('trip_id', tripId)
+    const { data: travelers } = await supabase
+      .from('travelers')
+      .select('id, nickname, full_name, step2, fills_own_preferences')
+      .eq('trip_id', tripId)
+
+    const overlap = analyzeGroupDateOverlap(travelerProfilesFromRows(travelers || []))
+    if (overlap.status === 'no_overlap' || overlap.status === 'too_short') {
+      const who = overlap.fixes.map(f => f.displayName).join(', ')
+      return NextResponse.json(
+        {
+          error: `${overlap.summary}${who ? ` Update dates: ${who}.` : ''}`,
+          dateOverlap: overlap,
+        },
+        { status: 403 }
+      )
+    }
+
     const budgetBounds = computeGroupBudgetBounds(travelers || [])
 
     for (const name of selectedNames) {

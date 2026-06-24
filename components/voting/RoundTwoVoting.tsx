@@ -14,6 +14,7 @@ type RoundTwoVotingProps = {
   initialAllocations?: Record<string, number>
   onSubmit: (allocations: Array<{ destinationAnalysisId: string; percentage: number }>) => Promise<void>
   submitting?: boolean
+  readOnly?: boolean
 }
 
 function shortDestinationName(name: string): string {
@@ -28,6 +29,7 @@ export default function RoundTwoVoting({
   initialAllocations = {},
   onSubmit,
   submitting = false,
+  readOnly = false,
 }: RoundTwoVotingProps) {
   const [allocations, setAllocations] = useState<Record<string, number>>(() => {
     const init: Record<string, number> = {}
@@ -122,7 +124,8 @@ export default function RoundTwoVoting({
                   inputMode="numeric"
                   value={allocations[d.id] || 0}
                   onChange={e => setAllocation(d.id, e.target.value)}
-                  className="w-full min-w-0 border-0 bg-transparent px-2 py-1.5 text-sm text-center tabular-nums outline-none font-serif"
+                  disabled={readOnly}
+                  className="w-full min-w-0 border-0 bg-transparent px-2 py-1.5 text-sm text-center tabular-nums outline-none font-serif disabled:opacity-70"
                   aria-label={`Percent for ${d.destination_name}`}
                 />
                 <span className="text-[10px] text-muted-foreground pr-2 shrink-0">%</span>
@@ -172,6 +175,7 @@ export default function RoundTwoVoting({
         })}
       </div>
 
+      {!readOnly && (
       <div
         className="fixed bottom-0 left-0 right-0 border-t border-border bg-card px-6 py-4 z-40"
         style={{ boxShadow: '0 -4px 24px rgba(0,0,0,0.06)' }}
@@ -190,6 +194,7 @@ export default function RoundTwoVoting({
           </button>
         </div>
       </div>
+      )}
     </div>
   )
 }
