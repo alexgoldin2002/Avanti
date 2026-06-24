@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import DestinationCard from './DestinationCard'
 import ProtectedContent from './ProtectedContent'
-import { fetchPreviewDestinationCards } from '@/lib/fetch-destination-batches'
+import { fetchPreviewDestinationCards, GENERATION_TIME_HINT } from '@/lib/fetch-destination-batches'
 import { savePreviewTrip, loadPreviewTrip, markPendingShare } from '@/lib/preview-trip-storage'
 import DateRangeFields, { isValidDateRange } from './DateRangeFields'
 
@@ -492,8 +492,11 @@ export default function HomeTripPlanner({ onSignupRequest, onSigninRequest }: { 
               <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" style={{ animation: 'spin 1.5s linear infinite', transformOrigin: 'center' }} />
             </svg>
             <p style={{ fontSize: '11px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#2d6a4f', ...s }}>Avanti is thinking...</p>
+            <p style={{ fontSize: '15px', color: 'var(--foreground)', textAlign: 'center', maxWidth: '320px', lineHeight: 1.6, ...s }}>
+              {GENERATION_TIME_HINT}
+            </p>
             <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', textAlign: 'center', maxWidth: '280px', lineHeight: 1.6, ...s }}>
-              {generateStatus || 'Weighing destinations against your vibe, budget, and deal breakers'}
+              {generateStatus && generateStatus !== GENERATION_TIME_HINT ? generateStatus : 'Weighing destinations against your vibe, budget, and deal breakers…'}
             </p>
           </div>
         )}

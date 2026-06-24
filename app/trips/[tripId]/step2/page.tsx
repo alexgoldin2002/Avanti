@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase'
 import SuitcaseLoader from '../../../components/SuitcaseLoader'
 import DestinationCard from '../../../components/DestinationCard'
 import { BackLink } from '../../../components/SubpageShell'
-import { fetchFullDestinationCards, fetchRemainingDestinationCards } from '@/lib/fetch-destination-batches'
+import { fetchFullDestinationCards, fetchRemainingDestinationCards, GENERATION_TIME_HINT } from '@/lib/fetch-destination-batches'
 import type { ParsedDestinationCard } from '@/lib/parse-destination-cards'
 import { STOP_OPTIONS } from '@/lib/preview-trip-storage'
 import { findTravelerForUser, patchTravelerStep2 } from '@/lib/traveler-lookup'
@@ -333,7 +333,7 @@ export default function Step2() {
 
     setGenerating(true)
     setGenerateError(null)
-    setGenerateStatus(resume ? 'Finishing your destinations…' : 'Finding your first destinations…')
+    setGenerateStatus(GENERATION_TIME_HINT)
     if (!resume) {
       setCards([])
     }
@@ -827,7 +827,10 @@ export default function Step2() {
               <>
                 <UserBubble>{q3}</UserBubble>
                 {(stage === 3 || stage === 'generate' || stage === 'done') && !editMode && !generating && (
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '24px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', marginTop: '24px', gap: '10px' }}>
+                    <p style={{ fontSize: '12px', color: 'var(--muted-foreground)', textAlign: 'right', margin: 0, lineHeight: 1.6, maxWidth: '320px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+                      {GENERATION_TIME_HINT}
+                    </p>
                     <button
                       onClick={() => generateDestinations()}
                       style={{
@@ -883,8 +886,11 @@ export default function Step2() {
               <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" style={{ animation: 'spin 1.5s linear infinite', transformOrigin: 'center' }} />
             </svg>
             <p style={{ fontSize: '11px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#2d6a4f', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>Avanti is thinking...</p>
-            <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', textAlign: 'center', maxWidth: '280px', lineHeight: 1.6, fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
-              {generateStatus || 'Based on what you\'ve shared — weighing destinations against your vibe, budget, and deal breakers'}
+            <p style={{ fontSize: '15px', color: 'var(--foreground)', textAlign: 'center', maxWidth: '320px', lineHeight: 1.6, fontFamily: 'var(--font-cormorant), Georgia, serif', margin: 0 }}>
+              {GENERATION_TIME_HINT}
+            </p>
+            <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', textAlign: 'center', maxWidth: '320px', lineHeight: 1.6, fontFamily: 'var(--font-cormorant), Georgia, serif', margin: 0 }}>
+              {generateStatus && generateStatus !== GENERATION_TIME_HINT ? generateStatus : 'Weighing destinations against your vibe, budget, and deal breakers…'}
             </p>
           </div>
         )}
@@ -917,9 +923,14 @@ export default function Step2() {
         {!editMode && cards.length > 0 && (
           <>
             {generating && (
-              <p style={{ fontSize: '12px', color: 'var(--muted-foreground)', textAlign: 'center', marginTop: '24px', lineHeight: 1.6, fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
-                {generateStatus || 'Adding more destinations…'}
-              </p>
+              <div style={{ marginTop: '24px', marginBottom: '8px', textAlign: 'center' }}>
+                <p style={{ fontSize: '14px', color: 'var(--foreground)', margin: '0 0 8px', lineHeight: 1.6, fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+                  {GENERATION_TIME_HINT}
+                </p>
+                <p style={{ fontSize: '12px', color: 'var(--muted-foreground)', margin: 0, lineHeight: 1.6, fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+                  {generateStatus && generateStatus !== GENERATION_TIME_HINT ? generateStatus : `${cards.length} of 4 ready…`}
+                </p>
+              </div>
             )}
             {generateError && cards.length > 0 && cards.length < 4 && (
               <div style={{ marginTop: '16px', padding: '14px 18px', border: '1px solid #d4a017', background: '#fef9ec', textAlign: 'center' }}>

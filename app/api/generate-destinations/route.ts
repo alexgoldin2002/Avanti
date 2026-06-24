@@ -75,7 +75,12 @@ export async function POST(request: NextRequest) {
         : [{ role: 'user' as const, content: userMessage }]
 
     if (!useStream) {
-      const maxTokens = batch === 'wildcard-only' ? 1200 : batch === 'all' ? 3200 : 1800
+      const maxTokens =
+        batch === 'wildcard-only' || batch === 'single-main'
+          ? 1200
+          : batch === 'all'
+            ? 3200
+            : 1800
       const result = await createDestinationCards(client, conversationMessages, maxTokens)
       if (!result.cards.length) {
         console.warn('generate-destinations: empty cards', {
@@ -90,7 +95,7 @@ export async function POST(request: NextRequest) {
 
     const anthropicStream = client.messages.stream({
       model: 'claude-sonnet-4-6',
-      max_tokens: batch === 'wildcard-only' ? 1200 : batch === 'all' ? 3200 : 1800,
+      max_tokens: batch === 'wildcard-only' || batch === 'single-main' ? 1200 : batch === 'all' ? 3200 : 1800,
       system: DESTINATION_SYSTEM_PROMPT,
       messages: conversationMessages,
     })

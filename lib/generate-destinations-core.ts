@@ -191,7 +191,7 @@ Deal breakers: ${answers.q3 || 'None stated'}${travelTimeRule}${chatSupplement}
 Generate 4 destination cards now (3 main + 1 wildcard). Remember: only ONE card per country (United States excepted). All 4 cards must be in 4 different countries.`
 }
 
-export type DestinationBatch = 'all' | 'half1' | 'half2' | 'wildcard-only'
+export type DestinationBatch = 'all' | 'half1' | 'half2' | 'single-main' | 'wildcard-only'
 
 export function appendBatchInstructions(
   userMessage: string,
@@ -210,6 +210,14 @@ Generate ONLY the first TWO main destination cards. Do NOT write a third main ca
 Generate ONE more main destination card PLUS the WILDCARD card (2 cards total).
 ${exclude.length ? `Countries already used — do NOT repeat: ${exclude.join(', ')}.` : ''}
 The WILDCARD must be in a country not used in any other card. NAME must be a real place (City/Region, Country) — never meta text like "skipped" or "excluded".`
+  }
+  if (batch === 'single-main') {
+    const exclude = excludeCountries.filter(Boolean)
+    return `${userMessage}
+
+Generate ONLY ONE main destination card (not a wildcard). Stop after that card's closing --- line.
+${exclude.length ? `Countries already used — do NOT repeat: ${exclude.join(', ')}.` : 'Pick a strong fit for this group.'}
+NAME must be a real place (City/Region, Country) — never meta text like "skipped" or "excluded".`
   }
   if (batch === 'wildcard-only') {
     const exclude = excludeCountries.filter(Boolean)
