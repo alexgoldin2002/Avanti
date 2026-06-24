@@ -13,7 +13,6 @@ import {
   listAccountCompanions,
   type AccountCompanion,
 } from '@/lib/account-companions'
-import { addCompanionToTrip } from '@/lib/add-companion-to-trip'
 import { SIGNUP_PASSWORD_HINT, validateSignupPassword } from '@/lib/auth/password-strength'
 
 type JoinStep = 'landing' | 'nickname' | 'travel_party' | 'companion'
@@ -61,14 +60,22 @@ export default function JoinTrip() {
   const [authError, setAuthError] = useState('')
   const [authChannel, setAuthChannel] = useState<'email' | 'phone'>('email')
   const [linkClosed, setLinkClosed] = useState(false)
+  const [linkClosedReason, setLinkClosedReason] = useState('')
+  const [accepting, setAccepting] = useState(false)
+  const [joinError, setJoinError] = useState('')
 
   useEffect(() => {
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       setUser(user)
       const { data: tripData } = await supabase.from('trips').select('*').eq('invite_code', code).maybeSingle()
-      if (tripData?.invites_closed) {
+      if (tripData?.invites_closed || tripData?.invite_locked) {
         setLinkClosed(true)
+        setLinkClosedReason(
+          tripData.invites_closed
+            ? 'The organizer has closed this trip to new guests. If you think this is a mistake, reach out to the trip organizer directly.'
+            : 'The organizer is finalizing trip settings — new joins are paused for now. Ask them to unlock the invite link if you still need to join.'
+        )
         setLoading(false)
         return
       }
@@ -82,16 +89,36 @@ export default function JoinTrip() {
     init()
   }, [code])
 
-  const handleAccept = async () => {
-    if (linkClosed) return
-    if (!user) {
-      localStorage.setItem('pending_join_code', code)
-      setShowAuthModal(true)
-      return
+  const continueAfterAuth = async (authedUser: { id: string; email?: string | null; phone?: string | null }) => {
+    setUser(authedUser)
+    setShowAuthModal(false)
+    setJoinError('')
+    try {
+      const rows = await listAccountCompanions(supabase, authedUser.id)
+      setSavedCompanions(rows)
+    } catch {
+      setSavedCompanions([])
     }
-    const rows = await listAccountCompanions(supabase, user.id)
-    setSavedCompanions(rows)
     setStep('nickname')
+  }
+
+  const handleAccept = async () => {
+    if (linkClosed || accepting) return
+    setJoinError('')
+    setAccepting(true)
+    try {
+      const { data: { user: authedUser } } = await supabase.auth.getUser()
+      if (!authedUser) {
+        localStorage.setItem('pending_join_code', code)
+        setShowAuthModal(true)
+        return
+      }
+      await continueAfterAuth(authedUser)
+    } catch {
+      setJoinError('Something went wrong. Please try again.')
+    } finally {
+      setAccepting(false)
+    }
   }
 
   const handleAuth = async (e: React.FormEvent) => {
@@ -117,9 +144,7 @@ export default function JoinTrip() {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) { setAuthError(error.message); setAuthLoading(false); return }
       if (data.user) {
-        setUser(data.user)
-        setShowAuthModal(false)
-        setStep('nickname')
+        await continueAfterAuth(data.user)
       }
     }
     setAuthLoading(false)
@@ -221,57 +246,55 @@ export default function JoinTrip() {
 
   const handleJoin = async () => {
     setJoining(true)
-    const { data: profile } = await supabase.from('user_profiles').select('*').eq('user_id', user.id).maybeSingle()
-    const { data: existing } = await supabase.from('travelers').select('id').eq('trip_id', trip.id).eq('user_id', user.id).maybeSingle()
-
-    if (!existing) {
-      const { data: inserted, error } = await supabase.from('travelers').insert({
-        trip_id: trip.id,
-        full_name: profile?.full_name || '',
-        email: profile?.email || user?.email || '',
-        nickname: nickname || profile?.full_name?.split(' ')[0] || '',
-        role: 'member',
-        profile_complete: !!profile?.profile_complete,
-        status: 'pending',
-        user_id: user.id,
-      }).select('id').single()
-      if (error) {
-        console.error('Insert error:', error)
-        setJoining(false)
+    setJoinError('')
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        setJoinError('Your session expired. Please sign in again.')
+        setShowAuthModal(true)
         return
       }
-    }
 
-    if (travelMode === 'manage') {
-      const queue = [...pendingCompanions]
-      if (selectedCompanionId || companionForm.full_name.trim()) {
-        queue.push({
-          ...companionForm,
-          linked_user_id: linkedUserId,
-          savedCompanionId: selectedCompanionId || undefined,
-        })
+      const companions =
+        travelMode === 'manage'
+          ? [
+              ...pendingCompanions,
+              ...(selectedCompanionId || companionForm.full_name.trim()
+                ? [{
+                    ...companionForm,
+                    linked_user_id: linkedUserId,
+                    savedCompanionId: selectedCompanionId || undefined,
+                  }]
+                : []),
+            ]
+          : []
+
+      const res = await fetch('/api/join', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          inviteCode: code,
+          nickname,
+          companions,
+        }),
+      })
+
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setJoinError(data.error || 'Could not join this trip. Please try again.')
+        return
       }
 
-      for (const item of queue) {
-        if (item.savedCompanionId) {
-          await addCompanionToTrip(trip.id, { savedCompanionId: item.savedCompanionId })
-        } else {
-          await addCompanionToTrip(trip.id, {
-            companion: {
-              full_name: item.full_name,
-              relationship: item.relationship,
-              passport_number: item.passport_number,
-              tsa_known_traveler: item.tsa_known_traveler,
-              date_of_birth: item.date_of_birth || undefined,
-              linked_user_id: item.linked_user_id,
-            },
-          })
-        }
-      }
+      localStorage.removeItem('pending_join_code')
+      window.location.href = `/join/pending?trip=${encodeURIComponent(data.tripName || trip.name)}&tripId=${data.tripId || trip.id}`
+    } catch {
+      setJoinError('Something went wrong. Please try again.')
+    } finally {
+      setJoining(false)
     }
-
-    localStorage.removeItem('pending_join_code')
-    window.location.href = `/join/pending?trip=${encodeURIComponent(trip.name)}&tripId=${trip.id}`
   }
 
   const s = { fontFamily: 'var(--font-cormorant), Georgia, serif' }
@@ -289,7 +312,7 @@ export default function JoinTrip() {
         <div style={{ marginBottom: '24px' }}><AvantiLogo size="sm" /></div>
         <div style={{ fontSize: '32px', marginBottom: '16px' }}>🔒</div>
         <h2 style={{ fontSize: '24px', fontWeight: 300, color: 'var(--foreground)', margin: '0 0 10px' }}>Invite link closed</h2>
-        <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', lineHeight: 1.7 }}>The organizer has closed this trip to new guests. If you think this is a mistake, reach out to the trip organizer directly.</p>
+        <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', lineHeight: 1.7 }}>{linkClosedReason || 'The organizer has closed this trip to new guests. If you think this is a mistake, reach out to the trip organizer directly.'}</p>
       </div>
       </div>
       <Footer />
@@ -348,9 +371,13 @@ export default function JoinTrip() {
                 </p>
               )}
 
-              <button onClick={handleAccept}
-                style={{ width: '100%', border: '1px solid var(--forest-deep)', background: 'var(--forest-deep)', color: '#fff', padding: '16px', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '0', ...s }}>
-                Accept invitation →
+              {joinError && (
+                <p style={{ fontSize: '12px', color: '#c0392b', marginBottom: '16px', textAlign: 'center', lineHeight: 1.6 }}>{joinError}</p>
+              )}
+
+              <button onClick={handleAccept} disabled={accepting}
+                style={{ width: '100%', border: '1px solid var(--forest-deep)', background: 'var(--forest-deep)', color: '#fff', padding: '16px', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '0', opacity: accepting ? 0.6 : 1, ...s }}>
+                {accepting ? 'Please wait...' : 'Accept invitation →'}
               </button>
             </>
           )}
@@ -366,6 +393,9 @@ export default function JoinTrip() {
                 style={{ width: '100%', border: '1px solid var(--forest-deep)', background: 'var(--forest-deep)', color: '#fff', padding: '16px', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '0', opacity: !nickname.trim() ? 0.5 : 1, ...s }}>
                 Continue →
               </button>
+              {joinError && (
+                <p style={{ fontSize: '12px', color: '#c0392b', marginTop: '16px', lineHeight: 1.6 }}>{joinError}</p>
+              )}
             </div>
           )}
 
@@ -403,6 +433,9 @@ export default function JoinTrip() {
                 style={{ width: '100%', border: '1px solid var(--forest-deep)', background: 'var(--forest-deep)', color: '#fff', padding: '16px', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '0', opacity: joining ? 0.5 : 1, ...s }}>
                 {joining ? 'Joining...' : travelMode === 'manage' ? 'Add traveler →' : `Join ${trip.name} →`}
               </button>
+              {joinError && (
+                <p style={{ fontSize: '12px', color: '#c0392b', marginTop: '16px', lineHeight: 1.6 }}>{joinError}</p>
+              )}
             </div>
           )}
 
@@ -434,6 +467,7 @@ export default function JoinTrip() {
                         relationship: c.relationship || '',
                         passport_number: c.passport_number || '',
                         tsa_known_traveler: c.tsa_known_traveler || '',
+                        date_of_birth: c.date_of_birth || '',
                       })
                     }}
                       style={{
@@ -525,6 +559,9 @@ export default function JoinTrip() {
                 style={{ width: '100%', border: '1px solid var(--forest-deep)', background: 'var(--forest-deep)', color: '#fff', padding: '16px', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '0', opacity: (joining || (pendingCompanions.length === 0 && !selectedCompanionId && !companionForm.full_name.trim())) ? 0.5 : 1, ...s }}>
                 {joining ? 'Joining...' : `Join ${trip.name} →`}
               </button>
+              {joinError && (
+                <p style={{ fontSize: '12px', color: '#c0392b', marginTop: '16px', lineHeight: 1.6 }}>{joinError}</p>
+              )}
               <button type="button" onClick={() => setStep('travel_party')}
                 style={{ width: '100%', marginTop: '10px', background: 'none', border: 'none', fontSize: '11px', color: 'var(--muted-foreground)', cursor: 'pointer', ...s }}>
                 ← Back
