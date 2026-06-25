@@ -12,6 +12,11 @@ import {
   getRoundTwoSubmissionStatus,
 } from '@/lib/voting'
 import { resolveRoundTwoPersonalContent } from '@/lib/voting/personalized-content'
+import { resolveRoundOneContent } from '@/lib/voting/round-one-content'
+import { estimateDestinationPrice } from '@/lib/pricing/estimate-destination-price'
+import type { DestinationPriceEstimate } from '@/lib/pricing/types'
+import { resolveTripTravelWindow, getTypicalWeatherLine, debugTypicalWeather } from '@/lib/weather/climate-summary'
+import { syncTripGroupOverlap } from '@/lib/group-date-overlap/sync-trip-overlap'
 import { finalizeExpiredPhases } from '@/lib/trip-phases/finalize'
 import { stampRoundTwoOpened } from '@/lib/trip-phases/stamp'
 
@@ -38,9 +43,26 @@ export async function GET(
 
     const { data: trip } = await userClient
       .from('trips')
-      .select('id, name, voting_round, total_cards, winning_destination_id, destination, max_votes, start_date, end_date')
+      .select(
+        'id, name, voting_round, total_cards, winning_destination_id, destination, max_votes, start_date, end_date, group_overlap_start, group_overlap_end, group_overlap_nights, group_overlap_status, group_overlap_computed_at'
+      )
       .eq('id', tripId)
       .single()
+
+    let overlapSyncError: string | null = null
+    try {
+      await syncTripGroupOverlap(db, tripId)
+      const { data: tripFresh } = await userClient
+        .from('trips')
+        .select(
+          'id, name, voting_round, total_cards, winning_destination_id, destination, max_votes, start_date, end_date, group_overlap_start, group_overlap_end, group_overlap_nights, group_overlap_status, group_overlap_computed_at'
+        )
+        .eq('id', tripId)
+        .single()
+      if (tripFresh) Object.assign(trip ?? {}, tripFresh)
+    } catch (e) {
+      overlapSyncError = e instanceof Error ? e.message : 'Failed to sync group overlap'
+    }
 
     if (trip?.voting_round === 1 && (await allTravelersSubmittedRoundOne(db, tripId))) {
       try {
@@ -90,9 +112,70 @@ export async function GET(
       .eq('pushed_to_vote', true)
       .order('destination_name')
 
+    const { data: allTravelersForPricing } = await userClient
+      .from('travelers')
+      .select('id, nickname, full_name, step2')
+      .eq('trip_id', tripId)
+
+    const travelWindow = resolveTripTravelWindow({ trip })
+    const weatherDebug: Awaited<ReturnType<typeof debugTypicalWeather>>[] = []
+
     const round = trip?.voting_round
-    const roundOneDestinations = destinations || []
-    const roundTwoDestinations = (destinations || []).filter(d => d.advanced_to_round_two)
+    const rawDestinations = destinations || []
+    const roundOneDestinations = await Promise.all(
+      rawDestinations.map(async d => {
+        const climateWeather = travelWindow
+          ? await getTypicalWeatherLine(d.destination_name, travelWindow, d.country)
+          : null
+
+        if (process.env.NODE_ENV === 'development' && travelWindow) {
+          weatherDebug.push(
+            await debugTypicalWeather({
+              destinationName: d.destination_name,
+              countryHint: d.country,
+              window: travelWindow,
+            })
+          )
+        }
+
+        const resolved = resolveRoundOneContent({
+          roundOneContent: d.round_one_content,
+          cardSnapshot: (d.card_snapshot || null) as Record<string, unknown> | null,
+          destinationName: d.destination_name,
+          climateWeather,
+          hasTravelWindow: travelWindow != null,
+        })
+
+        let priceEstimate: DestinationPriceEstimate | null =
+          (d.price_estimate as DestinationPriceEstimate | null) ?? null
+        const computedAt = priceEstimate?.computedAt
+        const stalePrice =
+          !computedAt ||
+          Date.now() - new Date(computedAt).getTime() > 6 * 60 * 60 * 1000
+
+        if ((stalePrice || !priceEstimate) && round !== 2) {
+          priceEstimate = await estimateDestinationPrice({
+            destinationName: d.destination_name,
+            country: d.country,
+            travelWindow,
+            travelers: allTravelersForPricing || [],
+            cardSnapshot: (d.card_snapshot || null) as Record<string, unknown> | null,
+            adults: allTravelersForPricing?.length || 1,
+          })
+        }
+
+        void db
+          .from('destination_analysis')
+          .update({
+            round_one_content: resolved,
+            price_estimate: priceEstimate,
+          })
+          .eq('id', d.id)
+
+        return { ...d, round_one_content: resolved, price_estimate: priceEstimate }
+      })
+    )
+    const roundTwoDestinations = roundOneDestinations.filter(d => d.advanced_to_round_two)
 
     const filterIds = round === 2 ? roundTwoDestinations.map(d => d.id) : roundOneDestinations.map(d => d.id)
 
@@ -172,6 +255,9 @@ export async function GET(
       roundOneRanks,
       roundTwoAllocations,
       personalized,
+      travelWindow,
+      overlapSyncError,
+      ...(process.env.NODE_ENV === 'development' ? { weatherDebug } : {}),
     })
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'Unknown error'

@@ -102,9 +102,9 @@ export default function RoundOneVoting({
   return (
     <div className="pb-28">
       <div className="avanti-box border border-forest-deep/20 bg-forest-pale px-5 py-4 mb-8">
-        <p className="font-serif text-lg text-forest-deep m-0 mb-1">Round 1 — Rank your choices</p>
-        <p className="text-sm text-muted-foreground m-0">
-          Drag destinations to reorder. <strong>1</strong> is your top choice.
+        <p className="text-sm text-muted-foreground m-0 leading-relaxed">
+          Rank the destinations from the one you&apos;re most excited about to the one you&apos;re least.{' '}
+          <strong>1</strong> is your top choice. Drag to reorder, or type a number in the circle.
         </p>
       </div>
 
@@ -127,7 +127,6 @@ export default function RoundOneVoting({
             <RoundOneCard
               destination={d}
               rank={rankById[d.id]}
-              tripId={tripId}
               dragProps={
                 readOnly
                   ? undefined

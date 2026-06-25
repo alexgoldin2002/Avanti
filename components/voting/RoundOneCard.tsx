@@ -1,19 +1,19 @@
 'use client'
 
-import { useState } from 'react'
 import type { DestinationAnalysisRow, RoundOneContent } from '@/lib/voting/types'
 import {
-  GroupDestinationCard,
-  PLACEHOLDER_DESTINATION,
-  PLACEHOLDER_ROUND_ONE,
-  formatBudgetLine,
-} from '@/components/voting/DestinationCard'
-import type { ParsedDestinationCard } from '@/lib/parse-destination-cards'
+  budgetFitStyle,
+  formatPriceRangeLine,
+  priceRangeSubline,
+} from '@/lib/voting/round-one-price'
+import {
+  isPlaceholderRoundOneContent,
+  resolveRoundOneContent,
+} from '@/lib/voting/round-one-content'
 
 type RoundOneCardProps = {
   destination: DestinationAnalysisRow
   rank: number
-  tripId?: string
   dragProps?: {
     draggable: boolean
     onDragStart: (e: React.DragEvent) => void
@@ -30,15 +30,19 @@ function parseCountry(name: string, country: string | null): { title: string; co
   return { title: name, countryLabel: '—' }
 }
 
-function cardFromSnapshot(snapshot: Record<string, unknown>): ParsedDestinationCard {
-  return { ...PLACEHOLDER_DESTINATION, ...(snapshot as Partial<ParsedDestinationCard>) }
-}
-
-export default function RoundOneCard({ destination, rank, tripId, dragProps }: RoundOneCardProps) {
-  const [learnMoreOpen, setLearnMoreOpen] = useState(false)
-  const content: RoundOneContent = destination.round_one_content || PLACEHOLDER_ROUND_ONE
+export default function RoundOneCard({ destination, rank, dragProps }: RoundOneCardProps) {
+  const content: RoundOneContent =
+    destination.round_one_content &&
+    !isPlaceholderRoundOneContent(destination.round_one_content)
+      ? destination.round_one_content
+      : resolveRoundOneContent({
+          roundOneContent: destination.round_one_content,
+          cardSnapshot: destination.card_snapshot,
+          destinationName: destination.destination_name,
+        })
   const { title, countryLabel } = parseCountry(destination.destination_name, destination.country)
-  const groupCard = cardFromSnapshot(destination.card_snapshot || {})
+  const priceEstimate = destination.price_estimate
+  const fitStyle = budgetFitStyle(priceEstimate?.budgetFit ?? 'unknown')
 
   const s = { fontFamily: 'var(--font-cormorant), Georgia, serif' }
 
@@ -110,49 +114,35 @@ export default function RoundOneCard({ destination, rank, tripId, dragProps }: R
             <BulletList items={content.activities} />
           </Section>
 
-          <Section label="Budget">
+          <Section label="Price range">
+            {priceEstimate?.budgetFit === 'over_budget' && priceEstimate.budgetFitMessage && (
+              <p
+                style={{
+                  fontSize: '12px',
+                  color: fitStyle.color,
+                  background: fitStyle.background,
+                  margin: '0 0 8px',
+                  padding: '8px 10px',
+                  lineHeight: 1.5,
+                  ...s,
+                }}
+              >
+                {priceEstimate.budgetFitMessage}
+              </p>
+            )}
             <p style={{ fontSize: '13px', color: '#1a1a1a', margin: 0, ...s }}>
-              {formatBudgetLine(destination.feasibility_floor, destination.highest_member_max)}
+              {formatPriceRangeLine(priceEstimate)}
             </p>
+            {priceRangeSubline(priceEstimate) && (
+              <p style={{ fontSize: '11px', color: '#9a9a8a', margin: '6px 0 0', lineHeight: 1.5, ...s }}>
+                {priceRangeSubline(priceEstimate)}
+              </p>
+            )}
           </Section>
 
           <Section label="Weather">
             <p style={{ fontSize: '13px', color: '#3a3a3a', margin: 0, ...s }}>{content.weather}</p>
           </Section>
-        </div>
-
-        <div style={{ borderTop: '1px solid #f0f0e8', marginTop: 'auto' }}>
-          <button
-            type="button"
-            draggable={false}
-            onMouseDown={e => e.stopPropagation()}
-            onClick={() => setLearnMoreOpen(o => !o)}
-            style={{
-              width: '100%',
-              padding: '12px 20px',
-              background: 'transparent',
-              border: 'none',
-              textAlign: 'left',
-              fontSize: '10px',
-              letterSpacing: '0.15em',
-              textTransform: 'uppercase',
-              color: '#6a6a6a',
-              cursor: 'pointer',
-              userSelect: 'auto',
-              ...s,
-            }}
-          >
-            {learnMoreOpen ? 'Hide details ↑' : 'Learn more ↓'}
-          </button>
-          {learnMoreOpen && (
-            <div
-              style={{ padding: '0 12px 16px' }}
-              draggable={false}
-              onMouseDown={e => e.stopPropagation()}
-            >
-              <GroupDestinationCard card={groupCard} tripId={tripId} />
-            </div>
-          )}
         </div>
       </div>
     </div>

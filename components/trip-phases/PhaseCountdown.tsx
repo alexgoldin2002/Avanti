@@ -8,9 +8,17 @@ type PhaseCountdownProps = {
   deadlineAt: string | null
   access: PhaseAccessMode
   label?: string
+  variant?: 'box' | 'inline'
+  size?: 'sm' | 'lg'
 }
 
-export default function PhaseCountdown({ deadlineAt, access, label = 'Time remaining' }: PhaseCountdownProps) {
+export default function PhaseCountdown({
+  deadlineAt,
+  access,
+  label = 'Time remaining',
+  variant = 'inline',
+  size = 'sm',
+}: PhaseCountdownProps) {
   const [parts, setParts] = useState(() => countdownParts(deadlineAt))
 
   useEffect(() => {
@@ -22,8 +30,23 @@ export default function PhaseCountdown({ deadlineAt, access, label = 'Time remai
 
   if (!deadlineAt || access === 'not_opened') return null
 
-  const closed = access === 'expired' || access === 'view_only' && parts.done
+  const closed = access === 'expired' || (access === 'view_only' && parts.done)
   const urgent = !parts.done && parts.days === 0 && parts.hours < 6
+  const display = parts.done ? 'Window closed' : parts.label
+
+  if (variant === 'inline') {
+    return (
+      <span
+        className={`font-serif tabular-nums ${
+          size === 'lg' ? 'text-xl' : 'text-sm'
+        } ${
+          closed ? 'text-muted-foreground' : urgent ? 'text-amber-900' : 'text-forest-deep'
+        }`}
+      >
+        {display}
+      </span>
+    )
+  }
 
   return (
     <div
@@ -38,19 +61,9 @@ export default function PhaseCountdown({ deadlineAt, access, label = 'Time remai
       <div>
         <p className="text-[10px] uppercase tracking-[0.28em] text-muted-foreground mb-1">{label}</p>
         <p className={`font-serif text-lg ${closed ? 'text-muted-foreground' : 'text-forest-deep'}`}>
-          {parts.done ? 'Window closed' : parts.label}
+          {display}
         </p>
       </div>
-      {!parts.done && access === 'active' && (
-        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-          Changes lock when the timer hits zero
-        </span>
-      )}
-      {access === 'view_only' && !parts.done && (
-        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-          View only — you already submitted
-        </span>
-      )}
     </div>
   )
 }

@@ -5,7 +5,6 @@ import { supabase } from '@/lib/supabase'
 import SuitcaseLoader from '../components/SuitcaseLoader'
 import Footer from '../components/Footer'
 import { BackLink } from '../components/SubpageShell'
-import { hasPreviewAnswers, isPendingShare } from '@/lib/preview-trip-storage'
 import { PHONE_COUNTRY_CODES } from '@/lib/phone'
 import TravelersTab from './TravelersTab'
 import DateOfBirthSelect from '../components/DateOfBirthSelect'
@@ -126,10 +125,6 @@ function ProfileSetupInner() {
       if (pendingCode) {
         localStorage.removeItem('pending_join_code')
         router.push(`/join/${pendingCode}`)
-        return
-      }
-      if (hasPreviewAnswers() && isPendingShare()) {
-        router.push('/create')
         return
       }
       router.push('/dashboard')

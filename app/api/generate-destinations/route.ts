@@ -13,6 +13,9 @@ import {
   type DestinationBatch,
 } from '@/lib/generate-destinations-core'
 import { parseDestinationCards } from '@/lib/parse-destination-cards'
+import { enrichDestinationCardsWithClimate } from '@/lib/weather/enrich-cards'
+import { syncTripGroupOverlap } from '@/lib/group-date-overlap/sync-trip-overlap'
+import { tryCreateAdminClient } from '@/lib/supabase-admin'
 import {
   buildChatSupplementBlock,
   resolveGroupSize,
@@ -54,10 +57,16 @@ export async function POST(request: NextRequest) {
         is_event_centered: false,
       }
     } else {
+      const admin = tryCreateAdminClient()
       const { data: tripData } = await supabase.from('trips').select('*').eq('id', tripId).single()
       trip = tripData
       const { data: travelers } = await supabase.from('travelers').select('*').eq('trip_id', tripId)
       dbTravelerCount = travelers?.length || 0
+      if (admin && tripId) {
+        await syncTripGroupOverlap(admin, tripId)
+        const { data: refreshed } = await supabase.from('trips').select('*').eq('id', tripId).single()
+        if (refreshed) trip = refreshed
+      }
     }
 
     const travelerCount = resolveGroupSize({
@@ -90,7 +99,8 @@ export async function POST(request: NextRequest) {
           textPreview: result.message?.slice(0, 400),
         })
       }
-      return NextResponse.json(result)
+      const cards = await enrichDestinationCardsWithClimate(result.cards, trip)
+      return NextResponse.json({ ...result, cards })
     }
 
     const anthropicStream = client.messages.stream({
@@ -114,10 +124,11 @@ export async function POST(request: NextRequest) {
           }
 
           const parsed = dedupeCardsByCountry(parseDestinationCards(streamedText).cards)
+          const cards = await enrichDestinationCardsWithClimate(parsed, trip)
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({
             done: true,
             fullText: streamedText,
-            cards: parsed,
+            cards,
           })}\n\n`))
         } catch (e: unknown) {
           const message = e instanceof Error ? e.message : 'Generation failed'

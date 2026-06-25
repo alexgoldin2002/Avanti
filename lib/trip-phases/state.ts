@@ -45,7 +45,7 @@ export function getBrainstormAccess(
     return {
       access: 'not_opened',
       note: isOrganizer
-        ? 'Close invites to open Brainstorm and start the 48-hour card window.'
+        ? 'Close invites to open Brainstorm and start the card submission window.'
         : 'Waiting for the host to open Brainstorm.',
     }
   }
@@ -59,16 +59,35 @@ export function getBrainstormAccess(
     }
   }
 
-  if (trip.brainstorm_closed_at || isPast(trip.brainstorm_deadline_at)) {
+  const windowClosed =
+    trip.voting_round != null ||
+    !!trip.brainstorm_closed_at ||
+    isPast(trip.brainstorm_deadline_at)
+
+  if (windowClosed) {
+    const submitted =
+      !!traveler?.choices_submitted ||
+      (Array.isArray((traveler?.step2 as Record<string, unknown> | undefined)?.submittedCardPicks) &&
+        ((traveler?.step2 as Record<string, unknown>).submittedCardPicks as unknown[]).length > 0)
     return {
-      access: traveler?.choices_submitted ? 'view_only' : 'expired',
-      note: 'Brainstorm window closed — submissions are final.',
+      access: submitted ? 'view_only' : 'expired',
+      note: submitted
+        ? 'Brainstorm window closed — your card choices are final.'
+        : 'Brainstorm window closed — you did not submit card choices in time.',
     }
   }
-  if (traveler?.choices_submitted) {
-    return { access: 'view_only', note: 'Your card choices are submitted. You can review but not change them.' }
+
+  const hasSubmitted =
+    !!traveler?.choices_submitted ||
+    (Array.isArray((traveler?.step2 as Record<string, unknown> | undefined)?.submittedCardPicks) &&
+      ((traveler?.step2 as Record<string, unknown>).submittedCardPicks as unknown[]).length > 0)
+
+  return {
+    access: 'active',
+    note: hasSubmitted
+      ? 'You can change your card picks until the window closes.'
+      : 'Submit your trip card choices before the submission window closes.',
   }
-  return { access: 'active', note: 'Submit your trip card choices before the timer runs out.' }
 }
 
 export function getRoundOneAccess(

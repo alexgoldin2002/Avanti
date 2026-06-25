@@ -6,6 +6,10 @@ import ProtectedContent from './ProtectedContent'
 import { fetchPreviewDestinationCards, GENERATION_TIME_HINT } from '@/lib/fetch-destination-batches'
 import { savePreviewTrip, loadPreviewTrip, markPendingShare } from '@/lib/preview-trip-storage'
 import DateRangeFields, { isValidDateRange } from './DateRangeFields'
+import {
+  departureCitiesToStoredString,
+  parseDepartureCitiesFromStep2,
+} from '@/lib/departure-cities'
 
 type Stage = 1 | 2 | 3 | 'generate' | 'done'
 
@@ -51,7 +55,9 @@ export default function HomeTripPlanner({ onSignupRequest, onSigninRequest }: { 
     if (saved.answers) {
       const a = saved.answers
       if (a.q1) setQ1(String(a.q1))
-      if (a.departureCity) setDepartureCities(String(a.departureCity).split(',').map(c => c.trim()).filter(Boolean))
+      if (a.departureCity || a.departureCities) {
+        setDepartureCities(parseDepartureCitiesFromStep2(a as Record<string, unknown>))
+      }
       if (a.dates) {
         if (a.dates === 'Completely flexible') setDates('')
         else setDates(String(a.dates))
@@ -156,7 +162,8 @@ export default function HomeTripPlanner({ onSignupRequest, onSigninRequest }: { 
   const buildAnswersPayload = () => ({
     q1,
     tripLabel: q1.slice(0, 80) || 'Group trip',
-    departureCity: departureCities.join(', '),
+    departureCities,
+    departureCity: departureCitiesToStoredString(departureCities),
     dates,
     fixedDates,
     flexLength,

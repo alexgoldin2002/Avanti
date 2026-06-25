@@ -10,6 +10,14 @@ type DateRangeFieldsProps = {
   labelStyle?: React.CSSProperties
 }
 
+export function todayIsoDate(): string {
+  const d = new Date()
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
 function formatPickerHint(iso: string): string {
   const d = new Date(`${iso.slice(0, 10)}T12:00:00`)
   if (Number.isNaN(d.getTime())) return iso
@@ -18,6 +26,8 @@ function formatPickerHint(iso: string): string {
 
 export function isValidDateRange(start: string, end: string): boolean {
   if (!start || !end) return false
+  const today = todayIsoDate()
+  if (start < today || end < start) return false
   return end >= start
 }
 
@@ -30,9 +40,12 @@ export default function DateRangeFields({
   inputStyle = {},
   labelStyle = {},
 }: DateRangeFieldsProps) {
+  const today = todayIsoDate()
+  const endMin = start && start >= today ? start : today
   const endBeforeStart = Boolean(start && end && end < start)
 
-  const handleStartChange = (nextStart: string) => {
+  const handleStartChange = (raw: string) => {
+    const nextStart = raw && raw < today ? today : raw
     let nextEnd = end
     if (nextStart && nextEnd && nextEnd < nextStart) {
       nextEnd = nextStart
@@ -40,7 +53,8 @@ export default function DateRangeFields({
     onChange({ start: nextStart, end: nextEnd })
   }
 
-  const handleEndChange = (nextEnd: string) => {
+  const handleEndChange = (raw: string) => {
+    const nextEnd = raw && raw < endMin ? endMin : raw
     if (start && nextEnd && nextEnd < start) return
     onChange({ start, end: nextEnd })
   }
@@ -53,6 +67,7 @@ export default function DateRangeFields({
           type="date"
           style={inputStyle}
           value={start}
+          min={today}
           onChange={e => handleStartChange(e.target.value)}
         />
       </div>
@@ -69,7 +84,7 @@ export default function DateRangeFields({
           type="date"
           style={inputStyle}
           value={end}
-          min={start || undefined}
+          min={endMin}
           onChange={e => handleEndChange(e.target.value)}
         />
         {endBeforeStart && (

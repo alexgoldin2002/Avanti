@@ -1,4 +1,26 @@
-import type { RoundTwoPersonalContent } from './types'
+import type { RoundTwoPersonalContent, RoundOneContent } from './types'
+
+/** Sentinel Round 1 card — Santorini demo copy. Keep in sync with UI fallback. */
+export const PLACEHOLDER_ROUND_ONE: RoundOneContent = {
+  overview:
+    'A sun-drenched Mediterranean island chain known for whitewashed villages, volcanic beaches, and a relaxed pace that suits both celebration trips and slow cultural wandering. Appeals to groups who want scenery, food, and nightlife without a packed sightseeing schedule.',
+  best_known_for: [
+    'Caldera sunsets',
+    'Island hopping',
+    'Fresh seafood tavernas',
+    'Volcanic beaches',
+    'Vibrant summer nightlife',
+  ],
+  activities: [
+    'Boat days to hidden coves',
+    'Wine tasting in hillside villages',
+    'Sunset dinner in Oia',
+    'Hiking coastal trails',
+    'Old town market mornings',
+    'Beach club afternoons',
+  ],
+  weather: 'Late June: ~82°F, virtually no rain, strong afternoon winds off the sea.',
+}
 
 /** Sentinel text — do not import from UI components (keeps server bundles clean). */
 export const PLACEHOLDER_ROUND_TWO_PERSONAL: RoundTwoPersonalContent = {

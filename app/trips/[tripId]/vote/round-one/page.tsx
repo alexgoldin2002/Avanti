@@ -92,7 +92,13 @@ export default function RoundOneVotePage() {
       maxWidth="max-w-6xl"
     >
       {phase && (
-        <PhaseBanner tripId={tripId} phase={phase} isOrganizer={isOrganizer} onUpdated={() => void reloadPhase()} />
+        <PhaseBanner
+          tripId={tripId}
+          phase={phase}
+          isOrganizer={isOrganizer}
+          onUpdated={() => void reloadPhase()}
+          hideTitle
+        />
       )}
       {isViewOnly && (
         <div className="avanti-box border border-border bg-secondary/30 px-4 py-3 mb-6 text-sm text-muted-foreground">

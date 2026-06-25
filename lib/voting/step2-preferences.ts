@@ -1,4 +1,5 @@
 import type { RoundTwoPersonalContent } from './types'
+import { splitListField } from './round-one-content'
 
 function asString(value: unknown): string {
   if (typeof value === 'string') return value.trim()
@@ -108,13 +109,16 @@ export function buildFallbackRoundTwoPersonalContent(
     summary += ` This is how ${short} could fit what you told us in Brainstorm.`
   }
 
-  const topPicks = activities.length
-    ? activities.slice(0, 3).map(a => `${a} in ${short}`)
-    : [
-        `Explore ${short} with your group`,
-        vibe[0] ? `${vibe[0]} experiences in ${short}` : `Local highlights in ${short}`,
-        accommodation ? `${accommodation} base for day trips` : `A relaxed day in ${short}`,
-      ]
+  const topPicks = (() => {
+    const cardActivities = splitListField(asString(cardSnapshot?.activities))
+    if (cardActivities.length >= 3) return cardActivities.slice(0, 3)
+    if (activities.length) return activities.slice(0, 3).map(a => `${a} in ${short}`)
+    return [
+      `Explore ${short} with your group`,
+      vibe[0] ? `${vibe[0]} experiences in ${short}` : `Local highlights in ${short}`,
+      accommodation ? `${accommodation} base for day trips` : `A relaxed day in ${short}`,
+    ]
+  })()
 
   let watchOut = consider || 'Confirm flight time and seasonality for your travel dates.'
   if (budget) {

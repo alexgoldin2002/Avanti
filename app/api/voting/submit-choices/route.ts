@@ -1,15 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseFromRequest, requireUser } from '@/lib/destination-decision/supabase-server'
 import { findTravelerForUser, patchTravelerStep2 } from '@/lib/traveler-lookup'
-import { computeGroupBudgetBounds } from '@/lib/group-budget'
-import { allTravelersSubmittedChoices } from '@/lib/voting'
-import { ensureVotingKickoff } from '@/lib/voting/kickoff'
 import { tryCreateAdminClient } from '@/lib/supabase-admin'
-import { PLACEHOLDER_ROUND_ONE } from '@/components/voting/DestinationCard'
+import { PLACEHOLDER_ROUND_ONE } from '@/lib/voting/constants'
+import {
+  buildRoundOneContentFromSnapshot,
+  isStaleRoundOneContent,
+} from '@/lib/voting/round-one-content'
 import { generateRoundOneContent } from '@/lib/voting/generate-content'
 import type { ParsedDestinationCard } from '@/lib/parse-destination-cards'
 import { assertPhaseEditable } from '@/lib/trip-phases/guards'
 import { analyzeGroupDateOverlap, travelerProfilesFromRows } from '@/lib/group-date-overlap'
+import type { RoundOneContent } from '@/lib/voting/types'
+import { resolveTripTravelWindow, getTypicalWeatherLine } from '@/lib/weather/climate-summary'
+import { syncTripGroupOverlap } from '@/lib/group-date-overlap/sync-trip-overlap'
+import { resolveRoundOneWeather } from '@/lib/weather/round-one-weather'
 
 function parseCountry(name: string): string | null {
   const parts = name.split(',').map(s => s.trim())
@@ -19,13 +24,22 @@ function parseCountry(name: string): string | null {
 async function ensureRoundOneContent(
   destinationName: string,
   country: string | null,
-  existing: unknown
+  existing: unknown,
+  cardSnapshot: Record<string, unknown>
 ) {
-  if (existing && typeof existing === 'object') return existing
+  if (existing && !isStaleRoundOneContent(existing, destinationName)) {
+    return existing
+  }
+
+  const fromSnapshot = buildRoundOneContentFromSnapshot(cardSnapshot)
+  if (fromSnapshot && !isStaleRoundOneContent(fromSnapshot, destinationName)) {
+    return fromSnapshot
+  }
+
   try {
     return await generateRoundOneContent({ destinationName, country })
   } catch {
-    return PLACEHOLDER_ROUND_ONE
+    return fromSnapshot ?? PLACEHOLDER_ROUND_ONE
   }
 }
 
@@ -51,7 +65,13 @@ export async function POST(request: NextRequest) {
     const cards = (step2.cards || []) as ParsedDestinationCard[]
     const selectedNames = Object.entries(cardVotes).filter(([, v]) => v).map(([name]) => name)
 
-    const { data: trip } = await supabase.from('trips').select('max_votes').eq('id', tripId).single()
+    const { data: trip } = await supabase
+      .from('trips')
+      .select(
+        'max_votes, group_overlap_start, group_overlap_end, group_overlap_nights, group_overlap_status, group_overlap_computed_at'
+      )
+      .eq('id', tripId)
+      .single()
     const required = trip?.max_votes ?? 2
     if (selectedNames.length !== required) {
       return NextResponse.json(
@@ -86,7 +106,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const budgetBounds = computeGroupBudgetBounds(travelers || [])
+    await syncTripGroupOverlap(db, tripId)
+    const { data: tripOverlap } = await db
+      .from('trips')
+      .select(
+        'group_overlap_start, group_overlap_end, group_overlap_nights, group_overlap_status, group_overlap_computed_at'
+      )
+      .eq('id', tripId)
+      .single()
+    const travelWindow = resolveTripTravelWindow({ trip: tripOverlap ?? trip })
 
     for (const name of selectedNames) {
       const card = cards.find(c => c.name === name)
@@ -99,7 +127,23 @@ export async function POST(request: NextRequest) {
         .eq('destination_name', name)
         .maybeSingle()
 
-      const roundOneContent = await ensureRoundOneContent(name, country, existing?.round_one_content)
+      let roundOneContent = (await ensureRoundOneContent(
+        name,
+        country,
+        existing?.round_one_content,
+        (card || {}) as Record<string, unknown>
+      )) as RoundOneContent
+
+      const climateLine = travelWindow
+        ? await getTypicalWeatherLine(name, travelWindow, country)
+        : null
+      roundOneContent = {
+        ...roundOneContent,
+        weather: resolveRoundOneWeather({
+          climateLine,
+          hasTravelWindow: travelWindow != null,
+        }),
+      }
 
       await db.from('destination_analysis').upsert(
         {
@@ -111,8 +155,6 @@ export async function POST(request: NextRequest) {
           card_snapshot: card || {},
           pushed_to_vote: true,
           round_one_content: roundOneContent,
-          feasibility_floor: budgetBounds?.groupMinBudget ?? 900,
-          highest_member_max: budgetBounds?.groupMaxBudget ?? 2100,
         },
         { onConflict: 'trip_id,destination_name' }
       )
@@ -124,22 +166,9 @@ export async function POST(request: NextRequest) {
       cardsSubmittedAt: new Date().toISOString(),
     })
 
-    let votingRound: number | null = null
-    let totalCards = 0
-
-    if (await allTravelersSubmittedChoices(db, tripId)) {
-      const kickoff = await ensureVotingKickoff(db, tripId)
-      if (kickoff) {
-        votingRound = kickoff.votingRound
-        totalCards = kickoff.totalCards
-      }
-    }
-
     return NextResponse.json({
       ok: true,
-      votingRound,
-      totalCards,
-      allSubmitted: votingRound != null,
+      submitted: true,
     })
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'Unknown error'

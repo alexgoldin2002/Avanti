@@ -1,7 +1,14 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { computeGroupBudgetBounds } from '@/lib/group-budget'
 import type { ParsedDestinationCard } from '@/lib/parse-destination-cards'
-import { PLACEHOLDER_ROUND_ONE } from '@/components/voting/DestinationCard'
+import { PLACEHOLDER_ROUND_ONE } from '@/lib/voting/constants'
+import {
+  buildRoundOneContentFromSnapshot,
+  isStaleRoundOneContent,
+} from '@/lib/voting/round-one-content'
+import type { RoundOneContent } from '@/lib/voting/types'
+import { syncTripGroupOverlap } from '@/lib/group-date-overlap/sync-trip-overlap'
+import { resolveTripTravelWindow, getTypicalWeatherLine } from '@/lib/weather/climate-summary'
+import { resolveRoundOneWeather } from '@/lib/weather/round-one-weather'
 import { stampVotingOpened } from '@/lib/trip-phases/stamp'
 
 export type TravelerChoiceRow = {
@@ -95,7 +102,7 @@ async function upsertTravelerDestinations(
   tripId: string,
   traveler: TravelerChoiceRow,
   selectedNames: string[],
-  budgetBounds: ReturnType<typeof computeGroupBudgetBounds>
+  travelWindow: ReturnType<typeof resolveTripTravelWindow>
 ): Promise<void> {
   const cards = ((traveler.step2 || {}).cards || []) as ParsedDestinationCard[]
 
@@ -113,6 +120,23 @@ async function upsertTravelerDestinations(
 
     if (readErr) throw new Error(readErr.message)
 
+    const snapshotContent = buildRoundOneContentFromSnapshot((card || {}) as Record<string, unknown>)
+    let roundOneContent: RoundOneContent =
+      existing?.round_one_content && !isStaleRoundOneContent(existing.round_one_content, name)
+        ? (existing.round_one_content as RoundOneContent)
+        : snapshotContent ?? PLACEHOLDER_ROUND_ONE
+
+    const climateLine = travelWindow
+      ? await getTypicalWeatherLine(name, travelWindow, country)
+      : null
+    roundOneContent = {
+      ...roundOneContent,
+      weather: resolveRoundOneWeather({
+        climateLine,
+        hasTravelWindow: travelWindow != null,
+      }),
+    }
+
     const { error: upsertErr } = await supabase.from('destination_analysis').upsert(
       {
         id: existing?.id,
@@ -122,9 +146,7 @@ async function upsertTravelerDestinations(
         country,
         card_snapshot: card || {},
         pushed_to_vote: true,
-        round_one_content: existing?.round_one_content || PLACEHOLDER_ROUND_ONE,
-        feasibility_floor: budgetBounds?.groupMinBudget ?? 900,
-        highest_member_max: budgetBounds?.groupMaxBudget ?? 2100,
+        round_one_content: roundOneContent,
       },
       { onConflict: 'trip_id,destination_name' }
     )
@@ -143,18 +165,27 @@ async function countVoteCards(supabase: SupabaseClient, tripId: string): Promise
   return count || 0
 }
 
-/** Backfill destination rows and start voting when every eligible traveler is ready. */
+/** Backfill destination rows and start voting once the brainstorm window has closed. */
 export async function ensureVotingKickoff(
   supabase: SupabaseClient,
   tripId: string
 ): Promise<{ votingRound: number; totalCards: number } | null> {
   const { data: trip, error: tripErr } = await supabase
     .from('trips')
-    .select('voting_round, max_votes, total_cards')
+    .select(
+      'voting_round, max_votes, total_cards, brainstorm_closed_at, brainstorm_deadline_at, group_overlap_start, group_overlap_end, group_overlap_nights, group_overlap_status, group_overlap_computed_at'
+    )
     .eq('id', tripId)
     .single()
 
   if (tripErr) throw new Error(tripErr.message)
+
+  const brainstormWindowClosed =
+    !!trip?.brainstorm_closed_at ||
+    (trip?.brainstorm_deadline_at != null &&
+      new Date(trip.brainstorm_deadline_at).getTime() <= Date.now())
+
+  if (!brainstormWindowClosed) return null
 
   if (trip?.voting_round != null) {
     return { votingRound: trip.voting_round, totalCards: trip.total_cards ?? 0 }
@@ -165,17 +196,27 @@ export async function ensureVotingKickoff(
   if (!eligible.length) return null
   if (!eligible.every(t => travelerHasSubmittedChoices(t, maxVotes))) return null
 
-  const { data: allTravelers } = await supabase
-    .from('travelers')
-    .select('id, step2')
-    .eq('trip_id', tripId)
-  const budgetBounds = computeGroupBudgetBounds(allTravelers || [])
+  await syncTripGroupOverlap(supabase, tripId)
+  const { data: tripOverlap } = await supabase
+    .from('trips')
+    .select(
+      'group_overlap_start, group_overlap_end, group_overlap_nights, group_overlap_status, group_overlap_computed_at'
+    )
+    .eq('id', tripId)
+    .single()
+  const travelWindow = resolveTripTravelWindow({ trip: tripOverlap ?? trip })
 
   for (const traveler of eligible) {
     const selectedNames = getSubmittedCardNames(traveler.step2, maxVotes)
     if (selectedNames.length === 0) continue
 
-    await upsertTravelerDestinations(supabase, tripId, traveler, selectedNames, budgetBounds)
+    await upsertTravelerDestinations(
+      supabase,
+      tripId,
+      traveler,
+      selectedNames,
+      travelWindow
+    )
 
     if (!traveler.choices_submitted) {
       const { error } = await supabase

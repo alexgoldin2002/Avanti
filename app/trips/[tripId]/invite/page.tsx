@@ -32,11 +32,9 @@ export default function InviteGuests() {
   const [pendingApprovals, setPendingApprovals] = useState<any[]>([])
   const [showRemoveModal, setShowRemoveModal] = useState<string | null>(null)
   const [invitesClosed, setInvitesClosed] = useState(false)
-  const [inviteLocked, setInviteLocked] = useState(false)
-  const [showStartStep2, setShowStartStep2] = useState(false)
+  const [showStartPlanningConfirm, setShowStartPlanningConfirm] = useState(false)
   const [startingStep2, setStartingStep2] = useState(false)
   const [expandedParty, setExpandedParty] = useState<Set<string>>(new Set())
-  const [showMemberConvos, setShowMemberConvos] = useState(true)
   const [addMode, setAddMode] = useState<'new' | 'saved'>('new')
   const [addIntent, setAddIntent] = useState<'on_invite' | 'invite_link'>('on_invite')
   const [newAttendee, setNewAttendee] = useState({
@@ -64,10 +62,6 @@ export default function InviteGuests() {
     if (tripData) {
       setTrip(tripData)
       setInvitesClosed(!!tripData.invites_closed)
-      if (tripData.invite_locked) setInviteLocked(true)
-      if (tripData?.show_member_conversations !== undefined) {
-        setShowMemberConvos(tripData.show_member_conversations)
-      }
     }
     const { data: travelerData } = await supabase.from('travelers').select('*').eq('trip_id', tripId)
     if (travelerData) setAttendees(travelerData)
@@ -90,7 +84,7 @@ export default function InviteGuests() {
 
   useEffect(() => {
     load()
-    const channel = supabase
+    const travelersChannel = supabase
       .channel('travelers-changes')
       .on('postgres_changes', {
         event: '*',
@@ -102,7 +96,26 @@ export default function InviteGuests() {
       })
       .subscribe()
 
-    return () => { supabase.removeChannel(channel) }
+    const tripChannel = supabase
+      .channel('trip-changes')
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'trips',
+        filter: `id=eq.${tripId}`,
+      }, payload => {
+        const updated = payload.new as { invites_closed?: boolean; brainstorm_opened_at?: string }
+        if (updated.invites_closed) {
+          setInvitesClosed(true)
+          setTrip((t: any) => (t ? { ...t, ...updated } : t))
+        }
+      })
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(travelersChannel)
+      supabase.removeChannel(tripChannel)
+    }
   }, [tripId])
 
   const inviteUrl = typeof window !== 'undefined' ? `${window.location.origin}/join/${trip?.invite_code}` : ''
@@ -210,16 +223,20 @@ export default function InviteGuests() {
   const handleBeginStep2 = async () => {
     setStartingStep2(true)
     try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const headers: HeadersInit = { 'Content-Type': 'application/json' }
+      if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`
+
       const res = await fetch(`/api/trips/${tripId}/begin-step-2`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({}),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed to close invites')
       setInvitesClosed(true)
-      setTrip((t: any) => (t ? { ...t, invites_closed: true } : t))
-      setShowStartStep2(false)
+      setTrip((t: any) => (t ? { ...t, invites_closed: true, brainstorm_opened_at: new Date().toISOString() } : t))
+      setShowStartPlanningConfirm(false)
       router.push(`/trips/${tripId}/step2`)
     } catch (e) {
       alert(e instanceof Error ? e.message : 'Failed to start Step 2')
@@ -401,7 +418,7 @@ export default function InviteGuests() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: '100%', background: 'var(--cream)', ...s }}>
-      <div style={{ flex: 1, maxWidth: '560px', margin: '0 auto', padding: '40px 24px 80px', width: '100%' }}>
+      <div style={{ flex: 1, maxWidth: '560px', margin: '0 auto', padding: `40px 24px ${!isOrganizer ? '160px' : '80px'}`, width: '100%' }}>
 
         <BackLink href={`/trips/${tripId}`} wrapperClassName="mb-9 flex justify-end" />
 
@@ -732,77 +749,27 @@ export default function InviteGuests() {
           </div>
         )}
 
-        {isOrganizer && (
-          <div style={{ background: 'var(--card)', border: '0.5px solid var(--border)', borderRadius: '14px', padding: '18px 20px', marginBottom: '16px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div>
-                <p style={{ fontSize: '13px', color: 'var(--foreground)', margin: '0 0 4px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>Show member conversations</p>
-                <p style={{ fontSize: '11px', color: 'var(--muted-foreground)', margin: 0, lineHeight: 1.5 }}>Allow everyone to read each other's Avanti conversations</p>
-              </div>
-              <button
-                onClick={async () => {
-                  const newVal = !showMemberConvos
-                  setShowMemberConvos(newVal)
-                  await supabase.from('trips').update({ show_member_conversations: newVal }).eq('id', tripId)
-                }}
-                style={{ width: '44px', height: '24px', borderRadius: '0', background: showMemberConvos ? 'var(--forest)' : 'var(--border)', border: 'none', cursor: 'pointer', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
-                <div style={{ width: '18px', height: '18px', borderRadius: '50%', background: 'var(--card)', position: 'absolute', top: '3px', left: showMemberConvos ? '23px' : '3px', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
-              </button>
-            </div>
-          </div>
-        )}
-
-        <div style={{ marginTop: '32px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          {!inviteLocked ? (
-            <button
-              onClick={async () => {
-                await supabase.from('trips').update({ invite_locked: true }).eq('id', tripId)
-                setInviteLocked(true)
-              }}
-              style={{
-                width: '100%', border: '1px solid #1a1a1a', padding: '16px',
-                fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase',
-                color: 'var(--foreground)', background: 'transparent', cursor: 'pointer',
-                fontFamily: 'var(--font-cormorant), Georgia, serif',
-              }}
-            >
-              Lock invite link →
-            </button>
-          ) : inviteLocked && !invitesClosed ? (
-            <div style={{ background: '#fef9ec', border: '1px solid #f0c040', borderRadius: '0', padding: '16px 20px' }}>
-              <p style={{ fontSize: '12px', color: '#8a6a10', margin: '0 0 12px', lineHeight: 1.6 }}>
-                Review trip settings before starting Step 2 — including how many votes each traveler gets.
-              </p>
-              <button
-                type="button"
-                onClick={() => router.push(`/trips/${tripId}/settings`)}
-                style={{ fontSize: '11px', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#8a6a10', background: 'none', border: '1px solid #f0c040', padding: '8px 16px', cursor: 'pointer', fontFamily: 'var(--font-cormorant), Georgia, serif' }}
-              >
-                Review settings
-              </button>
-            </div>
-          ) : null}
-        </div>
-
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           {isOrganizer && !invitesClosed && (
             <button
-              onClick={() => setShowStartStep2(true)}
+              onClick={() => setShowStartPlanningConfirm(true)}
               style={{ width: '100%', border: '1px solid var(--forest-deep)', background: 'var(--forest-deep)', color: '#fff', padding: '16px', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '0', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
-              Close invites & start planning →
+              All travelers in? Start Planning →
             </button>
           )}
 
           {invitesClosed && (
             <div style={{ padding: '16px', background: 'var(--accent-light)', border: '0.5px solid #8aad7a', borderRadius: '0', textAlign: 'center' }}>
-              <p style={{ fontSize: '12px', color: 'var(--forest)', margin: '0 0 4px' }}>✓ Invites closed</p>
-              <p style={{ fontSize: '11px', color: 'var(--muted-foreground)', margin: '0 0 12px', lineHeight: 1.6 }}>Your group can brainstorm destinations with Avanti.</p>
+              <p style={{ fontSize: '12px', color: 'var(--forest)', margin: '0 0 4px' }}>✓ Step 2 is open</p>
+              <p style={{ fontSize: '11px', color: 'var(--muted-foreground)', margin: '0 0 12px', lineHeight: 1.6 }}>
+                {isOrganizer ? 'Your group can brainstorm destinations with Avanti.' : 'The host unlocked brainstorming — add your trip card picks.'}
+              </p>
               <button
                 type="button"
                 onClick={() => router.push(`/trips/${tripId}/step2`)}
                 style={{ fontSize: '11px', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#fafaf8', background: 'var(--forest-deep)', border: 'none', padding: '10px 20px', cursor: 'pointer', fontFamily: 'var(--font-cormorant), Georgia, serif' }}
               >
-                Go to Brainstorm →
+                {isOrganizer ? 'Go to Brainstorm →' : 'Move on to step 2 →'}
               </button>
             </div>
           )}
@@ -892,38 +859,74 @@ export default function InviteGuests() {
         )
       })()}
 
-      {showStartStep2 && (
-        <div style={{ position: 'fixed', inset: 0, background: 'var(--cream)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '32px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
-          <div style={{ width: '100%', maxWidth: '420px' }}>
-            <div style={{ textAlign: 'center', marginBottom: '28px' }}>
-              <p style={{ fontSize: '11px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--muted-foreground)', margin: '0 0 10px' }}>Close invites</p>
-              <h2 style={{ fontSize: '28px', fontWeight: 300, color: 'var(--foreground)', margin: '0 0 16px' }}>Ready to start planning?</h2>
-              <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', lineHeight: 1.8, margin: 0 }}>
-                This closes the invite link so your group can move on to flights, stays, and activities.
-              </p>
-            </div>
-
-            <div style={{ background: '#faeeda', border: '0.5px solid #ef9f27', padding: '16px', marginBottom: '24px' }}>
-              <p style={{ fontSize: '12px', color: '#633806', margin: 0, lineHeight: 1.7 }}>
-                No new guests can join after this. Anyone on the fence should be invited now.
-              </p>
-            </div>
-
+      {showStartPlanningConfirm && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '24px' }}>
+          <div style={{ background: 'var(--cream)', borderRadius: '0', padding: '32px', width: '100%', maxWidth: '420px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+            <h2 style={{ fontSize: '26px', fontWeight: 300, color: 'var(--foreground)', margin: '0 0 16px', textAlign: 'center' }}>
+              Have all travelers joined the trip?
+            </h2>
+            <p style={{ fontSize: '14px', color: 'var(--muted-foreground)', lineHeight: 1.75, margin: '0 0 24px', textAlign: 'center' }}>
+              Only those who are in the trip as of now will be able to participate in the brainstorming and voting of the destination. They will have another opportunity to join after a destination has been chosen.
+            </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <button
                 type="button"
                 disabled={startingStep2}
                 onClick={handleBeginStep2}
                 style={{ width: '100%', border: '1px solid var(--forest-deep)', background: 'var(--forest-deep)', color: '#fff', padding: '15px', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', cursor: startingStep2 ? 'wait' : 'pointer', opacity: startingStep2 ? 0.7 : 1, fontFamily: 'inherit' }}>
-                {startingStep2 ? 'Closing…' : 'Close invites & continue →'}
+                {startingStep2 ? 'Opening…' : 'Continue →'}
               </button>
               <button
                 type="button"
-                onClick={() => setShowStartStep2(false)}
+                onClick={() => setShowStartPlanningConfirm(false)}
                 style={{ width: '100%', border: '0.5px solid var(--border)', padding: '15px', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', color: 'var(--muted-foreground)', background: 'transparent', cursor: 'pointer', fontFamily: 'inherit' }}>
-                ← Not yet
+                Not ready yet
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {!isOrganizer && !invitesClosed && (
+        <div style={{
+          position: 'fixed', bottom: 0, left: 0, right: 0,
+          background: 'var(--card)', borderTop: '0.5px solid var(--border)',
+          padding: '20px 24px 28px', zIndex: 40,
+          fontFamily: 'var(--font-cormorant), Georgia, serif',
+        }}>
+          <div style={{ maxWidth: '560px', margin: '0 auto', textAlign: 'center' }}>
+            <p style={{ fontSize: '14px', color: 'var(--foreground)', margin: '0 0 16px', lineHeight: 1.65 }}>
+              Waiting on travelers to finish joining and for host to unlock the next step.
+            </p>
+            <button
+              type="button"
+              onClick={() => router.push(`/trips/${tripId}`)}
+              style={{ background: 'none', border: 'none', padding: 0, fontSize: '11px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--muted-foreground)', cursor: 'pointer', fontFamily: 'inherit' }}
+            >
+              Take me back while I wait →
+            </button>
+          </div>
+        </div>
+      )}
+
+      {!isOrganizer && invitesClosed && (
+        <div style={{
+          position: 'fixed', bottom: 0, left: 0, right: 0,
+          background: 'var(--card)', borderTop: '0.5px solid var(--border)',
+          padding: '20px 24px 28px', zIndex: 40,
+          fontFamily: 'var(--font-cormorant), Georgia, serif',
+        }}>
+          <div style={{ maxWidth: '560px', margin: '0 auto', textAlign: 'center' }}>
+            <p style={{ fontSize: '14px', color: 'var(--foreground)', margin: '0 0 16px', lineHeight: 1.65 }}>
+              Step 2 is open — start brainstorming your destination picks.
+            </p>
+            <button
+              type="button"
+              onClick={() => router.push(`/trips/${tripId}/step2`)}
+              style={{ width: '100%', border: '1px solid var(--forest-deep)', background: 'var(--forest-deep)', color: '#fff', padding: '14px', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', cursor: 'pointer', fontFamily: 'inherit' }}
+            >
+              Move on to step 2 →
+            </button>
           </div>
         </div>
       )}

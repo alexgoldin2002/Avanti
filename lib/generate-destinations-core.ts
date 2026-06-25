@@ -8,6 +8,10 @@ import {
   normalizeCountryKey,
 } from './destination-country-rules'
 import { parseDestinationCards, type ParsedDestinationCard } from './parse-destination-cards'
+import {
+  departureCitiesFromAnswers,
+  formatDepartureCitiesForPrompt,
+} from './departure-cities'
 
 export const DESTINATION_SYSTEM_PROMPT = `You are Avanti's group travel AI. Recommend destinations that are genuinely right for this specific group. Reason carefully before writing anything.
 
@@ -49,8 +53,10 @@ BEFORE YOU WRITE ANYTHING — reason through all of these internally:
 
 6. CULTURAL CONSIDERATIONS:
 - Alcohol accessibility and local customs around drinking
+- Dress codes, tipping norms, photography taboos, and local sensitivities — note in VIBE CHECK or FOOTNOTES when relevant
 - Unusual laws or customs that could affect this group specifically
 - Political stability and safety environment
+- Ethical tourism: flag overtourism hotspots, exploitative animal experiences, and cultural sites that require respectful behavior — in FOOTNOTES when triggered
 
 7. GROUP SIZE & TYPE:
 - Is accommodation available and feasible for their group size?
@@ -58,9 +64,20 @@ BEFORE YOU WRITE ANYTHING — reason through all of these internally:
 
 8. THE WILDCARD:
 - Must be genuinely different from the other three — different region, different vibe
+- Should feel like insider knowledge — a place locals love that most tourists skip; off-the-beaten-path but safe and enriching, not reckless
 - Must have a real reason it fits this group specifically
 - Must come with an honest one-sentence tradeoff
-- Should feel like insider knowledge
+
+9. SPECIFICITY — every card must earn trust with concrete detail:
+- Name neighborhoods, landmarks, markets, trails, and districts — never write "explore the local culture" without saying where
+- ACTIVITIES bullets must reference real places (e.g. "Mercado de San Miguel" not "visit a food market")
+- COST and LOGISTICS use realistic USD ranges, not vague "affordable" or "moderate"
+- Generic filler is forbidden — if you cannot name it, do not include it
+
+10. COMPARISON & FINAL SELECTION — before writing cards, compare your top candidates:
+- Score each finalist 1–10 against their must-haves, deal-breakers, budget, travel time, activity match, safety, weather, and group type; only write cards for strong scorers (7+)
+- Each card needs a clear unique selling point — the one thing THIS destination does better than the other three in your set; express it in HIGHLIGHT
+- TRADEOFF must state the honest biggest downside for this group — not a minor inconvenience; do not soften
 
 ABSOLUTE RULES — THESE ARE HARD CONSTRAINTS, NOT SUGGESTIONS:
 CRITICAL: Do not write any reasoning, thinking, or preamble text before the output. Start your response immediately with DESTINATIONS: — no introduction, no explanation, no thinking out loud.
@@ -79,34 +96,38 @@ DESTINATIONS:
 
 ---
 NAME: [City/Region + Country]
-HIGHLIGHT: [2-3 words — the single best thing about this place]
+HIGHLIGHT: [2-3 words — unique selling point: what this place does best vs the other three cards]
 CONSIDER: [2-3 words — one honest thing to know]
 OVERVIEW: [2-3 sentences. What this destination IS — landscape, culture, reputation, trip feel. Written for any traveler reading a brochure. No "your group", no departure cities, no budget, no hotels or resorts.]
+BEST KNOWN FOR: [3-5 short phrases under 5 words each — signature experiences or reputation icons]
 SYNOPSIS: [2-3 sentences. Why this fits THIS specific group — reference their inputs. Group-specific only.]
-LOGISTICS: [3 bullets: routing from departure city, total travel time, ease of getting there]
-COST: [First line: ~$X,XXX–X,XXX/person total. Then 3 bullets: flights, accommodation/night, food + activities/day. Note how much of budget goes to travel vs. being there.]
+LOGISTICS: [3 bullets: routing from departure city, total travel time, ease of getting there. If multi-stop trip: include logical city/region order, transit between stops, and time cost.]
+COST: [First line: ~$X,XXX–X,XXX/person total (range includes ~10–15% buffer). Then 4 bullets: flights round-trip, lodging/night, food/day, activities/day. Note what share of budget goes to travel vs. being there.]
 WEATHER: [Forecast for their exact travel dates: temps in °F, conditions, rain, humidity, night temps. Spell out place names — never use abbreviations like TCI. Do NOT mention hurricanes or disasters unless there is a real dated threat — never say "no hurricane risk" or similar.]
-ACTIVITIES: [4-5 bullets: things to do and see in the destination — named places, nature, culture, food, adventure. Never mention resorts, hotels, or "arranged by property".]
+ACTIVITIES: [4-5 bullets with named places — mix well-known highlights and one hidden-gem or local-favorite pick. Never mention resorts, hotels, or "arranged by property".]
 GROUP FIT: [2-3 bullets: accommodation for their size, organized group activity availability, appropriateness for their trip type]
-TRADEOFF: [1 honest sentence — the main downside or thing to know; required on every card]
-FOOTNOTES: [Only if triggered: safety flags, political situation, unusual laws, alcohol restrictions, visa, health risks. Omit entirely if nothing to flag.]
+VIBE CHECK: [1 sentence on pace, dress code, and social energy — e.g. "Upscale-casual — dress up for dinner, sandals by day"]
+TRADEOFF: [1 honest sentence — the biggest downside for THIS group; required on every card]
+FOOTNOTES: [Only if triggered: safety, political situation, unusual laws, alcohol restrictions, visa, health risks, dress/tipping/taboo notes, overtourism, exploitative animal tourism. Omit entirely if nothing to flag.]
 ---
 
 [Repeat for destinations 2 and 3]
 
 ---
 WILDCARD:
-NAME: [City/Region, Country — a real place only. Never put notes like "skipped" or "excluded" in NAME. Must be a country not used in any other card.]
-HIGHLIGHT: [2-3 words]
+NAME: [City/Region, Country — a real place only. Never put notes like "skipped" or "excluded" in NAME. Must be a country not used in any other card. Insider pick — locals love it, most tourists skip it.]
+HIGHLIGHT: [2-3 words — what makes this insider pick special]
 CONSIDER: [2-3 words]
 OVERVIEW: [2-3 sentences — the place itself, for any reader. No group references or hotels.]
+BEST KNOWN FOR: [3-5 short phrases under 5 words each]
 SYNOPSIS: [2-3 sentences — enthusiastic, why this group specifically. Place feel only in overview.]
 LOGISTICS: [3 bullets]
-COST: [Total + breakdown]
+COST: [First line: ~$X,XXX–X,XXX/person total (range includes ~10–15% buffer). Then 4 bullets: flights, lodging/night, food/day, activities/day. Note travel vs. being-there split.]
 WEATHER: [Same rules as above — dates, temps, conditions only; disasters only if a real threat]
-ACTIVITIES: [4-5 bullets — destination activities only, no resort or hotel tie-ins]
+ACTIVITIES: [4-5 bullets with named places — include one hidden-gem or local-favorite; no resort or hotel tie-ins]
 GROUP FIT: [2-3 bullets]
-TRADEOFF: [1 honest sentence — do not soften]
+VIBE CHECK: [1 sentence on pace, dress, and social energy]
+TRADEOFF: [1 honest sentence — biggest downside for this group; do not soften]
 FOOTNOTES: [If triggered]
 ---
 
@@ -145,18 +166,72 @@ function buildTravelTimeRule(
   return `\nTRAVEL TIME: ${flexLength} from ${departure}. Prefer ≤8h flights each way. Avoid 10+ hour destinations (Japan, NZ, Australia, etc.) unless they selected that region — otherwise they'd only get ~4–5 days on the ground.`
 }
 
+const ADVENTURE_ACTIVITY_PATTERN =
+  /\b(hiking|diving|surfing|climbing|kayak|skiing|snorkel|trek|adventure|rafting|zip.?line|scuba|cycling)\b/i
+
+function buildTripTypeRule(
+  trip: Record<string, unknown> | null,
+  answers: Record<string, unknown>,
+  activities?: string[],
+): string {
+  const tripType = String((trip?.trip_type as string) || (answers.tripLabel as string) || '').toLowerCase()
+  const q1 = String(answers.q1 || '').toLowerCase()
+  const combined = `${tripType} ${q1}`
+  const activityStr = (activities || []).join(' ').toLowerCase()
+  const rules: string[] = []
+
+  if (/family|multigenerational|with kids|kids/.test(combined)) {
+    rules.push(
+      'TRIP TYPE FIT: Family/multigenerational — prioritize kid-friendly pacing in GROUP FIT; note stroller/accessibility honestly. Do not lead with adult-only nightlife unless they asked.',
+    )
+  }
+
+  if (
+    /bachelorette|bachelor|girls trip|guys trip|birthday party/.test(combined) ||
+    (activities || []).some(a => /nightlife|party|bar/i.test(a))
+  ) {
+    rules.push(
+      'TRIP TYPE FIT: Celebration trip — weigh nightlife, group dining, and organized group activities in GROUP FIT and ACTIVITIES. Flag crowd or dress-code realities in CONSIDER.',
+    )
+  }
+
+  if (/honeymoon|couples|romantic|anniversary/.test(combined)) {
+    rules.push(
+      'TRIP TYPE FIT: Couples/romantic — prioritize dining, pace, and intimacy over packed sightseeing; note party-heavy destinations honestly in TRADEOFF.',
+    )
+  }
+
+  if (ADVENTURE_ACTIVITY_PATTERN.test(activityStr) || ADVENTURE_ACTIVITY_PATTERN.test(combined)) {
+    rules.push(
+      'TRIP TYPE FIT: Adventure activities selected — assess honest difficulty, fitness level, and season fit in GROUP FIT or FOOTNOTES. Do not oversell beyond their stated level.',
+    )
+  }
+
+  return rules.length ? `\n${rules.join('\n')}` : ''
+}
+
+function buildMultiStopRule(stops: string | undefined): string {
+  const normalized = (stops || '').trim()
+  if (!normalized || normalized === 'Just one') return ''
+
+  if (normalized === 'Open to anything') {
+    return `\nMULTI-STOP: Open to multi-stop — if this destination works as a hub, note a logical 2–3 stop routing in LOGISTICS (order, transit time, cost between stops).`
+  }
+
+  if (/^\d+\s*stops?$/i.test(normalized) || normalized === 'Other') {
+    return `\nMULTI-STOP: They want ${normalized} — in LOGISTICS, suggest how to split nights across cities/regions, transit between stops (train/flight/drive), and whether trip length is enough. Flag if multi-stop eats too many days.`
+  }
+
+  return `\nMULTI-STOP: Stops preference "${normalized}" — address multi-city routing in LOGISTICS when this destination supports it.`
+}
+
 export function buildDestinationUserMessage(
   trip: Record<string, unknown> | null,
   travelerCount: number,
   answers: Record<string, unknown>,
   chatSupplement = '',
 ): string {
-  const departure =
-    Array.isArray(answers.departureCity)
-      ? (answers.departureCity as string[]).join(', ')
-      : Array.isArray(answers.departureCities)
-        ? (answers.departureCities as string[]).join(', ')
-        : (answers.departureCity as string) || 'Not specified'
+  const departure = formatDepartureCitiesForPrompt(departureCitiesFromAnswers(answers))
 
   const fixedDates = answers.fixedDates as { start?: string; end?: string } | undefined
   const datesLine = fixedDates?.start
@@ -169,26 +244,48 @@ export function buildDestinationUserMessage(
 
   const flexLength = answers.flexLength as string | undefined
   const travelTimeRule = buildTravelTimeRule(flexLength, departure, regions, answers.domestic as string | undefined)
+  const tripTypeRule = buildTripTypeRule(trip, answers, activities)
+  const multiStopRule = buildMultiStopRule(answers.stops as string | undefined)
 
-  return `Please generate destination suggestions for this group.
+  const eventLine = trip?.is_event_centered
+    ? `Yes — ${trip.event_name} on ${trip.event_date_end && trip.event_date_end !== trip.event_date ? `${trip.event_date} to ${trip.event_date_end}` : trip.event_date} in ${trip.event_location}`
+    : 'No specific event'
 
+  const contextBlock = `<context>
 TRIP TYPE: ${(trip?.trip_type as string) || 'Group trip'}
 GROUP SIZE: ${travelerCount} people
-EVENT: ${trip?.is_event_centered ? `Yes — ${trip.event_name} on ${trip.event_date_end && trip.event_date_end !== trip.event_date ? `${trip.event_date} to ${trip.event_date_end}` : trip.event_date} in ${trip.event_location}` : 'No specific event'}
-
+EVENT: ${eventLine}
 About this trip: ${answers.q1 || 'Not specified'}
-Departure: ${departure}
-Dates: ${datesLine}${flexLength ? ` (preferred: ${flexLength})` : ''}
-Domestic/international: ${answers.domestic || 'No preference'}${regions?.length ? ` — regions: ${regions.join(', ')}` : ''}
-Number of stops: ${answers.stops || 'flexible'}
-Activities wanted: ${activities?.join(', ') || 'Not specified'}
-Vibe: ${vibe?.join(', ') || 'Not specified'}
-Accommodation: ${answers.accommodation || 'No preference'}
-Budget per person: ${answers.budget || 'Not specified'}
-Popularity preference: ${answers.popularity || 'No preference'}
-Deal breakers: ${answers.q3 || 'None stated'}${travelTimeRule}${chatSupplement}
 
-Generate 4 destination cards now (3 main + 1 wildcard). Remember: only ONE card per country (United States excepted). All 4 cards must be in 4 different countries.`
+Must-haves:
+- Activities: ${activities?.join(', ') || 'Not specified'}
+- Vibe: ${vibe?.join(', ') || 'Not specified'}
+- Accommodation: ${answers.accommodation || 'No preference'}
+- Budget per person: ${answers.budget || 'Not specified'}
+- Popularity preference: ${answers.popularity || 'No preference'}
+
+Deal-breakers: ${answers.q3 || 'None stated'}
+
+Logistics:
+- Departure: ${departure}
+- Dates: ${datesLine}${flexLength ? ` (preferred length: ${flexLength})` : ''}
+- Domestic/international: ${answers.domestic || 'No preference'}${regions?.length ? ` — regions: ${regions.join(', ')}` : ''}
+- Number of stops: ${answers.stops || 'flexible'}${travelTimeRule}${tripTypeRule}${multiStopRule}${chatSupplement}
+</context>`
+
+  const taskBlock = `<task>
+Generate 4 destination cards (3 main + 1 wildcard).
+Before writing, internally score each candidate on budget fit, travel time, activity match, safety, weather, and group type fit — only include strong matches.
+Each card must have a distinct unique selling point vs the other three (express in HIGHLIGHT).
+WILDCARD must feel like insider knowledge — a place locals love that most tourists skip; different region and vibe from the three mains.
+Flag ethical tourism concerns (exploitative animal experiences, severe overtourism) in FOOTNOTES when relevant for a destination.
+Use the exact output format from your system instructions.
+Maximum ONE destination per country — United States may appear on up to two cards.
+All 4 cards must be in at least 3 different countries (typically 4 different countries).
+Name specific neighborhoods, landmarks, and places in ACTIVITIES — include one hidden-gem per card.
+</task>`
+
+  return `${contextBlock}\n\n${taskBlock}`
 }
 
 export type DestinationBatch = 'all' | 'half1' | 'half2' | 'single-main' | 'wildcard-only'

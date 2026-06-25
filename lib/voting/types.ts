@@ -12,6 +12,8 @@ export type RoundTwoPersonalContent = {
   fit_score: number
 }
 
+import type { DestinationPriceEstimate } from '@/lib/pricing/types'
+
 export type DestinationAnalysisRow = {
   id: string
   trip_id: string
@@ -22,7 +24,10 @@ export type DestinationAnalysisRow = {
   pushed_to_vote: boolean
   advanced_to_round_two: boolean
   round_one_content: RoundOneContent | null
+  price_estimate: DestinationPriceEstimate | null
+  /** @deprecated Legacy group-budget overlap — no longer shown on Round 1 cards */
   feasibility_floor: number | null
+  /** @deprecated Legacy group-budget overlap — no longer shown on Round 1 cards */
   highest_member_max: number | null
   created_at: string
 }

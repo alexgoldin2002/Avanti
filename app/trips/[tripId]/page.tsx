@@ -14,76 +14,154 @@ import { fetchInspirations } from '@/lib/trip-companion/client-api'
 import type { ItineraryData, TripBooking } from '@/lib/bookings/types'
 import type { TripInspirationRow } from '@/lib/trip-companion/merge-inspirations'
 
-type StepState = 'done' | 'active' | 'locked' | 'open'
+type StepState = 'done' | 'active' | 'locked'
 
-type StepDef = {
+type SubStepDef = {
+  key: string
+  label: string
+  path: string
+}
+
+type MainStepDef = {
   key: string
   number: number
   title: string
-  subtitle: string
+  subtitle?: string
   icon: string
   path: string
-  badge?: string | number
+  subSteps?: SubStepDef[]
 }
 
-function StepCard({
+function getDestinationSubStepStates(trip: any, votingComplete: boolean): StepState[] {
+  const done = [
+    !!(trip?.brainstorm_closed_at || trip?.voting_round != null),
+    !!(trip?.voting_round === 2 || trip?.round_one_closed_at || votingComplete),
+    !!(trip?.round_two_closed_at || votingComplete),
+    !!votingComplete,
+  ]
+
+  const states: StepState[] = []
+  let activeAssigned = false
+  for (let i = 0; i < done.length; i++) {
+    if (done[i]) {
+      states.push('done')
+    } else if (!activeAssigned && (i === 0 || done[i - 1])) {
+      states.push('active')
+      activeAssigned = true
+    } else {
+      states.push('locked')
+    }
+  }
+  return states
+}
+
+function PlanningStepCard({
   step,
-  index,
   state,
+  subStepStates,
   onClick,
 }: {
-  step: StepDef
-  index: number
+  step: MainStepDef
   state: StepState
+  subStepStates?: StepState[]
   onClick: () => void
 }) {
   const isDone = state === 'done'
   const isActive = state === 'active'
   const isLocked = state === 'locked'
+  const hasSubSteps = !!step.subSteps?.length
 
   return (
     <button
       type="button"
       disabled={isLocked}
       onClick={onClick}
-      className={`group avanti-box relative flex h-32 flex-col justify-between rounded-none border px-5 py-4 text-left transition-all duration-200 ease-out hover:[box-shadow:var(--shadow-box-hover)] ${
+      className={`group avanti-box relative flex min-h-[168px] flex-col overflow-visible rounded-none border px-5 py-4 text-left transition-all duration-200 ease-out ${
         isActive
           ? 'border-forest-deep bg-card [box-shadow:var(--shadow-box-hover)]'
           : isDone
-          ? 'border-border bg-card hover:-translate-y-px hover:border-forest-deep/30 cursor-pointer'
+          ? 'border-border bg-card hover:-translate-y-px hover:border-forest-deep/30 cursor-pointer hover:[box-shadow:var(--shadow-box-hover)]'
           : isLocked
           ? 'border-border bg-card/60 opacity-60 cursor-not-allowed shadow-none'
-          : 'border-border bg-card hover:-translate-y-0.5 cursor-pointer'
+          : 'border-border bg-card'
       }`}
     >
-      <div className="flex items-start justify-between">
-        <div className="flex items-center gap-2">
-          {isActive && <span className="h-2 w-2 rounded-full bg-forest-deep transition-transform duration-200 group-hover:scale-125" />}
-          <span className={`font-serif text-lg leading-tight transition-colors duration-200 ${!isLocked ? 'group-hover:text-forest-deep' : ''}`}>{step.title}</span>
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2">
+          {isActive && <span className="h-2 w-2 shrink-0 rounded-full bg-forest-deep" />}
+          <span
+            className={`truncate font-serif text-lg leading-tight transition-colors duration-200 ${
+              !isLocked ? 'group-hover:text-forest-deep' : ''
+            }`}
+          >
+            {step.title}
+          </span>
         </div>
         <span
-          className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-[11px] transition-transform duration-200 ${!isLocked ? 'group-hover:scale-110' : ''} ${
-            isDone || isActive
-              ? 'bg-forest-deep text-cream'
-              : 'bg-secondary text-muted-foreground'
+          className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-[11px] ${
+            isDone || isActive ? 'bg-forest-deep text-cream' : 'bg-secondary text-muted-foreground'
           }`}
         >
           {isDone ? (
             <i className="ti ti-check text-xs" aria-hidden />
-          ) : step.badge !== undefined ? (
-            step.badge
+          ) : isLocked ? (
+            <i className="ti ti-lock text-xs" aria-hidden />
           ) : (
             <i className={`ti ${step.icon} text-xs`} aria-hidden />
           )}
         </span>
       </div>
-      <div className="flex items-end justify-between">
-        <span className={`text-xs text-muted-foreground transition-colors duration-200 ${!isLocked ? 'group-hover:text-foreground/70' : ''}`}>{step.subtitle}</span>
-        {isLocked && <i className="ti ti-lock text-sm text-muted-foreground" aria-hidden />}
-      </div>
-      <span className="absolute left-5 top-1/2 -translate-y-1/2 text-[10px] tracking-widest text-muted-foreground/40">
-        {String(index + 1).padStart(2, '0')}
+
+      <span
+        className={`pointer-events-none absolute left-1/2 top-[52%] -translate-x-1/2 -translate-y-1/2 font-serif text-[2.75rem] leading-none tracking-tight ${
+          isActive ? 'text-forest-deep/25' : isDone ? 'text-forest-deep/15' : 'text-muted-foreground/20'
+        }`}
+      >
+        {String(step.number).padStart(2, '0')}
       </span>
+
+      <div className="mt-auto flex items-end justify-between gap-2 pt-10">
+        {step.subtitle ? (
+          <span className="text-xs text-muted-foreground">{step.subtitle}</span>
+        ) : hasSubSteps && subStepStates ? (
+          <div className="flex gap-1.5" role="list" aria-label="Destination progress">
+            {step.subSteps!.map((sub, i) => {
+              const subState = subStepStates[i]
+              return (
+                <span
+                  key={sub.key}
+                  role="listitem"
+                  aria-label={`${sub.label}${subState === 'active' ? ' — current' : subState === 'done' ? ' — complete' : ''}`}
+                  aria-current={subState === 'active' ? 'step' : undefined}
+                  className={`group/sub relative grid h-7 w-7 place-items-center border transition-colors ${
+                    subState === 'done'
+                      ? 'border-forest-deep bg-forest-deep text-cream'
+                      : subState === 'active'
+                      ? 'border-2 border-forest-deep bg-cream text-forest-deep'
+                      : 'border-border bg-card/80 text-muted-foreground/50'
+                  }`}
+                >
+                  {subState === 'done' ? (
+                    <i className="ti ti-check text-[10px]" aria-hidden />
+                  ) : subState === 'active' ? (
+                    <span className="h-2.5 w-2.5 rounded-full bg-forest-deep" aria-hidden />
+                  ) : (
+                    <i className="ti ti-lock text-[10px]" aria-hidden />
+                  )}
+                  <span
+                    role="tooltip"
+                    className="pointer-events-none absolute bottom-[calc(100%+6px)] left-1/2 z-20 w-max max-w-[160px] -translate-x-1/2 px-2.5 py-1.5 bg-forest-deep text-cream text-[10px] leading-snug text-center opacity-0 group-hover/sub:opacity-100 transition-opacity duration-150 font-serif whitespace-nowrap"
+                  >
+                    {sub.label}
+                  </span>
+                </span>
+              )
+            })}
+          </div>
+        ) : (
+          <span />
+        )}
+      </div>
     </button>
   )
 }
@@ -187,6 +265,21 @@ export default function TripDashboard() {
       setLoading(false)
     }
     load()
+
+    const tripChannel = supabase
+      .channel(`trip-dashboard-${tripId}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'trips', filter: `id=eq.${tripId}` },
+        payload => {
+          setTrip((prev: typeof trip) => (prev ? { ...prev, ...(payload.new as object) } : payload.new))
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(tripChannel)
+    }
   }, [tripId, router])
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -264,28 +357,26 @@ export default function TripDashboard() {
   const votingComplete =
     !!trip?.winning_destination_id || (!!trip?.destination && trip.destination !== 'TBD' && !!trip?.voting_round)
 
-  const getActiveStep = () => {
+  const getActiveMainStep = () => {
     if (!trip?.invites_closed) return 1
-    if (!trip?.voting_round && !votingComplete) return 2
-    if (trip?.voting_round === 1 && !votingComplete) return 3
-    if (trip?.voting_round === 2 && !votingComplete) return 4
-    if (!votingComplete) return 4
-    if (votingComplete && (!trip?.destination || trip.destination === 'TBD')) return 5
-    if (trip?.destination && trip.destination !== 'TBD' && !trip?.flights_locked) return 6
-    return 7
+    if (!votingComplete) return 2
+    if (!trip?.flights_locked) return 3
+    return 4
   }
 
-  const getStepState = (stepNum: number): StepState => {
-    const active = getActiveStep()
+  const getMainStepState = (stepNum: number): StepState => {
+    const active = getActiveMainStep()
     if (stepNum < active) return 'done'
     if (stepNum === active) return 'active'
-    if (stepNum === active + 1 && stepNum <= 9) return 'open'
+    if (active >= 4 && stepNum <= 6) return 'active'
     return 'locked'
   }
 
+  const destinationSubStepStates = getDestinationSubStepStates(trip, votingComplete)
+
   const guestCount = travelers.filter(t => t.role !== 'organizer').length
 
-  const steps: StepDef[] = [
+  const mainSteps: MainStepDef[] = [
     {
       key: 'invite',
       number: 1,
@@ -295,57 +386,59 @@ export default function TripDashboard() {
       path: `/trips/${tripId}/invite`,
     },
     {
-      key: 'brainstorm',
+      key: 'destination',
       number: 2,
-      title: 'Brainstorm',
-      subtitle: trip?.brainstorm_deadline_at
-        ? '48h card window'
-        : trip?.invites_closed
-        ? 'Plan with Avanti AI'
-        : 'Opens after invites close',
-      icon: 'ti-brain',
-      path: `/trips/${tripId}/step2`,
-    },
-    {
-      key: 'round_one',
-      number: 3,
-      title: 'Round 1',
-      subtitle: trip?.voting_round === 1 ? 'Rank choices · 24h' : trip?.voting_round ? 'Complete' : 'After cards submitted',
-      icon: 'ti-list-numbers',
-      path: `/trips/${tripId}/vote/round-one`,
-    },
-    {
-      key: 'round_two',
-      number: 4,
-      title: 'Round 2',
-      subtitle: trip?.voting_round === 2 && !votingComplete ? 'Split your vote · 48h' : trip?.voting_round === 2 ? 'Complete' : 'After Round 1',
-      icon: 'ti-chart-pie',
-      path: `/trips/${tripId}/vote/round-two`,
-    },
-    {
-      key: 'reveal',
-      number: 5,
       title: 'Destination',
-      subtitle: votingComplete ? (trip?.destination || 'Revealed') : 'After Round 2',
       icon: 'ti-map-pin',
-      path: `/trips/${tripId}/vote/reveal`,
+      path: `/trips/${tripId}/step2`,
+      subSteps: [
+        { key: 'brainstorm', label: 'Brainstorm', path: `/trips/${tripId}/step2` },
+        { key: 'round_one', label: '1st round voting', path: `/trips/${tripId}/vote/round-one` },
+        { key: 'round_two', label: '2nd round voting', path: `/trips/${tripId}/vote/round-two` },
+        { key: 'reveal', label: 'Destination decision', path: `/trips/${tripId}/vote/reveal` },
+      ],
     },
     {
       key: 'flights',
-      number: 6,
+      number: 3,
       title: 'Flights',
-      subtitle: trip?.flights_locked
-        ? 'Dates locked'
-        : trip?.destination && trip.destination !== 'TBD'
-          ? 'Coordinate & book'
-          : 'Set destination first',
       icon: 'ti-plane',
       path: `/trips/${tripId}/flights`,
     },
-    { key: 'stay', number: 7, title: 'Accommodation', subtitle: 'Hotels and Airbnbs', icon: 'ti-building', path: `/trips/${tripId}/accommodation` },
-    { key: 'activities', number: 8, title: 'Activities', subtitle: 'Things to do', icon: 'ti-compass', path: `/trips/${tripId}/activities` },
-    { key: 'dining', number: 9, title: 'Dining', subtitle: 'Restaurants and reservations', icon: 'ti-tools-kitchen-2', path: `/trips/${tripId}/dining` },
+    {
+      key: 'stay',
+      number: 4,
+      title: 'Accommodation',
+      icon: 'ti-building',
+      path: `/trips/${tripId}/accommodation`,
+    },
+    {
+      key: 'activities',
+      number: 5,
+      title: 'Activities',
+      icon: 'ti-compass',
+      path: `/trips/${tripId}/activities`,
+    },
+    {
+      key: 'dining',
+      number: 6,
+      title: 'Dining',
+      icon: 'ti-tools-kitchen-2',
+      path: `/trips/${tripId}/dining`,
+    },
   ]
+
+  const getDestinationClickPath = () => {
+    const activeIdx = destinationSubStepStates.findIndex(s => s === 'active')
+    if (activeIdx >= 0 && mainSteps[1].subSteps) {
+      return mainSteps[1].subSteps[activeIdx].path
+    }
+    const lastDone = destinationSubStepStates.lastIndexOf('done')
+    if (lastDone >= 0 && mainSteps[1].subSteps) {
+      return mainSteps[1].subSteps[lastDone].path
+    }
+    return `/trips/${tripId}/step2`
+  }
 
   if (loading) return <SuitcaseLoader message="Loading your trip" />
   if (!trip) return null
@@ -360,7 +453,7 @@ export default function TripDashboard() {
     return 'Dates TBD'
   }
 
-  const activeStep = getActiveStep()
+  const activeMainStep = getActiveMainStep()
   const readyCount = travelers.filter(t => t.profile_complete).length
 
   return (
@@ -399,12 +492,18 @@ export default function TripDashboard() {
             </div>
           )}
 
-          <div className="relative flex items-start justify-between gap-6">
+          <button
+            type="button"
+            onClick={() => setShowEditCover(!showEditCover)}
+            className="absolute top-3 right-3 sm:top-4 sm:right-4 z-10 grid h-6 w-6 place-items-center rounded-full bg-cream/10 text-cream/75 transition-all duration-200 hover:bg-cream/25 hover:text-cream"
+            aria-label="Edit cover image"
+          >
+            <i className="ti ti-photo text-[11px]" aria-hidden />
+          </button>
+
+          <div className="relative pr-8">
             <div className="min-w-0">
-              <div className="text-[10px] tracking-[0.35em] uppercase text-cream/60">
-                {trip.trip_type || 'Friend group'}
-              </div>
-              <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
                 {editingName ? (
                   <input
                     value={nameInput}
@@ -419,23 +518,23 @@ export default function TripDashboard() {
                     <h1 className="font-serif text-4xl sm:text-5xl text-cream leading-[1.05]">
                       {trip.name}
                     </h1>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
                       <button
                         type="button"
                         onClick={() => { setEditingName(true); setNameInput(trip.name) }}
-                        className="grid h-8 w-8 place-items-center rounded-full bg-cream/10 text-cream/70 transition-all duration-200 hover:bg-cream/25 hover:text-cream hover:scale-105"
+                        className="grid h-6 w-6 place-items-center rounded-full bg-cream/10 text-cream/70 transition-all duration-200 hover:bg-cream/25 hover:text-cream"
                         aria-label="Edit trip name"
                       >
-                        <i className="ti ti-pencil text-[15px]" aria-hidden />
+                        <i className="ti ti-pencil text-[11px]" aria-hidden />
                       </button>
                       {isOrganizer && (
                         <button
                           type="button"
                           onClick={() => router.push(`/trips/${tripId}/settings`)}
-                          className="grid h-8 w-8 place-items-center rounded-full bg-cream/10 text-cream/70 transition-all duration-200 hover:bg-cream/25 hover:text-cream hover:scale-105"
+                          className="grid h-6 w-6 place-items-center rounded-full bg-cream/10 text-cream/70 transition-all duration-200 hover:bg-cream/25 hover:text-cream"
                           aria-label="Trip settings"
                         >
-                          <i className="ti ti-settings text-[15px]" aria-hidden />
+                          <i className="ti ti-settings text-[11px]" aria-hidden />
                         </button>
                       )}
                     </div>
@@ -450,14 +549,6 @@ export default function TripDashboard() {
                 <p className="mt-2 text-xs text-cream/50">{trip.destination}</p>
               )}
             </div>
-            <button
-              type="button"
-              onClick={() => setShowEditCover(!showEditCover)}
-              className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-cream/10 text-cream/80 transition-all duration-200 hover:bg-cream/25 hover:text-cream hover:scale-105"
-              aria-label="Edit cover image"
-            >
-              <i className="ti ti-photo text-base" aria-hidden />
-            </button>
           </div>
         </section>
 
@@ -524,40 +615,44 @@ export default function TripDashboard() {
 
         {activeTab === 'prep' && (
           <>
-            {/* To do */}
-            <section className="mt-8">
-              <div className="text-[10px] tracking-[0.35em] uppercase text-muted-foreground">To do</div>
-              <div className="avanti-box mt-3 flex items-center gap-3 rounded-none border border-border bg-card px-5 py-4">
-                <span className="h-2 w-2 rounded-full bg-sage" />
-                <span className="font-serif italic text-muted-foreground">No actions at this time</span>
-              </div>
-            </section>
-
-            {/* Group date alignment */}
-            {dateOverlap && dateOverlap.status !== 'waiting' && (
+            {isOrganizer && dateOverlap && dateOverlap.status !== 'ok' && (dateOverlap.status !== 'waiting' || travelers.length > 1) && (
               <section className="mt-8">
-                <GroupDateOverlapBanner result={dateOverlap} />
-              </section>
-            )}
-            {dateOverlap && dateOverlap.status === 'waiting' && travelers.length > 1 && (
-              <section className="mt-8">
-                <GroupDateOverlapBanner result={dateOverlap} compact />
+                <GroupDateOverlapBanner result={dateOverlap} compact={dateOverlap.status === 'waiting'} />
               </section>
             )}
 
             {/* Planning steps */}
             <section className="mt-8">
               <div className="text-[10px] tracking-[0.35em] uppercase text-muted-foreground">Planning steps</div>
-              <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {steps.map((step, i) => {
-                  const state = getStepState(step.number)
+              {!isOrganizer && trip?.invites_closed && activeMainStep === 2 && (
+                <div className="mt-4 avanti-box border border-forest-deep/25 bg-forest-pale/30 px-5 py-4 text-center">
+                  <p className="text-sm text-muted-foreground m-0 mb-3 font-serif">
+                    Step 2 is open — start picking destinations with Avanti.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => router.push(`/trips/${tripId}/step2`)}
+                    className="text-[10px] uppercase tracking-[0.2em] text-cream bg-forest-deep border border-forest-deep px-5 py-2.5 cursor-pointer hover:opacity-90"
+                  >
+                    Move on to step 2 →
+                  </button>
+                </div>
+              )}
+              <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {mainSteps.map(step => {
+                  const state = getMainStepState(step.number)
+                  const subStepStates = step.key === 'destination' ? destinationSubStepStates : undefined
                   return (
-                    <StepCard
+                    <PlanningStepCard
                       key={step.key}
                       step={step}
-                      index={i}
                       state={state}
-                      onClick={() => state !== 'locked' && router.push(step.path)}
+                      subStepStates={subStepStates}
+                      onClick={() => {
+                        if (state === 'locked') return
+                        const path = step.key === 'destination' ? getDestinationClickPath() : step.path
+                        router.push(path)
+                      }}
                     />
                   )
                 })}
@@ -571,7 +666,7 @@ export default function TripDashboard() {
                 {' · '}
                 {readyCount} of {travelers.length} ready
                 {' · '}
-                Step {activeStep} active
+                Step {activeMainStep} active
               </p>
             </div>
 

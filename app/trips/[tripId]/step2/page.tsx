@@ -10,11 +10,17 @@ import type { ParsedDestinationCard } from '@/lib/parse-destination-cards'
 import { STOP_OPTIONS } from '@/lib/preview-trip-storage'
 import { findTravelerForUser, patchTravelerStep2 } from '@/lib/traveler-lookup'
 import SubmitChoicesButton from '@/components/voting/SubmitChoicesButton'
+import DateRangeFields from '@/app/components/DateRangeFields'
 import PhaseBanner from '@/components/trip-phases/PhaseBanner'
 import PhaseLockedScreen from '@/components/trip-phases/PhaseLockedScreen'
 import { useTripPhase } from '@/lib/trip-phases/useTripPhase'
-import GroupDateOverlapBanner, { groupDatesBlockSubmission } from '@/components/trip/GroupDateOverlapBanner'
+import { groupDatesBlockSubmission } from '@/components/trip/GroupDateOverlapBanner'
 import { analyzeGroupDateOverlap, travelerProfilesFromRows } from '@/lib/group-date-overlap'
+import {
+  departureCitiesToStoredString,
+  formatDepartureCitiesForPrompt,
+  parseDepartureCitiesFromStep2,
+} from '@/lib/departure-cities'
 
 export default function Step2() {
   const { tripId } = useParams() as { tripId: string }
@@ -132,7 +138,9 @@ export default function Step2() {
         if (traveler) {
           const s2 = traveler.step2 as Record<string, unknown>
           if (s2.q1) { setQ1(s2.q1 as string) }
-          if (s2.departureCity) setDepartureCities((s2.departureCity as string).split(',').map((c: string) => c.trim()).filter(Boolean))
+          if (s2.departureCity || s2.departureCities) {
+            setDepartureCities(parseDepartureCitiesFromStep2(s2))
+          }
           if (s2.dates) setDates(s2.dates as string)
           if (s2.fixedDates) setFixedDates(s2.fixedDates as { start: string; end: string })
           if (s2.flexLength) setFlexLength(s2.flexLength as string)
@@ -228,7 +236,8 @@ export default function Step2() {
 
   const buildAnswersPayload = () => ({
     q1,
-    departureCity: departureCities.join(', '),
+    departureCities,
+    departureCity: departureCitiesToStoredString(departureCities),
     dates,
     fixedDates,
     flexLength,
@@ -252,7 +261,7 @@ export default function Step2() {
     const tid = travelerId || (await findTravelerForUser(supabase, tripId, user.id))?.id
     if (!tid) return
     await patchTravelerStep2(supabase, tid, {
-      q1, departureCity: departureCities.join(', '),
+      q1, departureCities, departureCity: departureCitiesToStoredString(departureCities),
       dates, fixedDates, flexLength,
       domestic, regions, stops: stops === 'Other' ? stopsOther : stops,
       activities, vibe: vibe.includes('Other') ? [...vibe.filter(v => v !== 'Other'), vibeOther] : vibe,
@@ -260,6 +269,7 @@ export default function Step2() {
       popularity, q3, stage: stageToSave,
       chatMessages: messagesOverride ?? chatMessages,
     })
+    void fetch(`/api/trips/${tripId}/date-overlap`, { method: 'POST' }).catch(() => {})
   }
 
   const persistCardVotes = async (nextVotes: Record<string, boolean>) => {
@@ -342,7 +352,7 @@ export default function Step2() {
     const answerPayload = {
       q1,
       departureCities,
-      departureCity: departureCities.join(', '),
+      departureCity: departureCitiesToStoredString(departureCities),
       dates,
       fixedDates,
       flexLength,
@@ -425,7 +435,27 @@ export default function Step2() {
       const res = await fetch('/api/step2-chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: newMessages, tripId, context: { q1, departureCity: departureCities.join(', '), dates, domestic, activities, vibe, budget, q3 } }),
+        body: JSON.stringify({
+          messages: newMessages,
+          tripId,
+          context: {
+            q1,
+            departureCity: formatDepartureCitiesForPrompt(departureCities),
+            dates,
+            fixedDates,
+            flexLength,
+            domestic,
+            regions,
+            stops: stops === 'Other' ? stopsOther : stops,
+            activities,
+            vibe: vibe.includes('Other') ? [...vibe.filter(v => v !== 'Other'), vibeOther] : vibe,
+            accommodation,
+            budget: budget === 'Other' ? budgetOther : budget,
+            popularity,
+            q3,
+            trip_type: trip?.trip_type,
+          },
+        }),
       })
       const data = await res.json()
       const finalMessages = [...newMessages, { role: 'assistant' as const, content: data.message }]
@@ -497,6 +527,11 @@ export default function Step2() {
     <main style={{ minHeight: '100vh', background: 'transparent', paddingBottom: '140px', ...s }}>
       <div style={{ maxWidth: '640px', margin: '0 auto', padding: '48px 24px' }}>
         <BackLink href={`/trips/${tripId}`} wrapperClassName="mb-8 flex justify-end" />
+        <div style={{ marginBottom: '20px', textAlign: 'center' }}>
+          <p style={{ fontSize: '18px', fontWeight: 400, color: 'var(--foreground)', margin: 0, ...s }}>
+            {trip?.name}
+          </p>
+        </div>
         {brainstormPhase && (
           <PhaseBanner
             tripId={tripId}
@@ -505,22 +540,6 @@ export default function Step2() {
             onUpdated={() => void reloadPhase()}
           />
         )}
-        {!canEditBrainstorm && canViewBrainstorm && (
-          <div className="avanti-box border border-border bg-secondary/30 px-4 py-3 mb-6 text-sm text-muted-foreground">
-            View only — your card choices are locked. You can review but not change them.
-          </div>
-        )}
-        {groupTravelers.length > 1 && dateOverlap.status !== 'waiting' && (
-          <GroupDateOverlapBanner result={dateOverlap} />
-        )}
-        {groupTravelers.length > 1 && dateOverlap.status === 'waiting' && (
-          <GroupDateOverlapBanner result={dateOverlap} compact />
-        )}
-        <div style={{ marginBottom: '40px', textAlign: 'center' }}>
-          <p style={{ fontSize: '18px', fontWeight: 400, color: 'var(--foreground)', margin: 0, ...s }}>
-            {trip?.name}
-          </p>
-        </div>
 
         {(stage === 1 || editMode) && (
           <>
@@ -585,12 +604,14 @@ export default function Step2() {
               </div>
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '6px' }}>
+              {canEditBrainstorm && (
               <button
                 onClick={() => setStage(1)}
                 style={{ fontSize: '11px', color: 'var(--muted-foreground)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontFamily: 'var(--font-cormorant), Georgia, serif' }}
               >
                 Edit
               </button>
+              )}
             </div>
           </div>
         )}
@@ -604,6 +625,9 @@ export default function Step2() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '28px', marginBottom: showQ3 ? '32px' : '0', paddingLeft: '54px' }}>
               <div>
                 <span style={sectionLabel}>Where are you flying from?</span>
+                <p style={{ fontSize: '12px', color: 'var(--muted-foreground)', margin: '0 0 10px', lineHeight: 1.5, ...s }}>
+                  Add each departure city as one entry — include state and country if helpful.
+                </p>
 
                 {departureCities.length > 0 && (
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
@@ -669,29 +693,27 @@ export default function Step2() {
                   ))}
                 </div>
                 {dates === 'Fixed dates' && (
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                    <div>
-                      <label style={labelStyle}>Departure</label>
-                      <input type="date" style={inputStyle} value={fixedDates.start} onChange={e => setFixedDates(d => ({ ...d, start: e.target.value }))} />
-                    </div>
-                    <div>
-                      <label style={labelStyle}>Return</label>
-                      <input type="date" style={inputStyle} value={fixedDates.end} onChange={e => setFixedDates(d => ({ ...d, end: e.target.value }))} />
-                    </div>
-                  </div>
+                  <DateRangeFields
+                    start={fixedDates.start}
+                    end={fixedDates.end}
+                    onChange={setFixedDates}
+                    startLabel="Departure"
+                    endLabel="Return"
+                    inputStyle={inputStyle}
+                    labelStyle={labelStyle}
+                  />
                 )}
                 {dates === 'Flexible — I have a range' && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                      <div>
-                        <label style={labelStyle}>Earliest departure</label>
-                        <input type="date" style={inputStyle} value={fixedDates.start} onChange={e => setFixedDates(d => ({ ...d, start: e.target.value }))} />
-                      </div>
-                      <div>
-                        <label style={labelStyle}>Latest return</label>
-                        <input type="date" style={inputStyle} value={fixedDates.end} onChange={e => setFixedDates(d => ({ ...d, end: e.target.value }))} />
-                      </div>
-                    </div>
+                    <DateRangeFields
+                      start={fixedDates.start}
+                      end={fixedDates.end}
+                      onChange={setFixedDates}
+                      startLabel="Earliest departure"
+                      endLabel="Latest return"
+                      inputStyle={inputStyle}
+                      labelStyle={labelStyle}
+                    />
                     <div>
                       <label style={labelStyle}>Preferred trip length</label>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
@@ -949,7 +971,7 @@ export default function Step2() {
                 card={card}
                 tripId={tripId}
                 isVoted={!!votes[card.name]}
-                onVote={!canEditBrainstorm || choicesSubmitted ? undefined : () => {
+                onVote={!canEditBrainstorm ? undefined : () => {
                   const currentCount = Object.values(votes).filter(Boolean).length
                   const isCurrentlyVoted = votes[card.name]
                   if (!isCurrentlyVoted && currentCount >= maxVotes) return
@@ -984,7 +1006,7 @@ export default function Step2() {
             </p>
             {datesBlockSubmit && !choicesSubmitted && (
               <p style={{ fontSize: '12px', color: '#a32d2d', textAlign: 'center', margin: '0 0 12px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
-                Fix group date alignment above before submitting card choices.
+                Group dates need alignment before you can submit card choices.
               </p>
             )}
             <SubmitChoicesButton
@@ -993,22 +1015,27 @@ export default function Step2() {
               requiredCount={maxVotes}
               alreadySubmitted={choicesSubmitted}
               disabled={!canEditBrainstorm || datesBlockSubmit}
-              onSuccess={({ votingRound }) => {
+              onSuccess={() => {
                 setChoicesSubmitted(true)
-                setSubmitToast('Choices submitted ✓')
-                setTimeout(() => setSubmitToast(''), 2500)
-                if (votingRound != null) {
-                  router.push(`/trips/${tripId}/vote`)
-                }
+                setSubmitToast(canEditBrainstorm ? 'Choices saved — you can still change them until the window closes' : 'Choices submitted ✓')
+                setTimeout(() => setSubmitToast(''), 3500)
               }}
             />
           </>
         )}
 
-        {choicesSubmitted && (
+        {choicesSubmitted && canEditBrainstorm && (
+          <div style={{ marginTop: '16px', marginBottom: '32px', textAlign: 'center' }}>
+            <p style={{ fontSize: '14px', color: 'var(--forest-deep)', margin: 0, fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+              ✓ Your card choices are saved — change them anytime before the window closes.
+            </p>
+          </div>
+        )}
+
+        {choicesSubmitted && !canEditBrainstorm && trip?.voting_round != null && (
           <div style={{ marginTop: '16px', marginBottom: '32px', textAlign: 'center' }}>
             <p style={{ fontSize: '14px', color: 'var(--forest-deep)', margin: '0 0 12px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
-              ✓ Your card choices are in.
+              ✓ Your card choices are final.
             </p>
             <button
               type="button"

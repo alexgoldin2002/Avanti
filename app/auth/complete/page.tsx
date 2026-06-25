@@ -3,7 +3,7 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { getPostAuthPath } from '@/lib/preview-trip-storage'
+import { getPostAuthPath, clearPendingShare } from '@/lib/preview-trip-storage'
 import { syncUserPhoneToProfile } from '@/lib/auth/sync-user-phone'
 import SuitcaseLoader from '../../components/SuitcaseLoader'
 
@@ -25,6 +25,7 @@ export default function AuthCompletePage() {
         .select('profile_complete')
         .eq('user_id', user.id)
         .maybeSingle()
+      clearPendingShare()
       router.replace(getPostAuthPath(Boolean(profile?.profile_complete)))
     }
     finish()

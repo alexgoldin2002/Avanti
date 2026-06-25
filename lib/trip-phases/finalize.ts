@@ -194,3 +194,55 @@ export async function extendPhaseDeadline(
   if (error) throw new Error(error.message)
   return newDeadline
 }
+
+export async function closePhaseEarly(
+  db: SupabaseClient,
+  tripId: string,
+  phase: 'brainstorm' | 'round_one' | 'round_two'
+): Promise<void> {
+  const { data: trip } = await db.from('trips').select('*').eq('id', tripId).single()
+  if (!trip) throw new Error('Trip not found')
+
+  const now = new Date().toISOString()
+
+  if (phase === 'brainstorm') {
+    if (trip.brainstorm_closed_at) throw new Error('Window already closed')
+    if (!trip.brainstorm_opened_at && !trip.brainstorm_deadline_at) {
+      throw new Error('Phase is not open yet')
+    }
+    await db.from('trips').update({ brainstorm_closed_at: now, updated_at: now }).eq('id', tripId)
+    if (trip.voting_round == null) {
+      try {
+        await ensureVotingKickoff(db, tripId)
+      } catch {
+        /* not everyone ready */
+      }
+    }
+    return
+  }
+
+  if (phase === 'round_one') {
+    if (trip.round_one_closed_at) throw new Error('Window already closed')
+    if (!trip.voting_opened_at) throw new Error('Phase is not open yet')
+    await db.from('trips').update({ round_one_closed_at: now, updated_at: now }).eq('id', tripId)
+    try {
+      await applyRoundOneAdvancers(db, tripId)
+      const roundTwoFields = openRoundTwoTimestamps(trip as TripPhaseFields, new Date())
+      await db.from('trips').update(roundTwoFields).eq('id', tripId)
+    } catch {
+      /* partial votes */
+    }
+    return
+  }
+
+  if (phase === 'round_two') {
+    if (trip.round_two_closed_at) throw new Error('Window already closed')
+    if (!trip.round_two_opened_at) throw new Error('Phase is not open yet')
+    await db.from('trips').update({ round_two_closed_at: now, updated_at: now }).eq('id', tripId)
+    try {
+      await ensureRoundTwoWinner(db, tripId)
+    } catch {
+      /* winner not ready */
+    }
+  }
+}

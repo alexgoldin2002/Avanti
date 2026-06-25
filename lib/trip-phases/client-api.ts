@@ -39,6 +39,19 @@ export async function extendTripPhase(
   if (!res.ok) throw new Error(data.error || 'Failed to extend time')
 }
 
+export async function closeTripPhaseEarly(
+  tripId: string,
+  phase: 'brainstorm' | 'round_one' | 'round_two'
+): Promise<void> {
+  const res = await fetch(`/api/trips/${tripId}/phases/close`, {
+    method: 'POST',
+    headers: await authHeaders(),
+    body: JSON.stringify({ phase }),
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.error || 'Failed to close window')
+}
+
 export async function savePhaseDurations(
   tripId: string,
   durations: {

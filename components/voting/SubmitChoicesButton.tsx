@@ -9,7 +9,7 @@ type SubmitChoicesButtonProps = {
   requiredCount?: number
   alreadySubmitted?: boolean
   disabled?: boolean
-  onSuccess?: (result: { votingRound: number | null; totalCards: number }) => void
+  onSuccess?: (result: { submitted: boolean }) => void
 }
 
 export default function SubmitChoicesButton({

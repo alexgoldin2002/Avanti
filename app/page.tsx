@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import Footer from './components/Footer'
 import HomeTripPlanner from './components/HomeTripPlanner'
-import { getPostAuthPath, hasPreviewAnswers, isPendingShare, markPendingShare, loadPreviewTrip, savePreviewTrip } from '@/lib/preview-trip-storage'
+import { getPostAuthPath, clearPendingShare } from '@/lib/preview-trip-storage'
 import PhoneAuthForm from './components/PhoneAuthForm'
 import { syncUserPhoneToProfile } from '@/lib/auth/sync-user-phone'
 import { SIGNUP_PASSWORD_HINT, validateSignupPassword } from '@/lib/auth/password-strength'
@@ -74,17 +74,12 @@ export default function Home() {
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession()
       if (session) {
-        if (hasPreviewAnswers() && isPendingShare()) {
-          router.push('/create')
-          return
-        }
         const { data: profile } = await supabase
           .from('user_profiles')
           .select('profile_complete')
           .eq('user_id', session.user.id)
           .maybeSingle()
-        if (profile?.profile_complete) router.push('/dashboard')
-        else router.push('/profile')
+        router.push(getPostAuthPath(Boolean(profile?.profile_complete)))
       }
     }
     checkSession()
@@ -106,6 +101,7 @@ export default function Home() {
       .select('profile_complete')
       .eq('user_id', user.id)
       .maybeSingle()
+    clearPendingShare()
     router.push(getPostAuthPath(Boolean(profile?.profile_complete)))
   }
 
@@ -143,16 +139,11 @@ export default function Home() {
       .select('profile_complete')
       .eq('user_id', data.user.id)
       .maybeSingle()
-    if (!profile?.profile_complete) router.push(getPostAuthPath(false))
-    else router.push(getPostAuthPath(true))
+    clearPendingShare()
+    router.push(getPostAuthPath(Boolean(profile?.profile_complete)))
   }
 
   const handleGoogle = async () => {
-    if (hasPreviewAnswers()) {
-      const { answers, cards } = loadPreviewTrip()
-      if (answers) savePreviewTrip(answers, cards || [])
-      markPendingShare()
-    }
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo: `${window.location.origin}/auth/callback` },

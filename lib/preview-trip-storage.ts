@@ -64,9 +64,8 @@ export function clearPendingShare() {
   removeStorage(PENDING_SHARE_KEY)
 }
 
-/** Where to send the user right after auth when they came from homepage preview. */
+/** Where to send the user right after auth. */
 export function getPostAuthPath(profileComplete: boolean): string {
-  if (hasPreviewAnswers() && isPendingShare()) return '/create'
   if (!profileComplete) return '/profile'
   return '/dashboard'
 }

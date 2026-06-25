@@ -1,34 +1,12 @@
 import type { ParsedDestinationCard } from '@/lib/parse-destination-cards'
-import type { RoundOneContent } from '@/lib/voting/types'
-import { PLACEHOLDER_ROUND_TWO_PERSONAL } from '@/lib/voting/constants'
+import { PLACEHOLDER_ROUND_ONE, PLACEHOLDER_ROUND_TWO_PERSONAL } from '@/lib/voting/constants'
 import BaseDestinationCard from '@/app/components/DestinationCard'
 
-export { PLACEHOLDER_ROUND_TWO_PERSONAL }
+export { PLACEHOLDER_ROUND_TWO_PERSONAL, PLACEHOLDER_ROUND_ONE }
 
 export const PLACEHOLDER_GROUP_BUDGET = {
   min: 900,
   max: 2100,
-}
-
-export const PLACEHOLDER_ROUND_ONE: RoundOneContent = {
-  overview:
-    'A sun-drenched Mediterranean island chain known for whitewashed villages, volcanic beaches, and a relaxed pace that suits both celebration trips and slow cultural wandering. Appeals to groups who want scenery, food, and nightlife without a packed sightseeing schedule.',
-  best_known_for: [
-    'Caldera sunsets',
-    'Island hopping',
-    'Fresh seafood tavernas',
-    'Volcanic beaches',
-    'Vibrant summer nightlife',
-  ],
-  activities: [
-    'Boat days to hidden coves',
-    'Wine tasting in hillside villages',
-    'Sunset dinner in Oia',
-    'Hiking coastal trails',
-    'Old town market mornings',
-    'Beach club afternoons',
-  ],
-  weather: 'Late June: ~82°F, virtually no rain, strong afternoon winds off the sea.',
 }
 
 export const PLACEHOLDER_DESTINATION: ParsedDestinationCard = {

@@ -1,13 +1,14 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, type Dispatch, type SetStateAction } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { deleteTripPermanently, leaveTripAsMember } from '@/lib/trip-lifecycle'
 import SuitcaseLoader from '../../../components/SuitcaseLoader'
 import SubpageShell from '../../../components/SubpageShell'
 import AvantiCard from '../../../components/AvantiCard'
+import DangerConfirmModal from '../../../components/DangerConfirmModal'
 import { savePhaseDurations } from '@/lib/trip-phases/client-api'
-import { minutesToSubmissionWindow, submissionWindowToMinutes, formatSubmissionWindow } from '@/lib/submission-window'
+import { minutesToSubmissionWindow, submissionWindowToMinutes } from '@/lib/submission-window'
 import {
   DEFAULT_BRAINSTORM_MINUTES,
   DEFAULT_ROUND_ONE_MINUTES,
@@ -68,6 +69,20 @@ const LEAVE_STEPS = [
   },
 ]
 
+function handlePhaseTimeInput(
+  raw: string,
+  setWindow: Dispatch<SetStateAction<{ days: number; hours: number; minutes: number }>>,
+  unit: 'days' | 'hours' | 'minutes'
+) {
+  const digits = raw.replace(/\D/g, '')
+  if (digits === '') {
+    setWindow(prev => ({ ...prev, [unit]: 0 }))
+    return
+  }
+  const n = Math.min(100, Math.max(1, parseInt(digits, 10)))
+  setWindow(prev => ({ ...prev, [unit]: n }))
+}
+
 export default function TripSettings() {
   const { tripId } = useParams() as { tripId: string }
   const router = useRouter()
@@ -88,6 +103,8 @@ export default function TripSettings() {
   const [leaveStep, setLeaveStep] = useState<number | null>(null)
   const [actionLoading, setActionLoading] = useState(false)
   const [actionError, setActionError] = useState('')
+  const [saveError, setSaveError] = useState('')
+  const skipAutoSaveRef = useRef(true)
 
   useEffect(() => {
     const load = async () => {
@@ -121,28 +138,53 @@ export default function TripSettings() {
     load()
   }, [tripId, router])
 
-  const save = async () => {
-    setSaving(true)
-    await supabase.from('trips').update({
-      max_votes: maxVotes,
-    }).eq('id', tripId)
+  useEffect(() => {
+    if (loading || skipAutoSaveRef.current) return
 
-    if (isOrganizer && !trip?.voting_round) {
-      try {
-        await savePhaseDurations(tripId, {
-          brainstormDurationMinutes: submissionWindowToMinutes(brainstormWindow),
-          roundOneDurationMinutes: submissionWindowToMinutes(roundOneWindow),
-          roundTwoDurationMinutes: submissionWindowToMinutes(roundTwoWindow),
-        })
-      } catch (e) {
-        alert(e instanceof Error ? e.message : 'Failed to save phase timers')
+    const timer = window.setTimeout(async () => {
+      setSaving(true)
+      setSaveError('')
+      const { error } = await supabase.from('trips').update({ max_votes: maxVotes }).eq('id', tripId)
+      if (error) {
+        setSaveError(error.message)
+        setSaving(false)
+        return
       }
-    }
 
-    setSaving(false)
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
-  }
+      if (isOrganizer && !trip?.voting_round) {
+        try {
+          await savePhaseDurations(tripId, {
+            brainstormDurationMinutes: submissionWindowToMinutes(brainstormWindow),
+            roundOneDurationMinutes: submissionWindowToMinutes(roundOneWindow),
+            roundTwoDurationMinutes: submissionWindowToMinutes(roundTwoWindow),
+          })
+        } catch (e) {
+          setSaveError(e instanceof Error ? e.message : 'Failed to save phase timers')
+          setSaving(false)
+          return
+        }
+      }
+
+      setSaving(false)
+      setSaved(true)
+      window.setTimeout(() => setSaved(false), 1500)
+    }, 500)
+
+    return () => window.clearTimeout(timer)
+  }, [
+    loading,
+    tripId,
+    maxVotes,
+    brainstormWindow,
+    roundOneWindow,
+    roundTwoWindow,
+    isOrganizer,
+    trip?.voting_round,
+  ])
+
+  useEffect(() => {
+    if (!loading) skipAutoSaveRef.current = false
+  }, [loading])
 
   const handleDeleteContinue = async () => {
     if (deleteStep === null) return
@@ -187,10 +229,15 @@ export default function TripSettings() {
         eyebrow={trip?.name}
         title="Trip settings"
       >
-        <AvantiCard shade="ivory" className="!px-6 !py-6">
-          <label className="eyebrow text-muted-foreground block mb-2">Max votes per traveler</label>
-          <p className="text-xs text-muted-foreground mb-5 leading-relaxed">
-            How many destination cards each traveler can vote for.
+        {(saving || saved || saveError) && (
+          <p className={`text-[10px] uppercase tracking-[0.2em] mb-4 ${saveError ? 'text-red-400' : 'text-muted-foreground'}`}>
+            {saveError || (saving ? 'Saving…' : 'Saved ✓')}
+          </p>
+        )}
+        <AvantiCard shade="forest" className="!px-6 !py-6">
+          <label className="eyebrow text-cream/60 block mb-2">Max votes per traveler</label>
+          <p className="text-xs text-cream/75 mb-5 leading-relaxed">
+            How many destination cards each traveler can submit for voting.
             {travelerCount > 0 && ` Auto-set to ${travelerCount <= 8 ? '2' : '1'} based on your group size of ${travelerCount}.`}
           </p>
           <div className="flex gap-2 mb-6">
@@ -201,8 +248,8 @@ export default function TripSettings() {
                 onClick={() => setMaxVotes(n)}
                 className={`grid h-12 w-12 place-items-center rounded-none border text-base font-serif transition-all duration-200 ${
                   maxVotes === n
-                    ? 'border-forest-deep bg-forest-pale text-forest-deep scale-105'
-                    : 'border-border bg-card text-muted-foreground hover:border-forest-deep/40 hover:bg-forest-mist'
+                    ? 'border-cream bg-cream/20 text-cream scale-105'
+                    : 'border-cream/30 bg-transparent text-cream/70 hover:border-cream/50 hover:bg-cream/10'
                 }`}
               >
                 {n}
@@ -212,12 +259,10 @@ export default function TripSettings() {
         </AvantiCard>
 
         {isOrganizer && !trip?.voting_round && (
-          <AvantiCard shade="ivory" className="!px-6 !py-6 mt-6">
-            <label className="eyebrow text-muted-foreground block mb-2">Phase timers</label>
-            <p className="text-xs text-muted-foreground mb-5 leading-relaxed">
-              Default windows: Brainstorm {formatSubmissionWindow(DEFAULT_BRAINSTORM_MINUTES)}, Round 1{' '}
-              {formatSubmissionWindow(DEFAULT_ROUND_ONE_MINUTES)}, Round 2{' '}
-              {formatSubmissionWindow(DEFAULT_ROUND_TWO_MINUTES)}. Hosts can extend time on each page after a phase opens.
+          <AvantiCard shade="forest" className="!px-6 !py-6 mt-6">
+            <label className="eyebrow text-cream/60 block mb-2">Phase timers</label>
+            <p className="text-xs text-cream/75 mb-5 leading-relaxed">
+              Change duration of voting phases for the decision of destination. Hosts can add or end time early on the page itself once it has begun.
             </p>
             {[
               { label: 'Brainstorm & card submission', value: brainstormWindow, set: setBrainstormWindow },
@@ -225,22 +270,18 @@ export default function TripSettings() {
               { label: 'Round 2 voting', value: roundTwoWindow, set: setRoundTwoWindow },
             ].map(row => (
               <div key={row.label} className="mb-5">
-                <p className="text-sm font-serif mb-2">{row.label}</p>
+                <p className="text-sm font-serif text-cream mb-2">{row.label}</p>
                 <div className="flex gap-3">
                   {(['days', 'hours', 'minutes'] as const).map(unit => (
-                    <label key={unit} className="flex-1 text-xs text-muted-foreground">
+                    <label key={unit} className="flex-1 text-xs text-cream/60 uppercase tracking-wide">
                       {unit}
                       <input
-                        type="number"
-                        min={0}
-                        value={row.value[unit]}
-                        onChange={e =>
-                          row.set(prev => ({
-                            ...prev,
-                            [unit]: Math.max(0, parseInt(e.target.value || '0', 10)),
-                          }))
-                        }
-                        className="mt-1 w-full border-b border-border bg-transparent py-1 text-sm text-foreground outline-none font-serif"
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        value={row.value[unit] === 0 ? '' : String(row.value[unit])}
+                        onChange={e => handlePhaseTimeInput(e.target.value, row.set, unit)}
+                        className="mt-1 w-full border-b border-cream/35 bg-transparent py-1 text-sm text-cream outline-none font-serif"
                       />
                     </label>
                   ))}
@@ -252,41 +293,32 @@ export default function TripSettings() {
 
         <button
           type="button"
-          onClick={save}
-          disabled={saving}
-          className="avanti-btn-primary w-full disabled:opacity-50"
-        >
-          {saved ? 'Saved ✓' : saving ? 'Saving...' : 'Save settings →'}
-        </button>
-
-        <button
-          type="button"
           onClick={() => router.push(`/trips/${tripId}`)}
-          className="avanti-btn avanti-btn-ghost w-full mt-3 mb-8"
+          className="avanti-btn avanti-btn-ghost w-full mt-6 mb-8"
         >
           Back to trip dashboard
         </button>
 
         {(isOrganizer || isMember) && (
-          <AvantiCard shade="ivory" className="!px-6 !py-6 mt-8 !border-destructive/25">
-            <p className="eyebrow text-destructive block mb-2">Danger zone</p>
-            <p className="text-xs text-muted-foreground mb-6 leading-relaxed">
+          <AvantiCard shade="forest" className="!px-6 !py-6 mt-8 !border-red-400/50">
+            <p className="eyebrow text-red-300 block mb-2">Danger zone</p>
+            <p className="text-xs text-cream/75 mb-6 leading-relaxed">
               {isOrganizer
                 ? 'Deleting a trip permanently removes it for every traveler. This cannot be undone.'
                 : 'Leaving removes you from this trip permanently. You will not be able to rejoin.'}
             </p>
 
             {actionError && (
-              <p className="text-xs text-destructive mb-4">{actionError}</p>
+              <p className="text-xs text-red-300 mb-4">{actionError}</p>
             )}
 
             {isOrganizer && (
               <button
                 type="button"
                 onClick={() => { setActionError(''); setDeleteStep(0) }}
-                className="group flex w-full items-center justify-center gap-2 rounded-none border border-destructive/40 bg-transparent px-4 py-3.5 text-[10px] tracking-[0.2em] uppercase text-destructive transition-all duration-200 hover:border-destructive hover:bg-destructive/5"
+                className="group flex w-full items-center justify-center gap-2 rounded-none border border-red-400/50 bg-transparent px-4 py-3.5 text-[10px] tracking-[0.2em] uppercase text-red-300 transition-all duration-200 hover:border-red-300 hover:bg-red-400/10"
               >
-                <i className="ti ti-trash text-base text-destructive" aria-hidden />
+                <i className="ti ti-trash text-base text-red-300" aria-hidden />
                 Delete trip
               </button>
             )}
@@ -295,7 +327,7 @@ export default function TripSettings() {
               <button
                 type="button"
                 onClick={() => { setActionError(''); setLeaveStep(0) }}
-                className="w-full rounded-none border border-destructive/40 bg-transparent px-4 py-3.5 text-[10px] tracking-[0.2em] uppercase text-destructive transition-all duration-200 hover:border-destructive hover:bg-destructive/5"
+                className="w-full rounded-none border border-red-400/50 bg-transparent px-4 py-3.5 text-[10px] tracking-[0.2em] uppercase text-red-300 transition-all duration-200 hover:border-red-300 hover:bg-red-400/10"
               >
                 Leave trip
               </button>

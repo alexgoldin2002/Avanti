@@ -4,7 +4,7 @@ type AvantiCardProps = {
   children: React.ReactNode
   className?: string
   hover?: boolean
-  shade?: 'cream' | 'ivory' | 'forest-soft' | 'forest'
+  shade?: 'cream' | 'ivory' | 'forest-soft' | 'forest' | 'forest-outlined'
   onClick?: () => void
   as?: 'div' | 'button'
 }
@@ -14,6 +14,7 @@ const shadeMap = {
   ivory: 'bg-secondary border-border',
   'forest-soft': 'bg-forest-soft/10 border-forest-soft/30 text-foreground',
   forest: 'bg-forest-deep text-cream border-forest-deep',
+  'forest-outlined': 'bg-forest-pale/50 border-forest-deep text-foreground',
 }
 
 export default function AvantiCard({

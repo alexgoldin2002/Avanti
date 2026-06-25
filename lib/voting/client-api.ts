@@ -42,10 +42,7 @@ export async function fetchVotingState(tripId: string): Promise<VotingPayload> {
   return data as VotingPayload
 }
 
-export async function submitTripCardChoices(tripId: string): Promise<{
-  votingRound: number | null
-  totalCards: number
-}> {
+export async function submitTripCardChoices(tripId: string): Promise<{ submitted: boolean }> {
   const res = await fetch('/api/voting/submit-choices', {
     method: 'POST',
     headers: await authHeaders(),
@@ -53,10 +50,7 @@ export async function submitTripCardChoices(tripId: string): Promise<{
   })
   const data = await res.json()
   if (!res.ok) throw new Error(data.error || 'Failed to submit choices')
-  return {
-    votingRound: data.votingRound ?? null,
-    totalCards: data.totalCards ?? 0,
-  }
+  return { submitted: !!data.submitted }
 }
 
 export async function submitRoundOneVotes(
