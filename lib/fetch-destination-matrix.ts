@@ -16,12 +16,33 @@ async function authHeaders(): Promise<HeadersInit> {
   return headers
 }
 
+function matrixFetchError(res: Response, data: { error?: string }): Error {
+  if (res.status === 504) {
+    return new Error('Generation timed out — please try again in a moment.')
+  }
+  if (res.status === 401) {
+    return new Error('Your session expired — refresh the page and sign in again.')
+  }
+  return new Error(data.error || 'Failed to generate comparison')
+}
+
+async function postMatrixPhase(
+  body: Record<string, unknown>,
+): Promise<Response> {
+  return fetch('/api/generate-destination-matrix', {
+    method: 'POST',
+    headers: await authHeaders(),
+    body: JSON.stringify(body),
+  })
+}
+
 export async function fetchDestinationMatrix(opts: {
   tripId: string
   answers: Record<string, unknown>
   consideringList?: string[]
   messages?: ChatMessage[]
   mode?: MatrixGenerationMode
+  onStatus?: (message: string) => void
 }): Promise<{
   matrix: DestinationMatrixRow[]
   pairings: DestinationMatrixCombo[]
@@ -30,30 +51,44 @@ export async function fetchDestinationMatrix(opts: {
   recommendedTab: MatrixTabId | null
   recommendedShape: string
 }> {
-  const res = await fetch('/api/generate-destination-matrix', {
-    method: 'POST',
-    headers: await authHeaders(),
-    body: JSON.stringify({
-      tripId: opts.tripId,
-      answers: opts.answers,
-      messages: opts.messages ?? [],
-      consideringList: opts.consideringList ?? [],
-      mode: opts.mode,
-    }),
-  })
+  const baseBody = {
+    tripId: opts.tripId,
+    answers: opts.answers,
+    messages: opts.messages ?? [],
+    consideringList: opts.consideringList ?? [],
+    mode: opts.mode,
+  }
 
-  const data = await res.json().catch(() => ({}))
-  if (!res.ok) {
-    throw new Error(data.error || 'Failed to generate comparison')
+  opts.onStatus?.('Scoring destinations against your preferences…')
+  const matrixRes = await postMatrixPhase({ ...baseBody, phase: 'matrix' })
+  const matrixData = await matrixRes.json().catch(() => ({}))
+  if (!matrixRes.ok) {
+    throw matrixFetchError(matrixRes, matrixData)
+  }
+
+  const matrix = matrixData.matrix as DestinationMatrixRow[]
+  if (!matrix?.length) {
+    throw new Error('Could not parse destination scores — try again')
+  }
+
+  opts.onStatus?.('Building pairings and multi-stop routes…')
+  const routesRes = await postMatrixPhase({
+    ...baseBody,
+    phase: 'routes',
+    destinationNames: matrix.map(row => row.name),
+  })
+  const routesData = await routesRes.json().catch(() => ({}))
+  if (!routesRes.ok) {
+    throw matrixFetchError(routesRes, routesData)
   }
 
   return {
-    matrix: data.matrix as DestinationMatrixRow[],
-    pairings: (data.pairings as DestinationMatrixCombo[]) || [],
-    triples: (data.triples as DestinationMatrixCombo[]) || [],
-    summary: data.summary || '',
-    recommendedTab: data.recommendedTab || null,
-    recommendedShape: data.recommendedShape || '',
+    matrix,
+    pairings: (routesData.pairings as DestinationMatrixCombo[]) || [],
+    triples: (routesData.triples as DestinationMatrixCombo[]) || [],
+    summary: routesData.summary || '',
+    recommendedTab: routesData.recommendedTab || null,
+    recommendedShape: routesData.recommendedShape || '',
   }
 }
 

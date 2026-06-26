@@ -6,7 +6,13 @@ import {
 } from './departure-cities'
 import { describeTripShapeHint, triplesGenerationTaskLine } from './matrix-trip-shape'
 import { MATRIX_CHIP_RULES } from './matrix-chip-fields'
-import { parseDestinationMatrix, parseSingleMatrixRowFromText, type DestinationMatrixRow } from './parse-destination-matrix'
+import {
+  parseDestinationMatrix,
+  parseDestinationMatrixRows,
+  parseDestinationMatrixRoutes,
+  parseSingleMatrixRowFromText,
+  type DestinationMatrixRow,
+} from './parse-destination-matrix'
 
 export const MATRIX_SYSTEM_PROMPT = `You are Avanti's group travel AI. Compare a fixed list of destinations the group is already considering — do NOT suggest new places or add alternatives.
 
@@ -362,6 +368,226 @@ TRADEOFF: Biggest downside
 ${MATRIX_CHIP_RULES}
 
 Pick a destination NOT in the "keep" list (except you are replacing the named destination). All costs USD, temps °F.`
+
+const PAIRINGS_TRIPLES_OUTPUT = `Then output **exactly six pairings** — **two per category**, no fewer. Use ONLY cities from the destination list provided. **Cross-country pairings are fine** when both places are on the list and routing is practical.
+
+Do NOT use HIGHLIGHT or CONSIDER on pairings. **Do NOT put the category name in PAIRING TITLE** — the section header already names the category. PAIRING TITLE should be the city pair only (e.g. "Paros · Mykonos") or leave it blank.
+
+**Travel simplicity (top 2):** Easiest routing — direct flights, minimal connections, simple ferry/train between stops.
+
+**Budget (top 2):** RANK 1 = **cheapest pairing** (lowest combined total per-person cost on the list). RANK 2 = **splurge + balance** (the most expensive/splurge-worthy destination paired with a budget-friendly stop that offsets it). Do NOT put two cheap pairings here.
+
+**Activity & vibe mix (top 2):** Strongest contrast in experiences — complementary, not redundant.
+
+Each pairing block:
+---
+RANK: 1 or 2
+PLACES: City A, Country | City B, Country
+PAIRING TITLE: City A · City B
+SCORE: 1–10
+SYNOPSIS: 2–3 sentences — why this pair fits **this category**
+ROUTING: Nights in each place + how to travel between them
+BUDGET FIT: First line ONLY: ~$X,XXX–$X,XXX per person. Then breakdown bullets ending with — **bold budget verdict**
+TRADEOFF: One sentence — biggest downside
+---
+
+TRAVEL SIMPLICITY PAIRINGS:
+(exactly two blocks — RANK 1 and RANK 2)
+
+BUDGET PAIRINGS:
+RANK 1 — Cheapest pairing: lowest combined total per-person cost of any two-stop route on the list.
+RANK 2 — Splurge + balance: most expensive/splurge stop on the list + a budget-friendly counterweight.
+(exactly two blocks)
+
+ACTIVITY VIBE PAIRINGS:
+(exactly two blocks — RANK 1 and RANK 2)
+
+Include a TRIPLES section when their trip length supports three bases (~21+ nights) OR they chose "3 stops". Omit TRIPLES for short trips (≤14 nights) or when they want just one destination:
+
+TRIPLES:
+---
+RANK: 1
+PLACES: City A | City B | City C
+SCORE: 8
+SYNOPSIS: ...
+ROUTING: Night split across all three + transit between
+BUDGET FIT: First line ~$X,XXX–$X,XXX per person total, then bullets
+TRADEOFF: ...
+---
+(up to 3 ranked triples; omit the entire TRIPLES section if the trip is too short for three bases)
+
+If RECOMMENDED_SHAPE recommends three stops or ~21+ night splits across three bases, the TRIPLES section is mandatory.
+
+After all sections write:
+AVANTI_MATRIX_END
+Then ONE short sentence (max 25 words) naming your top pick.
+RECOMMENDED_TAB: singles | pairings | triples (use triples when three bases fit their dates)
+RECOMMENDED_SHAPE: One short sentence (max 20 words) on ideal stop count for their dates.`
+
+const MATRIX_ROWS_ONLY_SYSTEM = `You are Avanti's group travel AI. Score destinations for a group trip comparison.
+
+ALL TEMPERATURES IN FAHRENHEIT. ALL COSTS IN USD.
+
+${MATRIX_CHIP_RULES}
+
+Build a weighted scoring matrix for each destination across budget fit (~25%), weather (~15%), logistics (~20%), experience quality (~25%), and must-have / deal-breaker match (~15%).
+
+Output ONLY in this exact format — no pairings, no triples:
+
+MATRIX:
+---
+NAME: City, Country
+SCORE: 8
+HIGHLIGHT: Direct flights
+CONSIDER: Peak crowds
+SYNOPSIS: 2–3 sentences
+BUDGET FIT: First line ONLY: ~$X,XXX–$X,XXX per person. Then breakdown bullets ending with — **bold budget verdict**
+WEATHER: During their travel dates, in °F
+ACTIVITIES: Bullet list of 3–4 specific things to do there
+LOGISTICS: Flights/travel time and layovers from their departure city; note visa/entry if relevant
+GROUP FIT: Why it works for this group type/size; note safety if relevant
+VIBE: One sentence atmosphere match
+TRADEOFF: Honest biggest downside for this group
+---
+(repeat for every destination — list highest SCORE first, descending)
+
+AVANTI_MATRIX_END
+Then ONE short sentence (max 25 words) naming your top single destination.`
+
+const MATRIX_ROUTES_SYSTEM = `You are Avanti's group travel AI. Create multi-stop route pairings and triples from a fixed destination list.
+
+ALL TEMPERATURES IN FAHRENHEIT. ALL COSTS IN USD.
+
+${MATRIX_CHIP_RULES}
+
+${PAIRINGS_TRIPLES_OUTPUT}
+
+Be specific — name neighborhoods, venues, and landmarks. No generic filler.`
+
+type MatrixGenOpts = {
+  trip: Record<string, unknown> | null
+  travelerCount: number
+  answers: Record<string, unknown>
+  consideringList: string[]
+  chatSupplement?: string
+  mode?: MatrixGenerationMode
+}
+
+function buildMatrixContextBlock(
+  trip: Record<string, unknown> | null,
+  travelerCount: number,
+  answers: Record<string, unknown>,
+  chatSupplement: string,
+): string {
+  const departure = formatDepartureCitiesForPrompt(departureCitiesFromAnswers(answers))
+  const fixedDates = answers.fixedDates as { start?: string; end?: string } | undefined
+  const datesLine = fixedDates?.start
+    ? `${fixedDates.start} to ${fixedDates.end}`
+    : (answers.dates as string) || 'Not specified'
+  const flexLength = answers.flexLength as string | undefined
+  const tripStory = String(answers.q1 || '').trim()
+  const tripType = String((trip?.trip_type as string) || 'Group trip').trim()
+  const dealBreakers = String(answers.q3 || '').trim() || 'None stated'
+  const tripShapeAnswers = {
+    stops: answers.stops as string | undefined,
+    stopsOther: answers.stopsOther as string | undefined,
+    flexLength,
+    fixedDates,
+    dates: answers.dates as string | undefined,
+  }
+  const shapeHint = describeTripShapeHint(tripShapeAnswers)
+
+  return `<context>
+Trip purpose: ${tripType}
+About this trip: ${tripStory || 'Not specified'}
+Group size: ${travelerCount} people
+Travel window: ${datesLine}${flexLength ? ` (preferred length: ${flexLength})` : ''}
+Budget: ${answers.budget || 'Not specified'} per person
+Deal-breakers: ${dealBreakers}
+Departure city: ${departure || 'Not specified'}
+Trip shape guidance: ${shapeHint}
+${chatSupplement}
+</context>`
+}
+
+async function callClaude(client: Anthropic, system: string, userMessage: string, maxTokens: number): Promise<string> {
+  const response = await client.messages.create({
+    model: 'claude-sonnet-4-6',
+    max_tokens: maxTokens,
+    temperature: 0,
+    system,
+    messages: [{ role: 'user', content: userMessage }],
+  })
+  return response.content
+    .filter(b => b.type === 'text')
+    .map(b => (b.type === 'text' ? b.text : ''))
+    .join('\n')
+}
+
+/** Phase 1 — score single destinations only (keeps serverless calls under timeout). */
+export async function generateDestinationMatrixRows(
+  client: Anthropic,
+  opts: MatrixGenOpts,
+): Promise<DestinationMatrixRow[]> {
+  const mode = opts.mode ?? (opts.consideringList.length > 0 ? 'considering' : 'brainstorm')
+  const context = buildMatrixContextBlock(
+    opts.trip,
+    opts.travelerCount,
+    opts.answers,
+    opts.chatSupplement || '',
+  )
+
+  const listBlock =
+    mode === 'considering'
+      ? opts.consideringList.map((d, i) => `${i + 1}. ${d}`).join('\n')
+      : ''
+
+  const task =
+    mode === 'considering'
+      ? `Score every destination in my list — do not add, remove, or substitute options:\n${listBlock}`
+      : 'Recommend **6 distinct destinations** for this group and score each in the MATRIX.'
+
+  const userMessage = `${context}\n\n<task>\n${task}\nOutput MATRIX rows only, then AVANTI_MATRIX_END and one summary sentence.\n</task>`
+
+  const text = await callClaude(client, MATRIX_ROWS_ONLY_SYSTEM, userMessage, mode === 'brainstorm' ? 7000 : 5000)
+  return parseDestinationMatrixRows(text)
+}
+
+/** Phase 2 — pairings and triples from scored destinations. */
+export async function generateDestinationMatrixRoutes(
+  client: Anthropic,
+  opts: MatrixGenOpts & { destinationNames: string[] },
+): Promise<Omit<ReturnType<typeof parseDestinationMatrix>, 'rows' | 'rawBlock'>> {
+  const context = buildMatrixContextBlock(
+    opts.trip,
+    opts.travelerCount,
+    opts.answers,
+    opts.chatSupplement || '',
+  )
+  const tripShapeAnswers = {
+    stops: opts.answers.stops as string | undefined,
+    stopsOther: opts.answers.stopsOther as string | undefined,
+    flexLength: opts.answers.flexLength as string | undefined,
+    fixedDates: opts.answers.fixedDates as { start?: string; end?: string } | undefined,
+    dates: opts.answers.dates as string | undefined,
+  }
+  const triplesTask = triplesGenerationTaskLine(tripShapeAnswers)
+  const destList = opts.destinationNames.map((d, i) => `${i + 1}. ${d}`).join('\n')
+
+  const userMessage = `${context}
+
+Destinations from the matrix (use ONLY these — do not add new places):
+${destList}
+
+<task>
+Create exactly six two-stop pairings (two per TRAVEL SIMPLICITY, BUDGET, ACTIVITY VIBE) using the destinations above. For BUDGET: RANK 1 = cheapest pairing, RANK 2 = splurge + budget-friendly balance.
+${triplesTask}
+Output all pairing sections, TRIPLES (when required above), AVANTI_MATRIX_END, RECOMMENDED_TAB, and RECOMMENDED_SHAPE.
+</task>`
+
+  const text = await callClaude(client, MATRIX_ROUTES_SYSTEM, userMessage, 7000)
+  return parseDestinationMatrixRoutes(text)
+}
 
 export async function generateDestinationMatrix(
   client: Anthropic,

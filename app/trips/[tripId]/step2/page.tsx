@@ -747,7 +747,12 @@ export default function Step2() {
       matrixRecommendedShape,
       chatMessages: messagesOverride ?? chatMessages,
     })
-    void fetch(`/api/trips/${tripId}/date-overlap`, { method: 'POST' }).catch(() => {})
+    void (async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      const headers: HeadersInit = {}
+      if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`
+      await fetch(`/api/trips/${tripId}/date-overlap`, { method: 'POST', headers })
+    })().catch(() => {})
   }
 
   const persistCardVotes = async (nextVotes: Record<string, boolean>) => {
@@ -878,6 +883,7 @@ export default function Step2() {
           messages: chatMessages,
           consideringList: isConsideringPath ? consideringList : [],
           mode: isConsideringPath ? 'considering' : 'brainstorm',
+          onStatus: setGenerateStatus,
         })
 
         enrichMatrixChipRows(rows)
@@ -964,9 +970,10 @@ export default function Step2() {
       }
       const hint =
         message.includes('timed out') ||
+        message.includes('504') ||
         message.includes('Failed') ||
         message.includes('No destination cards')
-          ? ' If several people are generating at once, wait about 30 seconds and try again.'
+          ? ' This can happen on slower connections — wait a moment and try again.'
           : ''
       setGenerateError(message + hint)
     } finally {

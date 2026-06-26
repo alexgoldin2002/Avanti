@@ -343,6 +343,36 @@ function parseRecommendedTab(raw: string): MatrixTabId | null {
   return null
 }
 
+/** Parse only single-destination MATRIX rows from a partial AI response. */
+export function parseDestinationMatrixRows(text: string): DestinationMatrixRow[] {
+  const endIdx = text.indexOf('AVANTI_MATRIX_END')
+  const block = endIdx !== -1 ? text.slice(0, endIdx) : text
+  const singles = parseSectionRows(block, 'MATRIX:', 'single') as DestinationMatrixRow[]
+  sortMatrixRowsByScore(singles)
+  fillMissingConsiderChips({
+    rows: singles,
+    pairings: [],
+    triples: [],
+    summary: '',
+    recommendedTab: null,
+    recommendedShape: '',
+    rawBlock: block,
+  })
+  return singles
+}
+
+/** Parse pairings, triples, and recommendations from a routes-only AI response. */
+export function parseDestinationMatrixRoutes(text: string): Omit<DestinationMatrixResult, 'rows' | 'rawBlock'> {
+  const parsed = parseDestinationMatrix(text)
+  return {
+    pairings: parsed.pairings,
+    triples: parsed.triples,
+    summary: parsed.summary,
+    recommendedTab: parsed.recommendedTab,
+    recommendedShape: parsed.recommendedShape,
+  }
+}
+
 /** Parse AI matrix output into structured rows and itinerary combos. */
 export function parseDestinationMatrix(text: string): DestinationMatrixResult {
   let summary = ''

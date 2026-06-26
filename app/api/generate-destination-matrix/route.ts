@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic'
 
 import Anthropic from '@anthropic-ai/sdk'
 import { NextRequest, NextResponse } from 'next/server'
-import { generateDestinationMatrix, type MatrixGenerationMode } from '@/lib/generate-destination-matrix'
+import { generateDestinationMatrix, generateDestinationMatrixRows, generateDestinationMatrixRoutes, type MatrixGenerationMode } from '@/lib/generate-destination-matrix'
 import { syncTripGroupOverlap } from '@/lib/group-date-overlap/sync-trip-overlap'
 import { tryCreateAdminClient } from '@/lib/supabase-admin'
 import { supabaseFromRequest, requireUser } from '@/lib/destination-decision/supabase-server'
@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'AI service is not configured' }, { status: 500 })
     }
 
-    const { tripId, answers, messages, consideringList, mode } = await request.json()
+    const { tripId, answers, messages, consideringList, mode, phase, destinationNames } = await request.json()
 
     if (!tripId) return NextResponse.json({ error: 'tripId required' }, { status: 400 })
 
@@ -64,7 +64,9 @@ export async function POST(request: NextRequest) {
 
     const { data: travelers } = await supabase.from('travelers').select('*').eq('trip_id', tripId)
     const admin = tryCreateAdminClient()
-    if (admin) await syncTripGroupOverlap(admin, tripId)
+    if (admin) {
+      void syncTripGroupOverlap(admin, tripId).catch(() => {})
+    }
 
     const travelerCount = resolveGroupSize({
       dbCount: travelers?.length || 0,
@@ -73,14 +75,41 @@ export async function POST(request: NextRequest) {
     })
 
     const chatSupplement = buildChatSupplementBlock(chatMessages)
-    const result = await generateDestinationMatrix(client, {
+    const genOpts = {
       trip: tripData,
       travelerCount,
       answers: answers ?? {},
       consideringList: list,
       chatSupplement,
       mode: generationMode,
-    })
+    }
+
+    const requestPhase = phase === 'matrix' || phase === 'routes' ? phase : 'full'
+
+    if (requestPhase === 'matrix') {
+      const rows = await generateDestinationMatrixRows(client, genOpts)
+      if (rows.length === 0) {
+        return NextResponse.json({ error: 'Could not parse destination scores — try again' }, { status: 502 })
+      }
+      return NextResponse.json({ matrix: rows })
+    }
+
+    if (requestPhase === 'routes') {
+      const names = (destinationNames as string[] | undefined)?.map(s => s.trim()).filter(Boolean) || []
+      if (names.length < 2) {
+        return NextResponse.json({ error: 'destinationNames required for routes phase' }, { status: 400 })
+      }
+      const routes = await generateDestinationMatrixRoutes(client, { ...genOpts, destinationNames: names })
+      return NextResponse.json({
+        pairings: routes.pairings,
+        triples: routes.triples,
+        summary: routes.summary,
+        recommendedTab: routes.recommendedTab,
+        recommendedShape: routes.recommendedShape,
+      })
+    }
+
+    const result = await generateDestinationMatrix(client, genOpts)
 
     if (result.rows.length === 0) {
       return NextResponse.json({ error: 'Could not parse comparison matrix — try again' }, { status: 502 })
