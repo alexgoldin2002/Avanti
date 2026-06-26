@@ -1,9 +1,21 @@
-export const maxDuration = 60
+export const maxDuration = 300
 export const dynamic = 'force-dynamic'
 
 import Anthropic from '@anthropic-ai/sdk'
 import { NextRequest, NextResponse } from 'next/server'
-import { generateDestinationMatrix, generateDestinationMatrixRows, generateDestinationMatrixRoutes, type MatrixGenerationMode } from '@/lib/generate-destination-matrix'
+import {
+  generateDestinationMatrix,
+  generateDestinationMatrixRows,
+  generateDestinationMatrixRoutes,
+  generateBrainstormMatrixRow,
+  generateConsideringMatrixRow,
+  generateMatrixPairingCategory,
+  generateMatrixTriples,
+  generateMatrixRecommendations,
+  type MatrixGenerationMode,
+} from '@/lib/generate-destination-matrix'
+import type { PairingCategory } from '@/lib/matrix-pairing-categories'
+import { enrichMatrixChipRows, enrichMatrixPairings } from '@/lib/parse-destination-matrix'
 import { syncTripGroupOverlap } from '@/lib/group-date-overlap/sync-trip-overlap'
 import { tryCreateAdminClient } from '@/lib/supabase-admin'
 import { supabaseFromRequest, requireUser } from '@/lib/destination-decision/supabase-server'
@@ -15,13 +27,30 @@ import {
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
+const PAIRING_CATEGORIES = new Set<PairingCategory>([
+  'travel_simplicity',
+  'budget',
+  'activity_vibe',
+])
+
 export async function POST(request: NextRequest) {
   try {
     if (!process.env.ANTHROPIC_API_KEY) {
       return NextResponse.json({ error: 'AI service is not configured' }, { status: 500 })
     }
 
-    const { tripId, answers, messages, consideringList, mode, phase, destinationNames } = await request.json()
+    const {
+      tripId,
+      answers,
+      messages,
+      consideringList,
+      mode,
+      phase,
+      destinationNames,
+      destinationName,
+      existingNames,
+      pairingCategory,
+    } = await request.json()
 
     if (!tripId) return NextResponse.json({ error: 'tripId required' }, { status: 400 })
 
@@ -58,15 +87,11 @@ export async function POST(request: NextRequest) {
           ? 'brainstorm'
           : 'considering'
 
-    if (generationMode === 'considering' && list.length < 2) {
+    if (generationMode === 'considering' && list.length < 2 && phase !== 'matrix-row') {
       return NextResponse.json({ error: 'Add at least 2 destinations to compare' }, { status: 400 })
     }
 
     const { data: travelers } = await supabase.from('travelers').select('*').eq('trip_id', tripId)
-    const admin = tryCreateAdminClient()
-    if (admin) {
-      void syncTripGroupOverlap(admin, tripId).catch(() => {})
-    }
 
     const travelerCount = resolveGroupSize({
       dbCount: travelers?.length || 0,
@@ -84,7 +109,65 @@ export async function POST(request: NextRequest) {
       mode: generationMode,
     }
 
-    const requestPhase = phase === 'matrix' || phase === 'routes' ? phase : 'full'
+    const requestPhase = typeof phase === 'string' ? phase : 'full'
+
+    if (requestPhase === 'matrix-row') {
+      const row =
+        generationMode === 'considering'
+          ? await generateConsideringMatrixRow(client, {
+              ...genOpts,
+              destinationName: String(destinationName || '').trim(),
+            })
+          : await generateBrainstormMatrixRow(client, {
+              ...genOpts,
+              existingNames: Array.isArray(existingNames)
+                ? existingNames.map(String).filter(Boolean)
+                : [],
+            })
+
+      if (!row) {
+        return NextResponse.json({ error: 'Could not parse destination — try again' }, { status: 502 })
+      }
+      enrichMatrixChipRows([row])
+      return NextResponse.json({ row })
+    }
+
+    if (requestPhase === 'pairing-category') {
+      const category = pairingCategory as PairingCategory
+      if (!PAIRING_CATEGORIES.has(category)) {
+        return NextResponse.json({ error: 'pairingCategory required' }, { status: 400 })
+      }
+      const names = (destinationNames as string[] | undefined)?.map(s => s.trim()).filter(Boolean) || []
+      if (names.length < 2) {
+        return NextResponse.json({ error: 'destinationNames required' }, { status: 400 })
+      }
+      const pairings = await generateMatrixPairingCategory(client, {
+        ...genOpts,
+        destinationNames: names,
+        category,
+      })
+      enrichMatrixPairings(pairings)
+      return NextResponse.json({ pairings })
+    }
+
+    if (requestPhase === 'triples') {
+      const names = (destinationNames as string[] | undefined)?.map(s => s.trim()).filter(Boolean) || []
+      if (names.length < 3) {
+        return NextResponse.json({ error: 'destinationNames required' }, { status: 400 })
+      }
+      const triples = await generateMatrixTriples(client, { ...genOpts, destinationNames: names })
+      enrichMatrixChipRows(triples)
+      return NextResponse.json({ triples })
+    }
+
+    if (requestPhase === 'recommendations') {
+      const names = (destinationNames as string[] | undefined)?.map(s => s.trim()).filter(Boolean) || []
+      if (names.length === 0) {
+        return NextResponse.json({ error: 'destinationNames required' }, { status: 400 })
+      }
+      const recs = await generateMatrixRecommendations(client, { ...genOpts, destinationNames: names })
+      return NextResponse.json(recs)
+    }
 
     if (requestPhase === 'matrix') {
       const rows = await generateDestinationMatrixRows(client, genOpts)
@@ -107,6 +190,11 @@ export async function POST(request: NextRequest) {
         recommendedTab: routes.recommendedTab,
         recommendedShape: routes.recommendedShape,
       })
+    }
+
+    const admin = tryCreateAdminClient()
+    if (admin) {
+      void syncTripGroupOverlap(admin, tripId).catch(() => {})
     }
 
     const result = await generateDestinationMatrix(client, genOpts)

@@ -1,4 +1,5 @@
 import { truncateBlurb } from './matrix-display-helpers'
+import type { MatrixTabId } from './matrix-trip-shape'
 import type { ParsedDestinationCard } from './parse-destination-cards'
 import {
   categoryForLegacyIndex,
@@ -341,6 +342,56 @@ function parseRecommendedTab(raw: string): MatrixTabId | null {
   if (v.includes('triple') || v.includes('three')) return 'triples'
   if (v.includes('single') || v.includes('one')) return 'singles'
   return null
+}
+
+/** Parse one pairing category section from a partial AI response. */
+export function parsePairingsForCategory(text: string, category: PairingCategory): DestinationMatrixCombo[] {
+  const ends = [
+    'AVANTI_MATRIX_END',
+    'TRAVEL SIMPLICITY PAIRINGS:',
+    'BUDGET PAIRINGS:',
+    'ACTIVITY VIBE PAIRINGS:',
+    'TRIPLES:',
+    'RECOMMENDED_TAB:',
+    'RECOMMENDED_SHAPE:',
+  ]
+  const markers: Record<PairingCategory, string> = {
+    travel_simplicity: 'TRAVEL SIMPLICITY PAIRINGS:',
+    budget: 'BUDGET PAIRINGS:',
+    activity_vibe: 'ACTIVITY VIBE PAIRINGS:',
+  }
+  return parsePairingCategorySection(text, markers[category], ends, category)
+}
+
+/** Parse triple-route blocks from a partial AI response. */
+export function parseMatrixTriples(text: string): DestinationMatrixCombo[] {
+  const endIdx = text.indexOf('AVANTI_MATRIX_END')
+  const block = endIdx !== -1 ? text.slice(0, endIdx) : text
+  const triples = parseSectionRows(block, 'TRIPLES:', 'triple') as DestinationMatrixCombo[]
+  sortMatrixCombosByRank(triples)
+  return triples
+}
+
+/** Parse summary line and tab/shape recommendations. */
+export function parseMatrixRecommendations(text: string): {
+  summary: string
+  recommendedTab: MatrixTabId | null
+  recommendedShape: string
+} {
+  let summary = ''
+  const endIdx = text.indexOf('AVANTI_MATRIX_END')
+  if (endIdx !== -1) {
+    summary = text.slice(endIdx + 'AVANTI_MATRIX_END'.length).trim()
+    const recShapeIdx = summary.search(/^RECOMMENDED_SHAPE:/m)
+    if (recShapeIdx !== -1) summary = summary.slice(0, recShapeIdx).trim()
+    const recTabIdx = summary.search(/^RECOMMENDED_TAB:/m)
+    if (recTabIdx !== -1) summary = summary.slice(0, recTabIdx).trim()
+  }
+  return {
+    summary: truncateBlurb(summary),
+    recommendedTab: parseRecommendedTab(getField(text, 'RECOMMENDED_TAB')),
+    recommendedShape: truncateBlurb(getField(text, 'RECOMMENDED_SHAPE')),
+  }
 }
 
 /** Parse only single-destination MATRIX rows from a partial AI response. */

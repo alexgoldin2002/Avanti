@@ -1,10 +1,19 @@
 import { supabase } from '@/lib/supabase'
-import type {
-  DestinationMatrixCombo,
-  DestinationMatrixRow,
+import {
+  sortMatrixRowsByScore,
+  type DestinationMatrixCombo,
+  type DestinationMatrixRow,
 } from '@/lib/parse-destination-matrix'
-import type { MatrixGenerationMode } from '@/lib/generate-destination-matrix'
-import type { MatrixTabId } from '@/lib/matrix-trip-shape'
+import {
+  BRAINSTORM_MATRIX_DESTINATION_COUNT,
+  type MatrixGenerationMode,
+} from '@/lib/generate-destination-matrix'
+import {
+  PAIRING_CATEGORY_ORDER,
+  PAIRING_CATEGORY_SECTION_LABELS,
+  type PairingCategory,
+} from '@/lib/matrix-pairing-categories'
+import { coerceMatrixRecommendedTab, shouldIncludeTripleRoutes, type MatrixTabId } from '@/lib/matrix-trip-shape'
 import type { ChatMessage } from '@/lib/infer-trip-context'
 
 async function authHeaders(): Promise<HeadersInit> {
@@ -26,14 +35,32 @@ function matrixFetchError(res: Response, data: { error?: string }): Error {
   return new Error(data.error || 'Failed to generate comparison')
 }
 
-async function postMatrixPhase(
-  body: Record<string, unknown>,
-): Promise<Response> {
+async function postMatrixPhase(body: Record<string, unknown>): Promise<Response> {
   return fetch('/api/generate-destination-matrix', {
     method: 'POST',
     headers: await authHeaders(),
     body: JSON.stringify(body),
   })
+}
+
+async function postMatrixPhaseWithRetry(
+  body: Record<string, unknown>,
+  retries = 2,
+): Promise<{ res: Response; data: Record<string, unknown> }> {
+  let lastRes: Response | null = null
+  let lastData: Record<string, unknown> = {}
+
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const res = await postMatrixPhase(body)
+    const data = await res.json().catch(() => ({}))
+    if (res.ok) return { res, data }
+    lastRes = res
+    lastData = data
+    if (res.status !== 504 || attempt === retries) break
+    await new Promise(resolve => setTimeout(resolve, 1200 * (attempt + 1)))
+  }
+
+  return { res: lastRes!, data: lastData }
 }
 
 export async function fetchDestinationMatrix(opts: {
@@ -59,36 +86,90 @@ export async function fetchDestinationMatrix(opts: {
     mode: opts.mode,
   }
 
-  opts.onStatus?.('Scoring destinations against your preferences…')
-  const matrixRes = await postMatrixPhase({ ...baseBody, phase: 'matrix' })
-  const matrixData = await matrixRes.json().catch(() => ({}))
-  if (!matrixRes.ok) {
-    throw matrixFetchError(matrixRes, matrixData)
+  const mode = opts.mode ?? (opts.consideringList?.length ? 'considering' : 'brainstorm')
+  const matrix: DestinationMatrixRow[] = []
+
+  if (mode === 'considering') {
+    const list = opts.consideringList ?? []
+    for (let i = 0; i < list.length; i++) {
+      opts.onStatus?.(`Scoring ${list[i].split(',')[0]?.trim() || list[i]} (${i + 1}/${list.length})…`)
+      const { res, data } = await postMatrixPhaseWithRetry({
+        ...baseBody,
+        phase: 'matrix-row',
+        destinationName: list[i],
+      })
+      if (!res.ok) throw matrixFetchError(res, data)
+      const row = data.row as DestinationMatrixRow
+      if (row) matrix.push(row)
+    }
+  } else {
+    const existingNames: string[] = []
+    for (let i = 0; i < BRAINSTORM_MATRIX_DESTINATION_COUNT; i++) {
+      opts.onStatus?.(`Finding destination ${i + 1} of ${BRAINSTORM_MATRIX_DESTINATION_COUNT}…`)
+      const { res, data } = await postMatrixPhaseWithRetry({
+        ...baseBody,
+        phase: 'matrix-row',
+        existingNames,
+      })
+      if (!res.ok) throw matrixFetchError(res, data)
+      const row = data.row as DestinationMatrixRow
+      if (row) {
+        matrix.push(row)
+        existingNames.push(row.name)
+      }
+    }
   }
 
-  const matrix = matrixData.matrix as DestinationMatrixRow[]
-  if (!matrix?.length) {
+  sortMatrixRowsByScore(matrix)
+  if (matrix.length === 0) {
     throw new Error('Could not parse destination scores — try again')
   }
 
-  opts.onStatus?.('Building pairings and multi-stop routes…')
-  const routesRes = await postMatrixPhase({
-    ...baseBody,
-    phase: 'routes',
-    destinationNames: matrix.map(row => row.name),
-  })
-  const routesData = await routesRes.json().catch(() => ({}))
-  if (!routesRes.ok) {
-    throw matrixFetchError(routesRes, routesData)
+  const destinationNames = matrix.map(row => row.name)
+  const pairings: DestinationMatrixCombo[] = []
+
+  for (const category of PAIRING_CATEGORY_ORDER) {
+    opts.onStatus?.(`Building ${PAIRING_CATEGORY_SECTION_LABELS[category].toLowerCase()}…`)
+    const { res, data } = await postMatrixPhaseWithRetry({
+      ...baseBody,
+      phase: 'pairing-category',
+      destinationNames,
+      pairingCategory: category,
+    })
+    if (!res.ok) throw matrixFetchError(res, data)
+    pairings.push(...((data.pairings as DestinationMatrixCombo[]) || []))
   }
+
+  let triples: DestinationMatrixCombo[] = []
+  if (shouldIncludeTripleRoutes(opts.answers) && destinationNames.length >= 3) {
+    opts.onStatus?.('Building three-stop routes…')
+    const { res, data } = await postMatrixPhaseWithRetry({
+      ...baseBody,
+      phase: 'triples',
+      destinationNames,
+    })
+    if (!res.ok) throw matrixFetchError(res, data)
+    triples = (data.triples as DestinationMatrixCombo[]) || []
+  }
+
+  opts.onStatus?.('Finalizing recommendations…')
+  const { res: recRes, data: recData } = await postMatrixPhaseWithRetry({
+    ...baseBody,
+    phase: 'recommendations',
+    destinationNames,
+  })
+  if (!recRes.ok) throw matrixFetchError(recRes, recData)
 
   return {
     matrix,
-    pairings: (routesData.pairings as DestinationMatrixCombo[]) || [],
-    triples: (routesData.triples as DestinationMatrixCombo[]) || [],
-    summary: routesData.summary || '',
-    recommendedTab: routesData.recommendedTab || null,
-    recommendedShape: routesData.recommendedShape || '',
+    pairings,
+    triples,
+    summary: (recData.summary as string) || '',
+    recommendedTab: coerceMatrixRecommendedTab(
+      (recData.recommendedTab as MatrixTabId | null) || null,
+      opts.answers,
+    ),
+    recommendedShape: (recData.recommendedShape as string) || '',
   }
 }
 
