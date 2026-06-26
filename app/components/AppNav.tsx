@@ -7,7 +7,7 @@ import { supabase } from '@/lib/supabase'
 const MENU_LINKS = [
   { label: 'Dashboard', href: '/dashboard' },
   { label: 'Features', href: '/features' },
-  { label: 'How it works', href: '/how-it-works' },
+  { label: 'Why us?', href: '/why-us' },
   { label: 'About', href: '/about' },
   { label: 'Contact', href: '/contact' },
   { label: 'Profile', href: '/profile' },

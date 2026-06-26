@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseFromRequest, requireUser } from '@/lib/destination-decision/supabase-server'
+import { supabaseFromRequest, requireUser, requireOrganizer } from '@/lib/destination-decision/supabase-server'
 import { findTravelerForUser } from '@/lib/traveler-lookup'
 import { tryCreateAdminClient } from '@/lib/supabase-admin'
-import { ensureVotingKickoff } from '@/lib/voting/kickoff'
+import { ensureVotingKickoff, getChoicesSubmissionStatus, getVotingEligibleTravelers, travelerHasSubmittedChoices } from '@/lib/voting/kickoff'
 import { analyzeGroupDateOverlap, travelerProfilesFromRows } from '@/lib/group-date-overlap'
 
 /** Force-sync brainstorm picks → destination_analysis and start voting if ready. */
@@ -13,6 +13,7 @@ export async function POST(request: NextRequest) {
 
     const userClient = supabaseFromRequest(request)
     const user = await requireUser(userClient)
+    await requireOrganizer(userClient, tripId)
     const traveler = await findTravelerForUser(userClient, tripId, user.id)
     if (!traveler) return NextResponse.json({ error: 'Not a trip member' }, { status: 403 })
 
@@ -30,11 +31,29 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const result = await ensureVotingKickoff(db, tripId)
+    const { data: trip } = await db.from('trips').select('max_votes').eq('id', tripId).single()
+    const maxVotes = trip?.max_votes ?? 2
+    const submissionStatus = await getChoicesSubmissionStatus(db, tripId, maxVotes)
+    if (submissionStatus.submitted < submissionStatus.eligible || submissionStatus.eligible === 0) {
+      return NextResponse.json(
+        { error: 'Not everyone has submitted their card choices yet.' },
+        { status: 400 }
+      )
+    }
+
+    const eligible = await getVotingEligibleTravelers(db, tripId)
+    if (!eligible.every(t => travelerHasSubmittedChoices(t, maxVotes))) {
+      return NextResponse.json(
+        { error: 'Not everyone has submitted their card choices yet.' },
+        { status: 400 }
+      )
+    }
+
+    const result = await ensureVotingKickoff(db, tripId, { force: true })
 
     if (!result) {
       return NextResponse.json(
-        { error: 'Not everyone has submitted their card choices yet, or no destinations were found.' },
+        { error: 'No destinations were found from submitted choices — check that card choices were saved and try again.' },
         { status: 400 }
       )
     }

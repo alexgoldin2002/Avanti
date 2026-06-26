@@ -5,7 +5,9 @@ import { useParams, useRouter } from 'next/navigation'
 import SubpageShell from '../../../components/SubpageShell'
 import SuitcaseLoader from '../../../components/SuitcaseLoader'
 import PhaseBanner from '@/components/trip-phases/PhaseBanner'
+import PhaseLockedScreen from '@/components/trip-phases/PhaseLockedScreen'
 import { useTripPhase } from '@/lib/trip-phases/useTripPhase'
+import { getPhaseSnapshot } from '@/lib/trip-phases/state'
 import { fetchVotingState, forceVotingKickoff } from '@/lib/voting/client-api'
 import GroupDateOverlapBanner from '@/components/trip/GroupDateOverlapBanner'
 import type { GroupDateOverlapResult } from '@/lib/group-date-overlap'
@@ -14,7 +16,8 @@ import type { GroupDateOverlapResult } from '@/lib/group-date-overlap'
 export default function VoteLobbyPage() {
   const { tripId } = useParams() as { tripId: string }
   const router = useRouter()
-  const { phase, loading: phaseLoading, isOrganizer, reload: reloadPhase } = useTripPhase(tripId, 'round_one')
+  const { phase, payload, loading: phaseLoading, isOrganizer, reload: reloadPhase } = useTripPhase(tripId, 'round_one')
+  const brainstormPhase = payload ? getPhaseSnapshot(payload, 'brainstorm') : undefined
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState<Awaited<ReturnType<typeof fetchVotingState>> | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -54,12 +57,21 @@ export default function VoteLobbyPage() {
 
   const handleKickoff = async () => {
     setKickoffBusy(true)
+    setError(null)
     try {
-      await forceVotingKickoff(tripId)
+      const result = await forceVotingKickoff(tripId)
       await reloadPhase()
+      if (result.votingRound === 1) {
+        router.replace(`/trips/${tripId}/vote/round-one`)
+        return
+      }
+      if (result.votingRound === 2) {
+        router.replace(`/trips/${tripId}/vote/round-two`)
+        return
+      }
       await load()
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Failed to start voting')
+      setError(e instanceof Error ? e.message : 'Failed to start voting')
     } finally {
       setKickoffBusy(false)
     }
@@ -69,7 +81,7 @@ export default function VoteLobbyPage() {
 
   if (error && !data) {
     return (
-      <SubpageShell backHref={`/trips/${tripId}`} title="Group vote">
+      <SubpageShell backHref={`/trips/${tripId}`} title="1st round voting">
         <div className="avanti-box border border-red-200 bg-red-50 px-6 py-10 text-center max-w-xl mx-auto">
           <p className="font-serif text-xl mb-2">Could not load voting</p>
           <p className="text-sm text-muted-foreground mb-6">{error}</p>
@@ -81,46 +93,74 @@ export default function VoteLobbyPage() {
 
   const status = data?.submissionStatus
   const allIn = status ? status.submitted >= status.eligible && status.eligible > 0 : false
-  let waitingOn = 'Everyone needs to submit their trip card choices from Brainstorm first.'
+  let waitingDetail = 'Everyone needs to submit their trip card choices from Brainstorm first.'
   if (status) {
     if (allIn) {
-      waitingOn = data?.kickoffError
+      waitingDetail = data?.kickoffError
         ? `All ${status.eligible} travelers have submitted, but voting could not start: ${data.kickoffError}`
-        : `All ${status.eligible} travelers have submitted — the host can open group voting (24-hour window).`
+        : `All ${status.eligible} travelers have submitted — the host can open group voting when ready.`
     } else if (status.pendingNicknames?.length) {
-      waitingOn = `${status.submitted} of ${status.eligible} submitted. Still waiting on: ${status.pendingNicknames.join(', ')}.`
+      waitingDetail = `${status.submitted} of ${status.eligible} submitted. Still waiting on: ${status.pendingNicknames.join(', ')}.`
     } else {
-      waitingOn = `${status.submitted} of ${status.eligible} travelers have submitted their card choices.`
+      waitingDetail = `${status.submitted} of ${status.eligible} travelers have submitted their card choices.`
     }
   }
 
   return (
-    <SubpageShell backHref={`/trips/${tripId}`} title="Group vote">
+    <SubpageShell backHref={`/trips/${tripId}`} backLabel="Trip" title="1st round voting">
       {phase && (
         <PhaseBanner tripId={tripId} phase={phase} isOrganizer={isOrganizer} onUpdated={() => void reloadPhase()} />
       )}
       {dateOverlap && dateOverlap.status !== 'ok' && (
         <GroupDateOverlapBanner result={dateOverlap} />
       )}
-      <div className="avanti-box border border-border bg-forest-mist px-6 py-10 text-center">
-        <p className="font-serif text-xl mb-2">Voting hasn&apos;t started yet</p>
-        <p className="text-sm text-muted-foreground mb-6">{waitingOn}</p>
-        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+
+      {error && (
+        <p className="text-sm text-destructive text-center max-w-lg mx-auto mb-4">{error}</p>
+      )}
+
+      {phase && phase.access === 'not_opened' ? (
+        <>
+          <PhaseLockedScreen
+            phase={phase}
+            backHref={`/trips/${tripId}`}
+            secondaryPhase={brainstormPhase?.access === 'active' ? brainstormPhase : null}
+          />
+          <p className="text-sm text-muted-foreground text-center max-w-lg mx-auto mt-4">{waitingDetail}</p>
           {isOrganizer && allIn && dateOverlap?.status !== 'no_overlap' && dateOverlap?.status !== 'too_short' && (
-            <button
-              type="button"
-              disabled={kickoffBusy}
-              onClick={() => void handleKickoff()}
-              className="avanti-btn avanti-btn-primary"
-            >
-              {kickoffBusy ? 'Opening…' : 'Open group voting →'}
-            </button>
+            <div className="flex justify-center mt-4">
+              <button
+                type="button"
+                disabled={kickoffBusy}
+                onClick={() => void handleKickoff()}
+                className="avanti-btn avanti-btn-primary"
+              >
+                {kickoffBusy ? 'Opening…' : 'Open group voting →'}
+              </button>
+            </div>
           )}
-          <button type="button" onClick={() => router.push(`/trips/${tripId}/step2`)} className="avanti-btn">
-            Go to Brainstorm →
-          </button>
+        </>
+      ) : (
+        <div className="avanti-box border border-border bg-forest-mist px-6 py-10 text-center max-w-lg mx-auto">
+          <p className="font-serif text-xl mb-2">Voting hasn&apos;t started yet</p>
+          <p className="text-sm text-muted-foreground mb-6">{waitingDetail}</p>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            {isOrganizer && allIn && dateOverlap?.status !== 'no_overlap' && dateOverlap?.status !== 'too_short' && (
+              <button
+                type="button"
+                disabled={kickoffBusy}
+                onClick={() => void handleKickoff()}
+                className="avanti-btn avanti-btn-primary"
+              >
+                {kickoffBusy ? 'Opening…' : 'Open group voting →'}
+              </button>
+            )}
+            <button type="button" onClick={() => router.push(`/trips/${tripId}`)} className="avanti-btn">
+              Go back to trip dashboard →
+            </button>
+          </div>
         </div>
-      </div>
+      )}
     </SubpageShell>
   )
 }

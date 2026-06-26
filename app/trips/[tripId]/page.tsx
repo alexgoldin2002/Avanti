@@ -13,6 +13,7 @@ import { fetchTripBookings } from '@/lib/bookings/client-api'
 import { fetchInspirations } from '@/lib/trip-companion/client-api'
 import type { ItineraryData, TripBooking } from '@/lib/bookings/types'
 import type { TripInspirationRow } from '@/lib/trip-companion/merge-inspirations'
+import { tripHasKnownDestination } from '@/lib/step2/planning-path'
 
 type StepState = 'done' | 'active' | 'locked'
 
@@ -33,6 +34,10 @@ type MainStepDef = {
 }
 
 function getDestinationSubStepStates(trip: any, votingComplete: boolean): StepState[] {
+  if (tripHasKnownDestination(trip)) {
+    return ['done', 'done', 'done', 'done']
+  }
+
   const done = [
     !!(trip?.brainstorm_closed_at || trip?.voting_round != null),
     !!(trip?.voting_round === 2 || trip?.round_one_closed_at || votingComplete),
@@ -60,32 +65,31 @@ function PlanningStepCard({
   state,
   subStepStates,
   onClick,
+  onSubStepClick,
 }: {
   step: MainStepDef
   state: StepState
   subStepStates?: StepState[]
   onClick: () => void
+  onSubStepClick?: (path: string) => void
 }) {
   const isDone = state === 'done'
   const isActive = state === 'active'
   const isLocked = state === 'locked'
   const hasSubSteps = !!step.subSteps?.length
 
-  return (
-    <button
-      type="button"
-      disabled={isLocked}
-      onClick={onClick}
-      className={`group avanti-box relative flex min-h-[168px] flex-col overflow-visible rounded-none border px-5 py-4 text-left transition-all duration-200 ease-out ${
-        isActive
-          ? 'border-forest-deep bg-card [box-shadow:var(--shadow-box-hover)]'
-          : isDone
-          ? 'border-border bg-card hover:-translate-y-px hover:border-forest-deep/30 cursor-pointer hover:[box-shadow:var(--shadow-box-hover)]'
-          : isLocked
-          ? 'border-border bg-card/60 opacity-60 cursor-not-allowed shadow-none'
-          : 'border-border bg-card'
-      }`}
-    >
+  const cardClassName = `group avanti-box relative flex min-h-[168px] flex-col overflow-visible rounded-none border px-5 py-4 text-left transition-all duration-200 ease-out ${
+    isActive
+      ? 'border-forest-deep bg-card [box-shadow:var(--shadow-box-hover)]'
+      : isDone
+      ? 'border-border bg-card hover:-translate-y-px hover:border-forest-deep/30 cursor-pointer hover:[box-shadow:var(--shadow-box-hover)]'
+      : isLocked
+      ? 'border-border bg-card/60 opacity-60 cursor-not-allowed shadow-none'
+      : 'border-border bg-card'
+  }`
+
+  const cardBody = (
+    <>
       <div className="flex items-start justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
           {isActive && <span className="h-2 w-2 shrink-0 rounded-full bg-forest-deep" />}
@@ -128,12 +132,16 @@ function PlanningStepCard({
             {step.subSteps!.map((sub, i) => {
               const subState = subStepStates[i]
               return (
-                <span
+                <button
                   key={sub.key}
-                  role="listitem"
+                  type="button"
+                  onClick={e => {
+                    e.stopPropagation()
+                    onSubStepClick?.(sub.path)
+                  }}
                   aria-label={`${sub.label}${subState === 'active' ? ' — current' : subState === 'done' ? ' — complete' : ''}`}
                   aria-current={subState === 'active' ? 'step' : undefined}
-                  className={`group/sub relative grid h-7 w-7 place-items-center border transition-colors ${
+                  className={`group/sub relative grid h-7 w-7 place-items-center border transition-colors cursor-pointer ${
                     subState === 'done'
                       ? 'border-forest-deep bg-forest-deep text-cream'
                       : subState === 'active'
@@ -154,7 +162,7 @@ function PlanningStepCard({
                   >
                     {sub.label}
                   </span>
-                </span>
+                </button>
               )
             })}
           </div>
@@ -162,6 +170,30 @@ function PlanningStepCard({
           <span />
         )}
       </div>
+    </>
+  )
+
+  if (hasSubSteps) {
+    return (
+      <div
+        role="group"
+        aria-label={step.title}
+        onClick={isLocked ? undefined : onClick}
+        className={cardClassName}
+      >
+        {cardBody}
+      </div>
+    )
+  }
+
+  return (
+    <button
+      type="button"
+      disabled={isLocked}
+      onClick={onClick}
+      className={cardClassName}
+    >
+      {cardBody}
     </button>
   )
 }
@@ -188,6 +220,7 @@ export default function TripDashboard() {
   const [nameInput, setNameInput] = useState('')
   const [showWelcome, setShowWelcome] = useState(false)
   const [welcomeName, setWelcomeName] = useState('')
+  const [welcomeTravelerId, setWelcomeTravelerId] = useState<string | null>(null)
   const [isOrganizer, setIsOrganizer] = useState(false)
   const [gameTimeItinerary, setGameTimeItinerary] = useState<ItineraryData | null>(null)
   const [gameTimeBookings, setGameTimeBookings] = useState<TripBooking[]>([])
@@ -247,13 +280,15 @@ export default function TripDashboard() {
           return
         }
 
-        if (myTraveler && myTraveler.role === 'member') {
-          const justWelcomed = sessionStorage.getItem(`welcomed_${tripId}`)
-          if (!justWelcomed) {
-            setWelcomeName(myTraveler.nickname || myTraveler.full_name?.split(' ')[0] || '')
-            setShowWelcome(true)
-            sessionStorage.setItem(`welcomed_${tripId}`, 'true')
-          }
+        if (
+          myTraveler &&
+          myTraveler.role === 'member' &&
+          myTraveler.status !== 'pending' &&
+          !myTraveler.trip_dashboard_welcomed_at
+        ) {
+          setWelcomeName(myTraveler.nickname || myTraveler.full_name?.split(' ')[0] || '')
+          setWelcomeTravelerId(myTraveler.id)
+          setShowWelcome(true)
         }
       }
       const { data: travelerData } = await supabase.from('travelers').select('*').eq('trip_id', tripId)
@@ -281,6 +316,17 @@ export default function TripDashboard() {
       supabase.removeChannel(tripChannel)
     }
   }, [tripId, router])
+
+  const dismissWelcome = async () => {
+    setShowWelcome(false)
+    if (!welcomeTravelerId) return
+    const welcomedAt = new Date().toISOString()
+    await supabase
+      .from('travelers')
+      .update({ trip_dashboard_welcomed_at: welcomedAt })
+      .eq('id', welcomeTravelerId)
+    setWelcomeTravelerId(null)
+  }
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -355,7 +401,9 @@ export default function TripDashboard() {
   }
 
   const votingComplete =
-    !!trip?.winning_destination_id || (!!trip?.destination && trip.destination !== 'TBD' && !!trip?.voting_round)
+    tripHasKnownDestination(trip) ||
+    !!trip?.winning_destination_id ||
+    (!!trip?.destination && trip.destination !== 'TBD' && !!trip?.voting_round)
 
   const getActiveMainStep = () => {
     if (!trip?.invites_closed) return 1
@@ -392,10 +440,10 @@ export default function TripDashboard() {
       icon: 'ti-map-pin',
       path: `/trips/${tripId}/step2`,
       subSteps: [
-        { key: 'brainstorm', label: 'Brainstorm', path: `/trips/${tripId}/step2` },
-        { key: 'round_one', label: '1st round voting', path: `/trips/${tripId}/vote/round-one` },
-        { key: 'round_two', label: '2nd round voting', path: `/trips/${tripId}/vote/round-two` },
-        { key: 'reveal', label: 'Destination decision', path: `/trips/${tripId}/vote/reveal` },
+        { key: 'brainstorm', label: trip?.destination_planning_path === 'considering' ? 'Step 2B · Compare' : trip?.destination_planning_path === 'brainstorm' ? 'Step 2C · Brainstorm' : 'Step 2 · Plan', path: `/trips/${tripId}/step2` },
+        { key: 'round_one', label: 'Round 1 vote', path: `/trips/${tripId}/vote/round-one` },
+        { key: 'round_two', label: 'Round 2 vote', path: `/trips/${tripId}/vote/round-two` },
+        { key: 'reveal', label: 'Destination', path: `/trips/${tripId}/vote/reveal` },
       ],
     },
     {
@@ -653,6 +701,7 @@ export default function TripDashboard() {
                         const path = step.key === 'destination' ? getDestinationClickPath() : step.path
                         router.push(path)
                       }}
+                      onSubStepClick={path => router.push(path)}
                     />
                   )
                 })}
@@ -730,7 +779,7 @@ export default function TripDashboard() {
         <div className="mx-auto max-w-4xl px-6 sm:px-10 py-8">
           <div className="flex flex-wrap gap-x-8 gap-y-3 text-xs tracking-wider">
             {[
-              { label: 'How it works', href: '/how-it-works' },
+              { label: 'Why us?', href: '/why-us' },
               { label: 'About', href: '/about' },
               { label: 'Contact', href: '/contact' },
               { label: 'Dashboard', href: '/dashboard' },
@@ -776,7 +825,7 @@ export default function TripDashboard() {
       {showWelcome && (
         <div
           className="fixed inset-0 z-[100] flex items-center justify-center bg-forest-deep/85 p-6 cursor-pointer"
-          onClick={() => setShowWelcome(false)}
+          onClick={() => void dismissWelcome()}
         >
           <div className="text-center text-cream font-serif" onClick={e => e.stopPropagation()}>
             <p className="text-[11px] tracking-[0.3em] uppercase text-cream/50 mb-3">You&apos;re in</p>

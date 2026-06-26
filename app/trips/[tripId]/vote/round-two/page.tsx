@@ -31,14 +31,6 @@ export default function RoundTwoVotePage() {
         router.replace(`/trips/${tripId}/vote/reveal`)
         return
       }
-      if (t.voting_round === 1) {
-        router.replace(`/trips/${tripId}/vote/round-one`)
-        return
-      }
-      if (t.voting_round == null) {
-        router.replace(`/trips/${tripId}/vote`)
-        return
-      }
     } catch (e) {
       setData(null)
       setError(e instanceof Error ? e.message : 'Failed to load voting')
@@ -80,10 +72,28 @@ export default function RoundTwoVotePage() {
     )
   }
 
+  if (phase && data?.trip.voting_round == null) {
+    return (
+      <SubpageShell backHref={`/trips/${tripId}`} backLabel="Trip" title="Round 2 — Split vote">
+        <PhaseBanner tripId={tripId} phase={phase} isOrganizer={isOrganizer} onUpdated={() => void reloadPhase()} hideTitle />
+        <PhaseLockedScreen phase={phase} backHref={`/trips/${tripId}`} />
+      </SubpageShell>
+    )
+  }
+
+  if (phase && data?.trip.voting_round === 1) {
+    return (
+      <SubpageShell backHref={`/trips/${tripId}`} backLabel="Trip" title="Round 2 — Split vote">
+        <PhaseBanner tripId={tripId} phase={phase} isOrganizer={isOrganizer} onUpdated={() => void reloadPhase()} hideTitle />
+        <PhaseLockedScreen phase={phase} backHref={`/trips/${tripId}`} />
+      </SubpageShell>
+    )
+  }
+
   if (phase && !canView) {
     return (
       <SubpageShell backHref={`/trips/${tripId}`} title="Round 2 — Split vote">
-        {phase && <PhaseBanner tripId={tripId} phase={phase} isOrganizer={isOrganizer} onUpdated={() => void reloadPhase()} />}
+        {phase && <PhaseBanner tripId={tripId} phase={phase} isOrganizer={isOrganizer} onUpdated={() => void reloadPhase()} hideTitle />}
         <PhaseLockedScreen phase={phase} backHref={`/trips/${tripId}`} />
       </SubpageShell>
     )
@@ -98,7 +108,13 @@ export default function RoundTwoVotePage() {
       maxWidth="max-w-6xl"
     >
       {phase && (
-        <PhaseBanner tripId={tripId} phase={phase} isOrganizer={isOrganizer} onUpdated={() => void reloadPhase()} />
+        <PhaseBanner
+          tripId={tripId}
+          phase={phase}
+          isOrganizer={isOrganizer}
+          onUpdated={() => void reloadPhase()}
+          hideTitle
+        />
       )}
       {isViewOnly && (
         <div className="avanti-box border border-border bg-secondary/30 px-4 py-3 mb-6 text-sm text-muted-foreground">

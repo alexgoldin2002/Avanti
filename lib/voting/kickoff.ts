@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { ParsedDestinationCard } from '@/lib/parse-destination-cards'
+import { resolveStep2SubmitCards } from '@/lib/parse-destination-matrix'
 import { PLACEHOLDER_ROUND_ONE } from '@/lib/voting/constants'
 import {
   buildRoundOneContentFromSnapshot,
@@ -104,7 +104,7 @@ async function upsertTravelerDestinations(
   selectedNames: string[],
   travelWindow: ReturnType<typeof resolveTripTravelWindow>
 ): Promise<void> {
-  const cards = ((traveler.step2 || {}).cards || []) as ParsedDestinationCard[]
+  const cards = resolveStep2SubmitCards((traveler.step2 || {}) as Record<string, unknown>)
 
   for (const name of selectedNames) {
     if (!name) continue
@@ -168,7 +168,8 @@ async function countVoteCards(supabase: SupabaseClient, tripId: string): Promise
 /** Backfill destination rows and start voting once the brainstorm window has closed. */
 export async function ensureVotingKickoff(
   supabase: SupabaseClient,
-  tripId: string
+  tripId: string,
+  opts?: { force?: boolean },
 ): Promise<{ votingRound: number; totalCards: number } | null> {
   const { data: trip, error: tripErr } = await supabase
     .from('trips')
@@ -185,7 +186,15 @@ export async function ensureVotingKickoff(
     (trip?.brainstorm_deadline_at != null &&
       new Date(trip.brainstorm_deadline_at).getTime() <= Date.now())
 
-  if (!brainstormWindowClosed) return null
+  if (!brainstormWindowClosed && !opts?.force) return null
+
+  if (opts?.force && !trip?.brainstorm_closed_at) {
+    const { error: closeErr } = await supabase
+      .from('trips')
+      .update({ brainstorm_closed_at: new Date().toISOString() })
+      .eq('id', tripId)
+    if (closeErr) throw new Error(closeErr.message)
+  }
 
   if (trip?.voting_round != null) {
     return { votingRound: trip.voting_round, totalCards: trip.total_cards ?? 0 }
@@ -230,7 +239,7 @@ export async function ensureVotingKickoff(
   let totalCards = await countVoteCards(supabase, tripId)
   if (totalCards === 0) return null
 
-  const votingRound = totalCards >= 6 ? 1 : 2
+  const votingRound = totalCards <= 2 ? 2 : 1
 
   const { error: updateTripErr } = await supabase
     .from('trips')

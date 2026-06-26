@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import DestinationLocatorMap from './DestinationLocatorMap'
+import { useMemo, useState } from 'react'
+import { resolveConsiderChip, resolveHighlightChip } from '@/lib/matrix-chip-fields'
 
 type CardData = {
   name: string
@@ -24,22 +24,47 @@ export default function DestinationCard({
   tripId,
   isVoted = false,
   onVote,
+  onRegenerate,
+  regenerating = false,
   previewMode = false,
-  hideMap = false,
   locked = false,
 }: {
   card: CardData
   tripId?: string
   isVoted?: boolean
   onVote?: () => void
+  onRegenerate?: () => void
+  regenerating?: boolean
   previewMode?: boolean
-  hideMap?: boolean
   locked?: boolean
 }) {
   const [open, setOpen] = useState<string | null>(null)
   const s = { fontFamily: 'var(--font-cormorant), Georgia, serif' }
   const toggle = (key: string) => setOpen(prev => (prev === key ? null : key))
   const isWildcard = card.isWildcard
+  const proChip = useMemo(
+    () =>
+      resolveHighlightChip(card.highlight || '', {
+        synopsis: card.synopsis,
+        logistics: card.logistics,
+        groupFit: card.groupFit,
+        activities: card.activities,
+        vibe: card.vibeCheck,
+        tradeoff: card.tradeoff,
+      }),
+    [card],
+  )
+  const conChip = useMemo(
+    () =>
+      resolveConsiderChip(card.consider || '', card.tradeoff || '', undefined, {
+        synopsis: card.synopsis,
+        logistics: card.logistics,
+        groupFit: card.groupFit,
+        activities: card.activities,
+        vibe: card.vibeCheck,
+      }),
+    [card],
+  )
   const parseBullets = (text: string): string[] => {
     if (!text) return []
     return text.split('\n').map(l => l.replace(/^[-•*]\s*/, '').trim()).filter(l => l.length > 2)
@@ -83,7 +108,6 @@ export default function DestinationCard({
           }}
         />
       )}
-      {!hideMap && <DestinationLocatorMap destinationName={card.name} dark={isWildcard} />}
       {isWildcard && (
         <div style={{ padding: '12px 20px 0' }}>
           <span style={{ fontSize: '9px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.45)', background: 'rgba(255,255,255,0.08)', padding: '3px 10px' }}>
@@ -91,26 +115,50 @@ export default function DestinationCard({
           </span>
         </div>
       )}
-      <div style={{ padding: isWildcard ? '14px 20px 18px' : '22px 20px 18px', paddingRight: isWildcard ? '112px' : '120px' }}>
+      <div style={{ padding: isWildcard ? '14px 20px 18px' : '22px 20px 18px' }}>
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '8px', marginBottom: '8px' }}>
           <h3 style={{ fontSize: '22px', fontWeight: 400, color: isWildcard ? '#fff' : '#1a1a1a', margin: 0, lineHeight: 1.2, ...s }}>
             {card.name}
           </h3>
-          {costPill && (
-            <span style={{ fontSize: '12px', color: isWildcard ? 'rgba(255,255,255,0.55)' : '#9a9a8a', flexShrink: 0, ...s }}>
-              {costPill.match(/\$[\d,]+[–\-]\$?[\d,]+/)?.[0] || costPill.slice(0, 25)}
-            </span>
-          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+            {onRegenerate && (
+              <button
+                type="button"
+                onClick={onRegenerate}
+                disabled={regenerating}
+                title="Regenerate this card"
+                style={{
+                  border: `1px solid ${isWildcard ? 'rgba(255,255,255,0.25)' : '#d4d4c8'}`,
+                  background: 'transparent',
+                  color: isWildcard ? 'rgba(255,255,255,0.65)' : 'var(--muted-foreground)',
+                  fontSize: '9px',
+                  letterSpacing: '0.12em',
+                  textTransform: 'uppercase',
+                  padding: '4px 8px',
+                  cursor: regenerating ? 'default' : 'pointer',
+                  opacity: regenerating ? 0.5 : 1,
+                  fontFamily: 'var(--font-cormorant), Georgia, serif',
+                }}
+              >
+                {regenerating ? '…' : '↻ New'}
+              </button>
+            )}
+            {costPill && (
+              <span style={{ fontSize: '12px', color: isWildcard ? 'rgba(255,255,255,0.55)' : '#9a9a8a', ...s }}>
+                {costPill.match(/\$[\d,]+[–\-]\$?[\d,]+/)?.[0] || costPill.slice(0, 25)}
+              </span>
+            )}
+          </div>
         </div>
         <div style={{ display: 'flex', gap: '8px', marginBottom: '10px', flexWrap: 'wrap' }}>
-          {card.highlight && (
+          {proChip && (
             <span style={{ fontSize: '10px', padding: '3px 10px', borderRadius: '20px', background: isWildcard ? 'rgba(255,255,255,0.12)' : '#e8f5ee', color: isWildcard ? 'rgba(255,255,255,0.8)' : 'var(--forest-deep)', border: `0.5px solid ${isWildcard ? 'rgba(255,255,255,0.2)' : '#a8d4b8'}`, fontFamily: 'var(--font-cormorant), Georgia, serif', letterSpacing: '0.05em' }}>
-              {card.highlight}
+              {proChip}
             </span>
           )}
-          {card.consider && (
+          {conChip && (
             <span style={{ fontSize: '10px', padding: '3px 10px', borderRadius: '20px', background: isWildcard ? 'rgba(255,165,0,0.15)' : '#fef9ec', color: isWildcard ? 'rgba(255,200,100,0.9)' : '#8a6a10', border: `0.5px solid ${isWildcard ? 'rgba(255,165,0,0.3)' : '#f0c040'}`, fontFamily: 'var(--font-cormorant), Georgia, serif', letterSpacing: '0.05em' }}>
-              {card.consider}
+              {conChip}
             </span>
           )}
         </div>

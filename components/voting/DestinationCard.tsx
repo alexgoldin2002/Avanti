@@ -33,17 +33,15 @@ export function formatBudgetLine(floor: number | null, ceiling: number | null): 
 type GroupCardProps = {
   card?: ParsedDestinationCard
   tripId?: string
-  hideMap?: boolean
 }
 
 /** Full detailed card for group viewing (Round 2 and Learn more). */
-export function GroupDestinationCard({ card = PLACEHOLDER_DESTINATION, tripId, hideMap = false }: GroupCardProps) {
+export function GroupDestinationCard({ card = PLACEHOLDER_DESTINATION, tripId }: GroupCardProps) {
   return (
     <BaseDestinationCard
       card={card}
       tripId={tripId}
       previewMode
-      hideMap={hideMap}
     />
   )
 }

@@ -165,7 +165,7 @@ export default function Home() {
               <span className="block w-6 h-0.5 bg-cream" />
             </button>
             <nav className="hidden md:flex items-center gap-8 eyebrow text-cream/90">
-              <Link href="/how-it-works" className="hover:opacity-70 transition">How it works</Link>
+              <Link href="/why-us" className="hover:opacity-70 transition">Why us?</Link>
               <Link href="/about" className="hover:opacity-70 transition">About</Link>
               <Link href="/contact" className="hover:opacity-70 transition">Contact</Link>
             </nav>
@@ -194,7 +194,7 @@ export default function Home() {
         {menuOpen && (
           <div className="md:hidden absolute top-full left-0 right-0 bg-forest-deep/95 backdrop-blur-sm border-t border-cream/10 px-6 py-8 z-40">
             <nav className="flex flex-col gap-6 eyebrow text-cream/90 text-lg">
-              <Link href="/how-it-works" onClick={() => setMenuOpen(false)}>How it works</Link>
+              <Link href="/why-us" onClick={() => setMenuOpen(false)}>Why us?</Link>
               <Link href="/about" onClick={() => setMenuOpen(false)}>About</Link>
               <Link href="/contact" onClick={() => setMenuOpen(false)}>Contact</Link>
               <button type="button" onClick={() => openAuth('signin')}>Sign in</button>

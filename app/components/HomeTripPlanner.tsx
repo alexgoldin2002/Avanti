@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import DestinationCard from './DestinationCard'
 import ProtectedContent from './ProtectedContent'
 import { fetchPreviewDestinationCards, GENERATION_TIME_HINT } from '@/lib/fetch-destination-batches'
-import { savePreviewTrip, loadPreviewTrip, markPendingShare } from '@/lib/preview-trip-storage'
+import { savePreviewTrip, loadPreviewTrip, markPendingShare, TRIP_REGION_OPTIONS, TRIP_ACTIVITY_OPTIONS } from '@/lib/preview-trip-storage'
 import DateRangeFields, { isValidDateRange } from './DateRangeFields'
 import {
   departureCitiesToStoredString,
@@ -59,8 +59,7 @@ export default function HomeTripPlanner({ onSignupRequest, onSigninRequest }: { 
         setDepartureCities(parseDepartureCitiesFromStep2(a as Record<string, unknown>))
       }
       if (a.dates) {
-        if (a.dates === 'Completely flexible') setDates('')
-        else setDates(String(a.dates))
+        if (a.dates !== 'Completely flexible') setDates(String(a.dates))
       }
       if (a.fixedDates) setFixedDates(a.fixedDates as { start: string; end: string })
       if (a.flexLength) setFlexLength(String(a.flexLength))
@@ -93,31 +92,36 @@ export default function HomeTripPlanner({ onSignupRequest, onSigninRequest }: { 
     document.head.appendChild(script)
   }, [])
 
+  const showQ2 = (typeof stage === 'number' && stage >= 2) || stage === 'generate' || stage === 'done'
+
   useEffect(() => {
-    if (stage < 2) return
+    if (!showQ2) return
     const tryInit = () => {
       const input = document.getElementById('home-departure-city-input') as HTMLInputElement
       if (!input) return
-      const g = (window as Window & { google?: { maps?: { places?: { Autocomplete: new (el: HTMLInputElement, opts: object) => { addListener: (ev: string, fn: () => void) => void; getPlace: () => { formatted_address?: string; name?: string } } } } } }).google
+      const g = (window as Window & { google?: { maps?: { places?: { Autocomplete: new (el: HTMLInputElement, opts: object) => { addListener: (ev: string, fn: () => void) => void; getPlace: () => { formatted_address?: string; name?: string; place_id?: string } } } } } }).google
       if (!g?.maps?.places) return
-      const autocomplete = new g.maps.places.Autocomplete(input, { types: ['(cities)'] })
+      const autocomplete = new g.maps.places.Autocomplete(input, {
+        types: ['(cities)'],
+        fields: ['formatted_address', 'name', 'place_id'],
+      })
       autocomplete.addListener('place_changed', () => {
         const place = autocomplete.getPlace()
-        const name = place?.formatted_address || place?.name || ''
-        if (name) {
-          setDepartureCities(prev => [...prev, name])
-          setDepartureCityInput('')
-        }
+        if (!place?.place_id) return
+        const name = place.formatted_address || place.name || ''
+        if (!name) return
+        setDepartureCities(prev => (prev.includes(name) ? prev : [...prev, name]))
+        setDepartureCityInput('')
       })
     }
     tryInit()
     const timer = setTimeout(tryInit, 1000)
     return () => clearTimeout(timer)
-  }, [stage])
+  }, [showQ2, stage])
 
   const isQ2Complete = () => {
     if (departureCities.length === 0) return false
-    if (!dates || dates === 'Completely flexible') return false
+    if (!dates) return false
     if ((dates === 'Fixed dates' || dates === 'Flexible — I have a range') && !isValidDateRange(fixedDates.start, fixedDates.end)) return false
     if (dates === 'Flexible — I have a range' && !flexLength) return false
     if (!domestic) return false
@@ -135,7 +139,7 @@ export default function HomeTripPlanner({ onSignupRequest, onSigninRequest }: { 
   }
 
   const q2Valid = isQ2Complete()
-  const showQ2 = (typeof stage === 'number' && stage >= 2) || stage === 'generate' || stage === 'done'
+  const q3Valid = q3.trim().length > 0
   const showQ3 = stage === 'generate' || stage === 'done' || (typeof stage === 'number' && stage >= 3 && q2Valid)
 
   const toggleMulti = (arr: string[], val: string, setter: (a: string[]) => void) => {
@@ -299,6 +303,9 @@ export default function HomeTripPlanner({ onSignupRequest, onSigninRequest }: { 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '28px', marginBottom: showQ3 ? '32px' : '0', paddingLeft: '54px' }}>
               <div>
                 <span style={sectionLabel}>Where are you flying from?</span>
+                <p style={{ fontSize: '12px', color: 'var(--muted-foreground)', margin: '0 0 10px', lineHeight: 1.5, ...s }}>
+                  Start typing a city and pick from the Google suggestions — each departure city is verified before it&apos;s added.
+                </p>
                 {departureCities.length > 0 && (
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
                     {departureCities.map((city, i) => (
@@ -314,20 +321,11 @@ export default function HomeTripPlanner({ onSignupRequest, onSigninRequest }: { 
                     id="home-departure-city-input"
                     type="text"
                     autoComplete="off"
-                    style={{ width: '200px', borderBottom: '1px solid #d4d4c8', borderTop: 'none', borderLeft: 'none', borderRight: 'none', background: 'transparent', padding: '8px 0', fontSize: '14px', color: 'var(--foreground)', outline: 'none', ...s }}
+                    style={{ flex: 1, borderBottom: '1px solid #d4d4c8', borderTop: 'none', borderLeft: 'none', borderRight: 'none', background: 'transparent', padding: '8px 0', fontSize: '14px', color: 'var(--foreground)', outline: 'none', ...s }}
                     value={departureCityInput}
                     onChange={e => setDepartureCityInput(e.target.value)}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter' && departureCityInput.trim()) {
-                        setDepartureCities(prev => [...prev, departureCityInput.trim()])
-                        setDepartureCityInput('')
-                      }
-                    }}
                     placeholder="Type a city..."
                   />
-                  {departureCityInput.trim() && (
-                    <button type="button" onClick={() => { setDepartureCities(prev => [...prev, departureCityInput.trim()]); setDepartureCityInput('') }} style={{ fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#2d6a4f', background: 'none', border: 'none', cursor: 'pointer', ...s }}>Add</button>
-                  )}
                 </div>
               </div>
               <div style={{ borderTop: '0.5px solid #e4e4d8' }} />
@@ -388,7 +386,7 @@ export default function HomeTripPlanner({ onSignupRequest, onSigninRequest }: { 
                   <div>
                     <label style={{ ...labelStyle, marginTop: '8px' }}>Regions you&apos;d consider</label>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                      {['Europe', 'Caribbean', 'Latin America', 'Southeast Asia', 'East Asia', 'Middle East', 'Africa', 'South Pacific', 'Anywhere'].map(r => (
+                      {TRIP_REGION_OPTIONS.map(r => (
                         <button key={r} type="button" onClick={() => toggleMulti(regions, r, setRegions)} style={chipStyle(regions.includes(r))}>{r}</button>
                       ))}
                     </div>
@@ -411,7 +409,7 @@ export default function HomeTripPlanner({ onSignupRequest, onSigninRequest }: { 
               <div>
                 <span style={sectionLabel}>What kind of activities?</span>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                  {['Physical / outdoor', 'Cultural / historical', 'Entertainment & nightlife', 'Food & dining', 'Relaxation & wellness', 'Water activities', 'Shopping', 'Arts & music', 'Adventure sports'].map(opt => (
+                  {TRIP_ACTIVITY_OPTIONS.map(opt => (
                     <button key={opt} type="button" onClick={() => toggleMulti(activities, opt, setActivities)} style={chipStyle(activities.includes(opt))}>{opt}</button>
                   ))}
                 </div>
@@ -482,7 +480,7 @@ export default function HomeTripPlanner({ onSignupRequest, onSigninRequest }: { 
                 />
                 {stage === 3 && (
                   <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '16px' }}>
-                    {nextBtn(() => { setStage('generate'); generateDestinations() }, false, 'See my destinations →')}
+                    {nextBtn(() => { setStage('generate'); generateDestinations() }, !q3Valid, 'See my destinations →')}
                   </div>
                 )}
               </div>

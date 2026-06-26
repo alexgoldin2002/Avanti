@@ -9,6 +9,7 @@ import {
   type TripPhaseFields,
   type TripPhasesPayload,
 } from './types'
+import { tripHasKnownDestination } from '@/lib/step2/planning-path'
 
 function nowMs(): number {
   return Date.now()
@@ -20,6 +21,7 @@ function isPast(iso: string | null | undefined): boolean {
 }
 
 function votingComplete(trip: TripPhaseFields): boolean {
+  if (tripHasKnownDestination(trip)) return true
   return (
     !!trip.winning_destination_id ||
     (!!trip.destination && trip.destination !== 'TBD' && trip.voting_round != null)
@@ -262,6 +264,6 @@ export function canEditPhase(access: PhaseAccessMode): boolean {
   return access === 'active'
 }
 
-export function canViewPhase(access: PhaseAccessMode): boolean {
-  return access !== 'not_opened'
+export function canViewPhase(_access: PhaseAccessMode): boolean {
+  return true
 }

@@ -1,3 +1,4 @@
+import { supabase } from '@/lib/supabase'
 import { parseDestinationCards } from '@/lib/parse-destination-cards'
 import { dedupeCardsByCountry, isValidDestinationCardName } from '@/lib/generate-destinations-core'
 import { extractCountryFromDestinationName } from '@/lib/destination-country-rules'
@@ -15,6 +16,15 @@ type FetchOptions = {
   onStatus?: (message: string) => void
   onPartialCards?: (cards: ParsedDestinationCard[]) => void
   messages?: ChatMessage[]
+}
+
+async function authHeaders(): Promise<HeadersInit> {
+  const { data: { session } } = await supabase.auth.getSession()
+  const headers: HeadersInit = { 'Content-Type': 'application/json' }
+  if (session?.access_token) {
+    headers.Authorization = `Bearer ${session.access_token}`
+  }
+  return headers
 }
 
 type CardBatch = 'single-main' | 'wildcard-only'
@@ -73,7 +83,7 @@ async function fetchBatchOnce(
 ): Promise<ParsedDestinationCard[]> {
   const res = await fetch('/api/generate-destinations', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: await authHeaders(),
     body: JSON.stringify({
       tripId: options.tripId,
       preview: options.preview,
@@ -225,6 +235,34 @@ export async function fetchRemainingDestinationCards(
 
   options.onStatus?.(`Finishing your set (${existing.length} of ${TOTAL_CARDS} ready)…`)
   return buildFourCardsSequentially(answers, options, existing)
+}
+
+/** Replace one card in an existing set — keeps the other three unchanged. */
+export async function regenerateSingleDestinationCard(
+  existing: ParsedDestinationCard[],
+  cardIndex: number,
+  answers: DestinationAnswersPayload,
+  options: FetchOptions,
+): Promise<ParsedDestinationCard[]> {
+  if (cardIndex < 0 || cardIndex >= existing.length) {
+    throw new Error('Invalid card index')
+  }
+
+  const target = existing[cardIndex]
+  const withoutTarget = existing.filter((_, i) => i !== cardIndex)
+  const isWildcardSlot = !!target.isWildcard
+
+  options.onStatus?.(
+    isWildcardSlot ? 'Regenerating wildcard…' : `Regenerating ${target.name}…`,
+  )
+
+  const replacement = isWildcardSlot
+    ? await fetchOneWildcardCard(answers, options, withoutTarget)
+    : await fetchOneMainCard(answers, options, withoutTarget, `${cardIndex + 1}`)
+
+  const next = [...existing]
+  next[cardIndex] = replacement
+  return dedupeCardsByCountry(next).slice(0, TOTAL_CARDS)
 }
 
 /** Preview: full 4-card generation for anonymous homepage visitors. */

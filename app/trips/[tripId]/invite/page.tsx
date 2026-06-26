@@ -23,9 +23,6 @@ export default function InviteGuests() {
   const [showTransferHost, setShowTransferHost] = useState(false)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [isOrganizer, setIsOrganizer] = useState(false)
-  const [sendInviteEmail, setSendInviteEmail] = useState('')
-  const [sendInvitePhone, setSendInvitePhone] = useState('')
-  const [sendingInvite, setSendingInvite] = useState(false)
   const [hoveredAttendee, setHoveredAttendee] = useState<string | null>(null)
   const [nudgedAttendees, setNudgedAttendees] = useState<Set<string>>(new Set())
   const [nudgeRateLimited, setNudgeRateLimited] = useState<Set<string>>(new Set())
@@ -223,23 +220,8 @@ export default function InviteGuests() {
   const handleBeginStep2 = async () => {
     setStartingStep2(true)
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      const headers: HeadersInit = { 'Content-Type': 'application/json' }
-      if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`
-
-      const res = await fetch(`/api/trips/${tripId}/begin-step-2`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({}),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Failed to close invites')
-      setInvitesClosed(true)
-      setTrip((t: any) => (t ? { ...t, invites_closed: true, brainstorm_opened_at: new Date().toISOString() } : t))
       setShowStartPlanningConfirm(false)
-      router.push(`/trips/${tripId}/step2`)
-    } catch (e) {
-      alert(e instanceof Error ? e.message : 'Failed to start Step 2')
+      router.push(`/trips/${tripId}/step2/path`)
     } finally {
       setStartingStep2(false)
     }
@@ -265,38 +247,6 @@ export default function InviteGuests() {
     await supabase.from('trips').update({ organizer_id: newHost.user_id }).eq('id', tripId)
     setShowTransferHost(false)
     load()
-  }
-
-  const handleSendInvite = async () => {
-    if (!sendInviteEmail && !sendInvitePhone) return
-    setSendingInvite(true)
-    if (sendInviteEmail) {
-      window.open(`mailto:${sendInviteEmail}?subject=${encodeURIComponent(`Join ${trip?.name} on Avanti`)}&body=${encodeURIComponent(`You've been invited to join ${trip?.name} on Avanti. Click here to join: ${inviteUrl}`)}`)
-    }
-    if (sendInvitePhone) {
-      try {
-        const res = await fetch('/api/send-invite', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            phone: sendInvitePhone,
-            tripName: trip?.name,
-            inviteUrl,
-          }),
-        })
-        const data = await res.json()
-        if (!data.success && !data.skipped) {
-          window.open(`sms:${sendInvitePhone}?body=${encodeURIComponent(`You've been invited to join ${trip?.name} on Avanti: ${inviteUrl}`)}`)
-        }
-      } catch {
-        window.open(`sms:${sendInvitePhone}?body=${encodeURIComponent(`You've been invited to join ${trip?.name} on Avanti: ${inviteUrl}`)}`)
-      }
-    }
-    setSendInviteEmail('')
-    setSendInvitePhone('')
-    setSendingInvite(false)
-    setToast('Invite sent ✓')
-    setTimeout(() => setToast(''), 2000)
   }
 
   const handleNudge = async (att: any) => {
@@ -441,41 +391,6 @@ export default function InviteGuests() {
                 <span style={{ fontSize: '10px', color: '#6e6e73', letterSpacing: '0.03em' }}>{btn.label === 'Copy' && copied ? 'Copied!' : btn.label}</span>
               </button>
             ))}
-          </div>
-        </div>
-        )}
-
-        {!invitesClosed && (
-        <div style={{ background: 'var(--card)', border: '0.5px solid var(--border)', borderRadius: '14px', padding: '20px', marginBottom: '20px' }}>
-          <p style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--muted-foreground)', margin: '0 0 14px' }}>Send invite directly</p>
-          <p style={{ fontSize: '12px', color: 'var(--muted-foreground)', marginBottom: '12px', lineHeight: 1.6 }}>Enter their email or phone and we'll send the link for you.</p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <input
-                type="email"
-                value={sendInviteEmail}
-                onChange={e => setSendInviteEmail(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') handleSendInvite() }}
-                placeholder="Email address"
-                style={{ flex: 1, borderBottom: '1px solid var(--border)', background: 'transparent', padding: '8px 0', fontSize: '13px', color: 'var(--foreground)', outline: 'none', fontFamily: 'var(--font-cormorant), Georgia, serif' }}
-              />
-            </div>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <input
-                type="tel"
-                value={sendInvitePhone}
-                onChange={e => setSendInvitePhone(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') handleSendInvite() }}
-                placeholder="Phone number"
-                style={{ flex: 1, borderBottom: '1px solid var(--border)', background: 'transparent', padding: '8px 0', fontSize: '13px', color: 'var(--foreground)', outline: 'none', fontFamily: 'var(--font-cormorant), Georgia, serif' }}
-              />
-              <button
-                onClick={handleSendInvite}
-                disabled={sendingInvite || (!sendInviteEmail && !sendInvitePhone)}
-                style={{ padding: '8px 16px', border: '1.5px solid var(--forest)', background: 'var(--forest)', color: '#fff', fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '0', opacity: (!sendInviteEmail && !sendInvitePhone) ? 0.4 : 1, fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
-                Send
-              </button>
-            </div>
           </div>
         </div>
         )}

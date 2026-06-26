@@ -5,6 +5,7 @@ export type PhaseAccessMode = 'not_opened' | 'active' | 'view_only' | 'expired'
 
 export type TripPhaseFields = {
   invites_closed?: boolean | null
+  destination_planning_path?: string | null
   voting_round?: number | null
   winning_destination_id?: string | null
   destination?: string | null

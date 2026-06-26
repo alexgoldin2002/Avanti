@@ -9,6 +9,7 @@ import {
 } from '@/lib/voting/round-one-content'
 import { generateRoundOneContent } from '@/lib/voting/generate-content'
 import type { ParsedDestinationCard } from '@/lib/parse-destination-cards'
+import { resolveStep2SubmitCards } from '@/lib/parse-destination-matrix'
 import { assertPhaseEditable } from '@/lib/trip-phases/guards'
 import { analyzeGroupDateOverlap, travelerProfilesFromRows } from '@/lib/group-date-overlap'
 import type { RoundOneContent } from '@/lib/voting/types'
@@ -62,7 +63,7 @@ export async function POST(request: NextRequest) {
 
     const step2 = (traveler.step2 || {}) as Record<string, unknown>
     const cardVotes = (step2.cardVotes || {}) as Record<string, boolean>
-    const cards = (step2.cards || []) as ParsedDestinationCard[]
+    const cards = resolveStep2SubmitCards(step2)
     const selectedNames = Object.entries(cardVotes).filter(([, v]) => v).map(([name]) => name)
 
     const { data: trip } = await supabase
@@ -164,6 +165,7 @@ export async function POST(request: NextRequest) {
     await patchTravelerStep2(supabase, traveler.id, {
       submittedCardPicks: selectedNames,
       cardsSubmittedAt: new Date().toISOString(),
+      cards,
     })
 
     return NextResponse.json({

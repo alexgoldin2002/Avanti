@@ -1,3 +1,5 @@
+import { dedupeConsiderChips, dedupeHighlightChips, resolveConsiderChip, resolveHighlightChip } from './matrix-chip-fields'
+
 export type ParsedDestinationCard = {
   name: string
   highlight?: string
@@ -16,6 +18,11 @@ export type ParsedDestinationCard = {
   footnotes?: string
   tradeoff?: string
   isWildcard: boolean
+  /** Multi-stop pairing card — one card = one itinerary proposal. */
+  isPairing?: boolean
+  /** Three-stop route card on the considering path. */
+  isTriple?: boolean
+  pairingPlaces?: string[]
 }
 
 export type ParseDestinationCardsResult = {
@@ -79,24 +86,36 @@ export function parseDestinationCards(text: string): ParseDestinationCardsResult
     const name = getField(clean, 'NAME')
     if (!name || name.length < 2) continue
 
-    cards.push({
-      name,
-      highlight: getField(clean, 'HIGHLIGHT') || undefined,
-      consider: getField(clean, 'CONSIDER') || undefined,
-      overview: getField(clean, 'OVERVIEW') || undefined,
-      bestKnownFor: getField(clean, 'BEST KNOWN FOR') || undefined,
+    const ctx = {
       synopsis: getField(clean, 'SYNOPSIS'),
       logistics: getField(clean, 'LOGISTICS'),
+      groupFit: getField(clean, 'GROUP FIT'),
+      activities: getField(clean, 'ACTIVITIES'),
+      vibe: getField(clean, 'VIBE CHECK') || undefined,
+      tradeoff: getField(clean, 'TRADEOFF') || undefined,
+    }
+
+    cards.push({
+      name,
+      highlight: resolveHighlightChip(getField(clean, 'HIGHLIGHT'), ctx) || undefined,
+      consider: resolveConsiderChip(getField(clean, 'CONSIDER'), ctx.tradeoff || '', undefined, ctx) || undefined,
+      overview: getField(clean, 'OVERVIEW') || undefined,
+      bestKnownFor: getField(clean, 'BEST KNOWN FOR') || undefined,
+      synopsis: ctx.synopsis,
+      logistics: ctx.logistics,
       cost: getField(clean, 'COST'),
       weather: getField(clean, 'WEATHER'),
-      activities: getField(clean, 'ACTIVITIES'),
-      groupFit: getField(clean, 'GROUP FIT'),
-      vibeCheck: getField(clean, 'VIBE CHECK') || undefined,
+      activities: ctx.activities,
+      groupFit: ctx.groupFit,
+      vibeCheck: ctx.vibe,
       footnotes: getField(clean, 'FOOTNOTES') || undefined,
-      tradeoff: getField(clean, 'TRADEOFF') || undefined,
+      tradeoff: ctx.tradeoff,
       isWildcard,
     })
   }
+
+  dedupeHighlightChips(cards)
+  dedupeConsiderChips(cards)
 
   return { cards, closing, rawBlock: block }
 }

@@ -16,7 +16,7 @@ export default function Footer({ variant = 'app', paddingTop = 48 }: { variant?:
           <div>
             <div className="eyebrow text-cream/60 mb-4">Explore</div>
             <ul className="space-y-2 text-sm">
-              <li><Link href="/how-it-works" className="hover:opacity-70">How it works</Link></li>
+              <li><Link href="/why-us" className="hover:opacity-70">Why us?</Link></li>
               <li><Link href="/about" className="hover:opacity-70">About</Link></li>
               <li><Link href="/contact" className="hover:opacity-70">Contact</Link></li>
               <li><Link href="/dashboard" className="hover:opacity-70">Dashboard</Link></li>
@@ -56,7 +56,7 @@ export default function Footer({ variant = 'app', paddingTop = 48 }: { variant?:
       <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
         <div style={{ display: 'flex', gap: '32px', marginBottom: '40px', flexWrap: 'wrap' }}>
           {[
-            { label: 'How it works', href: '/how-it-works' },
+            { label: 'Why us?', href: '/why-us' },
             { label: 'About', href: '/about' },
             { label: 'Contact', href: '/contact' },
             { label: 'Dashboard', href: '/dashboard' },

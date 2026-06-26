@@ -238,7 +238,7 @@ function Footer() {
           <div style={{ ...EYEBROW, color: CREAM_60, marginBottom: 16 }}>Explore</div>
           <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
             {[
-              { label: 'How it works', href: '/how-it-works' },
+              { label: 'Why us?', href: '/why-us' },
               { label: 'About', href: '/about' },
               { label: 'Contact', href: '/contact' },
               { label: 'Dashboard', href: '/dashboard' },

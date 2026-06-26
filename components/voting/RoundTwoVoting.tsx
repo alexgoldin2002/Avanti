@@ -22,6 +22,19 @@ function shortDestinationName(name: string): string {
   return parts[0] || name
 }
 
+/** Compact labels for the split-% row — numbered when routes share a first city or span multiple stops. */
+function splitVoteLabels(names: string[]): string[] {
+  if (names.length <= 1) return names.map(shortDestinationName)
+
+  const shortNames = names.map(shortDestinationName)
+  const shortNamesCollide = new Set(shortNames).size !== shortNames.length
+  const hasMultiStop = names.some(name => name.includes(' · '))
+
+  if (!shortNamesCollide && !hasMultiStop) return shortNames
+
+  return names.map((_, index) => `Option ${index + 1}`)
+}
+
 export default function RoundTwoVoting({
   tripId,
   destinations,
@@ -69,6 +82,11 @@ export default function RoundTwoVoting({
     () => Object.values(allocations).reduce((sum, n) => sum + n, 0),
     [allocations]
   )
+  const splitLabels = useMemo(
+    () => splitVoteLabels(destinations.map(d => d.destination_name)),
+    [destinations]
+  )
+  const useNumberedOptions = splitLabels.some(label => label.startsWith('Option '))
   const remaining = 100 - total
   const canSubmit = total === 100 && destinations.length > 0
 
@@ -107,14 +125,14 @@ export default function RoundTwoVoting({
         </div>
 
         <div className="px-4 py-4 flex flex-wrap gap-3">
-          {destinations.map(d => (
+          {destinations.map((d, index) => (
             <label
               key={d.id}
               className="flex flex-col gap-1 min-w-[88px] max-w-[140px] flex-1"
               style={{ flexBasis: '88px' }}
             >
               <span className="text-[11px] text-muted-foreground truncate leading-tight" title={d.destination_name}>
-                {shortDestinationName(d.destination_name)}
+                {splitLabels[index]}
               </span>
               <div className="flex items-center border border-border bg-white focus-within:border-forest-deep">
                 <input
@@ -126,7 +144,7 @@ export default function RoundTwoVoting({
                   onChange={e => setAllocation(d.id, e.target.value)}
                   disabled={readOnly}
                   className="w-full min-w-0 border-0 bg-transparent px-2 py-1.5 text-sm text-center tabular-nums outline-none font-serif disabled:opacity-70"
-                  aria-label={`Percent for ${d.destination_name}`}
+                  aria-label={`Percent for ${splitLabels[index]}: ${d.destination_name}`}
                 />
                 <span className="text-[10px] text-muted-foreground pr-2 shrink-0">%</span>
               </div>
@@ -140,7 +158,7 @@ export default function RoundTwoVoting({
       </div>
 
       <div className="flex flex-col gap-8">
-        {destinations.map(d => {
+        {destinations.map((d, index) => {
           const personal = personalPanels[d.id] || buildFallbackRoundTwoPersonalContent(
             d.destination_name,
             null,
@@ -150,9 +168,16 @@ export default function RoundTwoVoting({
           return (
             <section key={d.id} className="avanti-box border border-border bg-card overflow-hidden">
               <div className="px-5 py-3 border-b border-border bg-forest-mist/30">
-                <p className="font-serif text-lg text-forest-deep m-0 truncate">{d.destination_name}</p>
+                <p className="font-serif text-lg text-forest-deep m-0 truncate">
+                  {useNumberedOptions && (
+                    <span className="inline-flex items-center justify-center min-w-[1.35rem] h-[1.35rem] mr-2 px-1 text-[11px] font-sans font-semibold tracking-wide text-forest-deep bg-forest-pale border border-forest-deep/20 align-middle">
+                      {index + 1}
+                    </span>
+                  )}
+                  {d.destination_name}
+                </p>
               </div>
-              <GroupDestinationCard card={{ ...card, name: d.destination_name }} tripId={tripId} hideMap />
+              <GroupDestinationCard card={{ ...card, name: d.destination_name }} tripId={tripId} />
               <div className="border-t border-border px-5 py-5 bg-forest-mist/40">
                 <div className="flex items-center justify-between gap-4 mb-3">
                   <p className="eyebrow text-forest m-0">Personalized for you</p>

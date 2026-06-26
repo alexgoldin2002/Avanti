@@ -38,10 +38,21 @@ export async function POST(
     }
 
     if (phase === 'round_one') {
-      const kickoff = await ensureVotingKickoff(db, tripId)
+      const now = new Date()
+      if (!trip.brainstorm_closed_at) {
+        const { error: closeBrainstormErr } = await db
+          .from('trips')
+          .update({ brainstorm_closed_at: now.toISOString() })
+          .eq('id', tripId)
+        if (closeBrainstormErr) {
+          return NextResponse.json({ error: closeBrainstormErr.message }, { status: 500 })
+        }
+      }
+
+      const kickoff = await ensureVotingKickoff(db, tripId, { force: true })
       if (!kickoff) {
         return NextResponse.json(
-          { error: 'Not everyone has submitted card choices yet, or no destinations were found.' },
+          { error: 'No destinations were found from submitted choices — make sure everyone submitted card choices first.' },
           { status: 400 }
         )
       }

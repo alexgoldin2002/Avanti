@@ -30,10 +30,6 @@ export default function RoundOneVotePage() {
         router.replace(`/trips/${tripId}/vote/round-two`)
         return
       }
-      if (json.trip.voting_round == null) {
-        router.replace(`/trips/${tripId}/vote`)
-        return
-      }
     } catch (e) {
       setData(null)
       setError(e instanceof Error ? e.message : 'Failed to load voting')
@@ -70,6 +66,15 @@ export default function RoundOneVotePage() {
           <p className="text-sm text-muted-foreground mb-6">{error}</p>
           <button type="button" onClick={() => void load()} className="avanti-btn">Try again →</button>
         </div>
+      </SubpageShell>
+    )
+  }
+
+  if (phase && data?.trip.voting_round == null) {
+    return (
+      <SubpageShell backHref={`/trips/${tripId}`} backLabel="Trip" title="Round 1 — Rank">
+        <PhaseBanner tripId={tripId} phase={phase} isOrganizer={isOrganizer} onUpdated={() => void reloadPhase()} />
+        <PhaseLockedScreen phase={phase} backHref={`/trips/${tripId}`} />
       </SubpageShell>
     )
   }

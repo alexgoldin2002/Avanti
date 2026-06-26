@@ -163,4 +163,32 @@ export function getCreateFormDefaultsFromPreview(answers: Record<string, unknown
   return defaults
 }
 
+export const TRIP_REGION_OPTIONS = [
+  'Europe',
+  'Caribbean',
+  'Latin America',
+  'Southeast Asia',
+  'East Asia',
+  'Middle East',
+  'Africa',
+  'South Pacific',
+  'Australia',
+  'Antarctica',
+  'Anywhere',
+] as const
+
+export const TRIP_ACTIVITY_OPTIONS = [
+  'Pool/beach',
+  'Tours/museums/historical',
+  'Food & dining',
+  'Sightseeing',
+  'Roaming the streets',
+  'Nature focused (ie. hiking)',
+  'Adventurous physical activities (ie. zip lining)',
+  'Shopping',
+  'Arts & music',
+  'Spa/relaxation',
+  'Sports/fishing',
+] as const
+
 export { STOP_OPTIONS }
