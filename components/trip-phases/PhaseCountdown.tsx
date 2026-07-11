@@ -9,7 +9,7 @@ type PhaseCountdownProps = {
   access: PhaseAccessMode
   label?: string
   variant?: 'box' | 'inline'
-  size?: 'sm' | 'lg'
+  size?: 'sm' | 'lg' | 'xl'
 }
 
 export default function PhaseCountdown({
@@ -38,7 +38,7 @@ export default function PhaseCountdown({
     return (
       <span
         className={`font-serif tabular-nums ${
-          size === 'lg' ? 'text-xl' : 'text-sm'
+          size === 'xl' ? 'text-2xl sm:text-[28px]' : size === 'lg' ? 'text-xl' : 'text-sm'
         } ${
           closed ? 'text-muted-foreground' : urgent ? 'text-amber-900' : 'text-forest-deep'
         }`}

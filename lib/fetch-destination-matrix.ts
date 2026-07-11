@@ -11,10 +11,29 @@ import {
 import {
   PAIRING_CATEGORY_ORDER,
   PAIRING_CATEGORY_SECTION_LABELS,
-  type PairingCategory,
 } from '@/lib/matrix-pairing-categories'
 import { coerceMatrixRecommendedTab, shouldIncludeTripleRoutes, type MatrixTabId } from '@/lib/matrix-trip-shape'
 import type { ChatMessage } from '@/lib/infer-trip-context'
+
+type MatrixFetchOpts = {
+  tripId?: string
+  preview?: boolean
+  planningPath?: 'considering' | 'brainstorm'
+  answers: Record<string, unknown>
+  consideringList?: string[]
+  messages?: ChatMessage[]
+  mode?: MatrixGenerationMode
+  onStatus?: (message: string) => void
+}
+
+type MatrixFetchResult = {
+  matrix: DestinationMatrixRow[]
+  pairings: DestinationMatrixCombo[]
+  triples: DestinationMatrixCombo[]
+  summary: string
+  recommendedTab: MatrixTabId | null
+  recommendedShape: string
+}
 
 async function authHeaders(): Promise<HeadersInit> {
   const { data: { session } } = await supabase.auth.getSession()
@@ -63,30 +82,26 @@ async function postMatrixPhaseWithRetry(
   return { res: lastRes!, data: lastData }
 }
 
-export async function fetchDestinationMatrix(opts: {
-  tripId: string
-  answers: Record<string, unknown>
-  consideringList?: string[]
-  messages?: ChatMessage[]
-  mode?: MatrixGenerationMode
-  onStatus?: (message: string) => void
-}): Promise<{
-  matrix: DestinationMatrixRow[]
-  pairings: DestinationMatrixCombo[]
-  triples: DestinationMatrixCombo[]
-  summary: string
-  recommendedTab: MatrixTabId | null
-  recommendedShape: string
-}> {
-  const baseBody = {
-    tripId: opts.tripId,
+async function fetchMatrixBatched(opts: MatrixFetchOpts): Promise<MatrixFetchResult> {
+  const isPreview = opts.preview || !opts.tripId
+  const baseBody: Record<string, unknown> = {
     answers: opts.answers,
     messages: opts.messages ?? [],
     consideringList: opts.consideringList ?? [],
     mode: opts.mode,
   }
+  if (isPreview) {
+    baseBody.preview = true
+    baseBody.planningPath = opts.planningPath
+  } else {
+    baseBody.tripId = opts.tripId
+  }
 
-  const mode = opts.mode ?? (opts.consideringList?.length ? 'considering' : 'brainstorm')
+  const mode =
+    opts.mode ??
+    (opts.planningPath === 'considering' || (opts.consideringList?.length ?? 0) > 0
+      ? 'considering'
+      : 'brainstorm')
   const matrix: DestinationMatrixRow[] = []
 
   if (mode === 'considering') {
@@ -171,6 +186,18 @@ export async function fetchDestinationMatrix(opts: {
     ),
     recommendedShape: (recData.recommendedShape as string) || '',
   }
+}
+
+export async function fetchDestinationMatrix(opts: MatrixFetchOpts & { tripId: string }) {
+  return fetchMatrixBatched(opts)
+}
+
+export async function fetchPreviewDestinationMatrix(
+  opts: Omit<MatrixFetchOpts, 'tripId' | 'preview'> & {
+    planningPath: 'considering' | 'brainstorm'
+  },
+) {
+  return fetchMatrixBatched({ ...opts, preview: true })
 }
 
 export async function fetchRegenerateMatrixRow(opts: {

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import PhaseCountdown from './PhaseCountdown'
 import { closeTripPhaseEarly, extendTripPhase, openTripPhase } from '@/lib/trip-phases/client-api'
 import type { PhaseId, PhaseSnapshot } from '@/lib/trip-phases/types'
+import { STEP2_WORKSPACE_PANEL, STEP2_WORKSPACE_BOX, STEP2_WORKSPACE_BOX_PAD_COMPACT } from '@/components/step2/workspace-layout'
 
 type PhaseBannerProps = {
   tripId: string
@@ -12,6 +13,8 @@ type PhaseBannerProps = {
   onUpdated?: () => void
   /** Hide phase title — use when the page shell already shows the heading. */
   hideTitle?: boolean
+  /** Step 2 workspace layout — larger type, reference-style host controls. */
+  workspace?: boolean
 }
 
 const CLOSE_WARNINGS: Record<string, string> = {
@@ -21,6 +24,44 @@ const CLOSE_WARNINGS: Record<string, string> = {
     'Close Round 1 early? Travelers who have not submitted rankings will be locked out.',
   round_two:
     'Close Round 2 early? Travelers who have not submitted their vote split will be locked out.',
+}
+
+function HostTimerIconButton({
+  icon,
+  label,
+  onClick,
+  disabled,
+  variant = 'default',
+}: {
+  icon: 'plus' | 'minus'
+  label: string
+  onClick: () => void
+  disabled?: boolean
+  variant?: 'default' | 'muted'
+}) {
+  return (
+    <span className="relative group inline-flex">
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={onClick}
+        aria-label={label}
+        className={`inline-flex items-center justify-center w-[18px] h-[18px] border bg-transparent cursor-pointer disabled:opacity-50 disabled:cursor-default transition-colors ${
+          variant === 'muted'
+            ? 'border-border text-muted-foreground hover:bg-secondary/30 hover:text-foreground'
+            : 'border-foreground/25 text-foreground hover:bg-forest-pale/40 hover:border-forest-deep/40'
+        }`}
+      >
+        <i className={`ti ti-${icon} text-[10px] leading-none`} aria-hidden />
+      </button>
+      <span
+        role="tooltip"
+        className="pointer-events-none absolute bottom-[calc(100%+8px)] left-1/2 -translate-x-1/2 w-max max-w-[220px] px-3 py-2 bg-foreground text-cream text-[11px] normal-case tracking-normal leading-snug text-center opacity-0 group-hover:opacity-100 transition-opacity duration-150 z-10 font-serif"
+      >
+        {label}
+      </span>
+    </span>
+  )
 }
 
 function isWindowOpen(phase: PhaseSnapshot): boolean {
@@ -34,6 +75,7 @@ export default function PhaseBanner({
   isOrganizer,
   onUpdated,
   hideTitle = false,
+  workspace = false,
 }: PhaseBannerProps) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -128,20 +170,44 @@ export default function PhaseBanner({
       </span>
     ) : null
 
+  const addTimeLabel = 'Add more time to the submission window'
+  const closeEarlyLabel =
+    phase.id === 'brainstorm'
+      ? 'Close the submission window early'
+      : phase.id === 'round_one'
+      ? 'Close Round 1 early'
+      : 'Close Round 2 early'
+
   return (
-    <div className="mb-6">
+    <div
+      className={
+        workspace
+          ? `mb-4 ${STEP2_WORKSPACE_PANEL} ${STEP2_WORKSPACE_BOX} ${STEP2_WORKSPACE_BOX_PAD_COMPACT}`
+          : 'mb-6'
+      }
+    >
       {hideTitle ? (
-        accessBadge && <div className="mb-3">{accessBadge}</div>
+        accessBadge && <div className={workspace ? 'mb-0.5' : 'mb-3'}>{accessBadge}</div>
       ) : (
-        <div className="mb-3">
-          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 mb-1">
-            <h1 className="font-serif text-[28px] font-light leading-none text-foreground m-0 tracking-[0.02em]">
+        <div className={workspace ? 'mb-1' : 'mb-3'}>
+          <div className={`flex flex-wrap items-baseline gap-x-3 gap-y-0 ${workspace ? 'mb-0' : 'mb-2'}`}>
+            <h1
+              className={`font-serif font-light text-foreground m-0 tracking-[0.02em] ${
+                workspace ? 'text-[28px] sm:text-[30px] leading-none' : 'text-[28px] leading-none'
+              }`}
+            >
               {phase.label}
             </h1>
             {accessBadge}
           </div>
           {phase.access !== 'view_only' && phase.statusNote && (
-            <p className="text-sm text-muted-foreground m-0 leading-relaxed">{phase.statusNote}</p>
+            <p
+              className={`text-muted-foreground m-0 max-w-lg ${
+                workspace ? 'text-[13px] leading-tight mt-0.5' : 'text-sm leading-relaxed'
+              }`}
+            >
+              {phase.statusNote}
+            </p>
           )}
         </div>
       )}
@@ -151,38 +217,32 @@ export default function PhaseBanner({
       )}
 
       {showTimerRow && (
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mb-3">
-          <div className="flex items-baseline gap-2.5">
-            <span className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Time left</span>
-            <PhaseCountdown
-              deadlineAt={phase.deadlineAt}
-              access={phase.access}
-              variant="inline"
-              size="lg"
-            />
-          </div>
+        <div className={`flex flex-wrap items-center gap-x-2.5 ${workspace ? 'gap-y-0 mb-0' : 'gap-y-1 mb-3'}`}>
+          <PhaseCountdown
+            deadlineAt={phase.deadlineAt}
+            access={phase.access}
+            variant="inline"
+            size="lg"
+          />
           {hostControls && (
-            <>
-              <button
-                type="button"
+            <div className="flex items-center gap-1">
+              <HostTimerIconButton
+                icon="plus"
+                label={addTimeLabel}
                 disabled={busy}
                 onClick={() => {
                   setShowAddTime(v => !v)
                   setError(null)
                 }}
-                className="text-[8px] uppercase tracking-[0.12em] text-forest-deep border border-forest-deep/25 px-2 py-0.5 bg-transparent cursor-pointer hover:bg-forest-pale/40 disabled:opacity-50"
-              >
-                Add time
-              </button>
-              <button
-                type="button"
+              />
+              <HostTimerIconButton
+                icon="minus"
+                label={closeEarlyLabel}
                 disabled={busy}
+                variant="muted"
                 onClick={() => setShowCloseConfirm(true)}
-                className="text-[8px] uppercase tracking-[0.12em] text-muted-foreground border border-border px-2 py-0.5 bg-transparent cursor-pointer hover:bg-secondary/40 disabled:opacity-50"
-              >
-                Close early
-              </button>
-            </>
+              />
+            </div>
           )}
         </div>
       )}

@@ -4,8 +4,8 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import Footer from './components/Footer'
-import HomeTripPlanner from './components/HomeTripPlanner'
-import { getPostAuthPath, clearPendingShare } from '@/lib/preview-trip-storage'
+import { getPostAuthPath } from '@/lib/preview-trip-storage'
+import { authCallbackUrl } from '@/lib/auth/oauth'
 import PhoneAuthForm from './components/PhoneAuthForm'
 import { syncUserPhoneToProfile } from '@/lib/auth/sync-user-phone'
 import { SIGNUP_PASSWORD_HINT, validateSignupPassword } from '@/lib/auth/password-strength'
@@ -45,30 +45,6 @@ export default function Home() {
   const [error, setError] = useState('')
   const [rememberMe, setRememberMe] = useState(true)
   const [authChannel, setAuthChannel] = useState<'email' | 'phone'>('email')
-  const [plannerRevealed, setPlannerRevealed] = useState(false)
-
-  const revealPlanner = () => {
-    setPlannerRevealed(true)
-    requestAnimationFrame(() => {
-      setTimeout(() => {
-        document.getElementById('plan-your-trip')?.scrollIntoView({ behavior: 'smooth' })
-      }, 100)
-    })
-  }
-
-  const closePlanner = () => {
-    setPlannerRevealed(false)
-    requestAnimationFrame(() => {
-      setTimeout(() => {
-        document.getElementById('home-hero')?.scrollIntoView({ behavior: 'smooth' })
-      }, 100)
-    })
-  }
-
-  const togglePlannerPreview = () => {
-    if (plannerRevealed) closePlanner()
-    else revealPlanner()
-  }
 
   useEffect(() => {
     const checkSession = async () => {
@@ -101,7 +77,6 @@ export default function Home() {
       .select('profile_complete')
       .eq('user_id', user.id)
       .maybeSingle()
-    clearPendingShare()
     router.push(getPostAuthPath(Boolean(profile?.profile_complete)))
   }
 
@@ -139,15 +114,15 @@ export default function Home() {
       .select('profile_complete')
       .eq('user_id', data.user.id)
       .maybeSingle()
-    clearPendingShare()
     router.push(getPostAuthPath(Boolean(profile?.profile_complete)))
   }
 
   const handleGoogle = async () => {
-    await supabase.auth.signInWithOAuth({
+    const { error: oauthError } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
+      options: { redirectTo: authCallbackUrl() },
     })
+    if (oauthError) setError(oauthError.message)
   }
 
   return (
@@ -177,17 +152,19 @@ export default function Home() {
             </Link>
           </div>
 
-          <div className="flex justify-end items-center gap-6 eyebrow text-cream/90">
-            <button type="button" onClick={() => openAuth('signin')} className="hidden md:inline eyebrow text-cream/90 hover:opacity-70 transition bg-transparent border-0 p-0 cursor-pointer">
-              Sign in
-            </button>
-            <button
-              type="button"
-              onClick={() => openAuth('signup')}
-              className="eyebrow text-cream/90 border border-cream/60 px-4 py-2 hover:bg-cream hover:text-forest-deep transition bg-transparent cursor-pointer"
+          <div className="flex justify-end items-center gap-4 eyebrow text-cream/90">
+            <Link
+              href="/auth?mode=signin"
+              className="eyebrow text-cream/90 hover:text-cream transition whitespace-nowrap"
+            >
+              Log in
+            </Link>
+            <Link
+              href="/auth?mode=signup"
+              className="eyebrow text-cream/90 border border-cream/60 px-4 py-2 hover:bg-cream hover:text-forest-deep transition whitespace-nowrap"
             >
               Create account
-            </button>
+            </Link>
           </div>
         </div>
 
@@ -197,7 +174,8 @@ export default function Home() {
               <Link href="/why-us" onClick={() => setMenuOpen(false)}>Why us?</Link>
               <Link href="/about" onClick={() => setMenuOpen(false)}>About</Link>
               <Link href="/contact" onClick={() => setMenuOpen(false)}>Contact</Link>
-              <button type="button" onClick={() => openAuth('signin')}>Sign in</button>
+              <Link href="/auth?mode=signin" onClick={() => setMenuOpen(false)}>Log in</Link>
+              <Link href="/auth?mode=signup" onClick={() => setMenuOpen(false)}>Create account</Link>
             </nav>
           </div>
         )}
@@ -233,39 +211,22 @@ export default function Home() {
             </p>
             <button
               type="button"
-              onClick={revealPlanner}
+              onClick={() => router.push('/auth?mode=signup')}
               className="mt-10 inline-block bg-forest-deep text-cream eyebrow px-10 py-4 hover:bg-forest-deep/90 transition"
             >
               Let&apos;s get planning
             </button>
-            <button
-              type="button"
-              onClick={togglePlannerPreview}
-              aria-label={plannerRevealed ? 'Close trip planner preview' : 'Open trip planner preview'}
-              className={`mt-14 flex flex-col items-center gap-1 text-forest-deep/60 hover:text-forest-deep transition-colors ${plannerRevealed ? 'animate-bounce-up' : 'animate-bounce-down'}`}
+            <Link
+              href="/try"
+              className={`mt-14 flex flex-col items-center gap-1 text-forest-deep/60 hover:text-forest-deep transition-colors animate-bounce-down`}
             >
-              <span className="eyebrow text-[10px] tracking-widest">
-                {plannerRevealed ? 'Close preview' : 'Try it first'}
-              </span>
+              <span className="eyebrow text-[10px] tracking-widest">Try it first</span>
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                {plannerRevealed ? (
-                  <polyline points="6 15 12 9 18 15" />
-                ) : (
-                  <polyline points="6 9 12 15 18 9" />
-                )}
+                <polyline points="6 9 12 15 18 9" />
               </svg>
-            </button>
+            </Link>
           </div>
         </div>
-
-        {plannerRevealed && (
-          <section id="plan-your-trip" className="relative z-10 border-t border-cream/15">
-            <HomeTripPlanner
-              onSignupRequest={() => openAuth('signup')}
-              onSigninRequest={() => openAuth('signin')}
-            />
-          </section>
-        )}
 
         <div className="relative z-10 border-t border-cream/15 bg-forest-deep">
           <div className="relative grid grid-cols-1 md:grid-cols-3">

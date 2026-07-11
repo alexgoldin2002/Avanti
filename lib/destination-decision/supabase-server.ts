@@ -1,6 +1,6 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { NextRequest } from 'next/server'
-import { createAdminClient, tryCreateAdminClient } from '../supabase-admin'
+import { createAdminClient } from '../supabase-admin'
 
 export function supabaseFromRequest(request: NextRequest): SupabaseClient {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -16,13 +16,20 @@ export function supabaseFromRequest(request: NextRequest): SupabaseClient {
   return createClient(url, anonKey)
 }
 
+/**
+ * Returns the service-role client ONLY for verified cron/system callers.
+ * Every other caller (including anonymous ones) gets a request-scoped client
+ * that carries the user's bearer token, so Supabase RLS is always enforced.
+ *
+ * Previously this fell back to the admin client whenever no Authorization
+ * header was present, which let unauthenticated HTTP calls read trip/traveler
+ * data straight past RLS. That fallback has been removed.
+ */
 export function adminOrAnon(request: NextRequest): SupabaseClient {
   const cronSecret = request.headers.get('x-cron-secret')
   if (cronSecret && process.env.CRON_SECRET && cronSecret === process.env.CRON_SECRET) {
     return createAdminClient()
   }
-  const admin = tryCreateAdminClient()
-  if (admin && !request.headers.get('Authorization')) return admin
   return supabaseFromRequest(request)
 }
 

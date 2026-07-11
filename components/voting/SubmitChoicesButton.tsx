@@ -55,7 +55,7 @@ export default function SubmitChoicesButton({
           padding: '16px',
           border: 'none',
           background: 'var(--forest-deep)',
-          color: '#fafaf8',
+          color: '#ffffff',
           fontSize: '10px',
           letterSpacing: '0.25em',
           textTransform: 'uppercase',

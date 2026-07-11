@@ -48,8 +48,8 @@
   --forest-mid: oklch(0.38 0.05 150);
   --forest-pale: oklch(0.94 0.02 150);
   --forest-mist: oklch(0.97 0.015 150);
-  --cream: oklch(0.985 0.008 90);
-  --ivory: oklch(0.96 0.012 85);
+  --cream: #ffffff;
+  --ivory: #ffffff;
   --sage: oklch(0.78 0.06 130);
 
   --shadow-elegant: 0 24px 64px -16px oklch(0.22 0.045 150 / 0.32);

@@ -81,9 +81,13 @@ export default function AppNav({ userName }: { userName?: string }) {
 
         <div className="flex items-center justify-end gap-4 flex-1">
           {displayName && (
-            <span className="text-[11px] tracking-[0.25em] uppercase text-cream/85 truncate max-w-[140px] sm:max-w-none">
+            <Link
+              href="/dashboard"
+              className="text-[11px] tracking-[0.25em] uppercase text-cream/85 truncate max-w-[140px] sm:max-w-none transition-colors hover:text-cream"
+              aria-label="Go to dashboard"
+            >
               {displayName}
-            </span>
+            </Link>
           )}
           <button
             type="button"

@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import AvantiLogo from '../../components/AvantiLogo'
@@ -112,6 +112,8 @@ export default function TravelBenefits() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [profile, setProfile] = useState<BenefitsProfile>(EMPTY_PROFILE)
+  // Preserve keys this page doesn't manage (e.g. profile_extras from /profile).
+  const rawBenefitsRef = useRef<Record<string, unknown>>({})
   const [openSection, setOpenSection] = useState<string | null>('credit_cards')
   const [newAirline, setNewAirline] = useState('')
   const [newAirlineTier, setNewAirlineTier] = useState('')
@@ -131,7 +133,10 @@ export default function TravelBenefits() {
         .select('benefits_profile')
         .eq('user_id', user.id)
         .single()
-      if (data?.benefits_profile) setProfile(normalizeBenefitsProfile(data.benefits_profile))
+      if (data?.benefits_profile) {
+        if (typeof data.benefits_profile === 'object') rawBenefitsRef.current = data.benefits_profile as Record<string, unknown>
+        setProfile(normalizeBenefitsProfile(data.benefits_profile))
+      }
       setLoading(false)
     }
     load()
@@ -141,7 +146,9 @@ export default function TravelBenefits() {
     setSaving(true)
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-    await supabase.from('user_profiles').update({ benefits_profile: profile }).eq('user_id', user.id)
+    const merged = { ...rawBenefitsRef.current, ...profile }
+    await supabase.from('user_profiles').update({ benefits_profile: merged }).eq('user_id', user.id)
+    rawBenefitsRef.current = merged
     setSaving(false)
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
@@ -233,7 +240,7 @@ export default function TravelBenefits() {
   ]
 
   return (
-    <main style={{ minHeight: '100vh', background: '#fafaf8', ...s }}>
+    <main style={{ minHeight: '100vh', background: '#ffffff', ...s }}>
       <div style={{ maxWidth: '560px', margin: '0 auto', padding: '48px 24px 80px' }}>
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '32px' }}>
@@ -265,7 +272,7 @@ export default function TravelBenefits() {
               </div>
 
               {openSection === section.key && (
-                <div style={{ padding: '20px', background: '#fafaf8', borderTop: '0.5px solid #f0f0e8' }}>
+                <div style={{ padding: '20px', background: '#ffffff', borderTop: '0.5px solid #f0f0e8' }}>
 
                   {section.key === 'credit_cards' && (
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>

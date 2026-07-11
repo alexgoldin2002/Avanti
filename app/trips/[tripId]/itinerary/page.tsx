@@ -333,6 +333,14 @@ export default function ItineraryPage() {
         )}
       </section>
 
+      <button
+        type="button"
+        onClick={() => router.push(`/trips/${tripId}/itinerary/template`)}
+        className="mt-8 w-full avanti-btn avanti-btn-primary"
+      >
+        View shareable itinerary →
+      </button>
+
       <div className="mt-10 grid sm:grid-cols-2 gap-3">
         {[
           { label: 'Bookings & confirmations', path: 'bookings' },

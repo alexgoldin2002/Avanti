@@ -7,6 +7,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Footer from '../../../components/Footer'
 import { BackLink } from '../../../components/SubpageShell'
+import { PLACEHOLDERS } from '@/lib/form-placeholders'
 
 export default function InviteGuests() {
   const params = useParams()
@@ -601,17 +602,17 @@ export default function InviteGuests() {
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                     <div>
                       <label style={labelStyle}>Nickname *</label>
-                      <input style={inputStyle} value={newAttendee.nickname} onChange={e => setNewAttendee({...newAttendee, nickname: e.target.value})} placeholder="Pruse, M, Em..." autoFocus />
+                      <input style={inputStyle} value={newAttendee.nickname} onChange={e => setNewAttendee({...newAttendee, nickname: e.target.value})} placeholder={PLACEHOLDERS.nickname} autoFocus />
                     </div>
                     <div>
                       <label style={labelStyle}>Full name</label>
-                      <input style={inputStyle} value={newAttendee.full_name} onChange={e => setNewAttendee({...newAttendee, full_name: e.target.value})} placeholder="Sydney Prusan" />
+                      <input style={inputStyle} value={newAttendee.full_name} onChange={e => setNewAttendee({...newAttendee, full_name: e.target.value})} placeholder={PLACEHOLDERS.fullName} />
                     </div>
                   </div>
                   {addIntent === 'invite_link' && (
                     <div>
                       <label style={labelStyle}>Email <span style={{ textTransform: 'none', letterSpacing: 0 }}>(optional)</span></label>
-                      <input type="email" style={inputStyle} value={newAttendee.email} onChange={e => setNewAttendee({...newAttendee, email: e.target.value})} placeholder="sydney@gmail.com" />
+                      <input type="email" style={inputStyle} value={newAttendee.email} onChange={e => setNewAttendee({...newAttendee, email: e.target.value})} placeholder={PLACEHOLDERS.inviteEmail} />
                     </div>
                   )}
                   {addIntent === 'on_invite' && (
@@ -626,11 +627,11 @@ export default function InviteGuests() {
                       </div>
                       <div>
                         <label style={labelStyle}>Passport number</label>
-                        <input style={inputStyle} value={newAttendee.passport_number} onChange={e => setNewAttendee({...newAttendee, passport_number: e.target.value})} placeholder="A12345678" />
+                        <input style={inputStyle} value={newAttendee.passport_number} onChange={e => setNewAttendee({...newAttendee, passport_number: e.target.value})} placeholder={PLACEHOLDERS.passport} />
                       </div>
                       <div>
                         <label style={labelStyle}>TSA PreCheck</label>
-                        <input style={inputStyle} value={newAttendee.tsa_known_traveler} onChange={e => setNewAttendee({...newAttendee, tsa_known_traveler: e.target.value})} placeholder="12345678" />
+                        <input style={inputStyle} value={newAttendee.tsa_known_traveler} onChange={e => setNewAttendee({...newAttendee, tsa_known_traveler: e.target.value})} placeholder={PLACEHOLDERS.tsaKnownTraveler} />
                       </div>
                     </div>
                   )}
@@ -682,7 +683,7 @@ export default function InviteGuests() {
               <button
                 type="button"
                 onClick={() => router.push(`/trips/${tripId}/step2`)}
-                style={{ fontSize: '11px', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#fafaf8', background: 'var(--forest-deep)', border: 'none', padding: '10px 20px', cursor: 'pointer', fontFamily: 'var(--font-cormorant), Georgia, serif' }}
+                style={{ fontSize: '11px', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#ffffff', background: 'var(--forest-deep)', border: 'none', padding: '10px 20px', cursor: 'pointer', fontFamily: 'var(--font-cormorant), Georgia, serif' }}
               >
                 {isOrganizer ? 'Go to Brainstorm →' : 'Move on to step 2 →'}
               </button>

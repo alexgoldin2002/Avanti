@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import SuitcaseLoader from '../components/SuitcaseLoader'
 import SubpageShell, { BackLink } from '../components/SubpageShell'
 import AvantiCard from '../components/AvantiCard'
+import { PLACEHOLDERS } from '@/lib/form-placeholders'
 
 export default function Wallet() {
   const router = useRouter()
@@ -182,7 +183,7 @@ export default function Wallet() {
                   <option value="venmo">Venmo</option><option value="paypal">PayPal</option><option value="zelle">Zelle</option><option value="cashapp">Cash App</option>
                 </select>
               </div>
-              <div><label style={labelStyle}>Username / handle / email</label><input style={inputStyle} value={newAccount.handle} onChange={e => setNewAccount({...newAccount, handle: e.target.value})} placeholder="@alexgoldin" /></div>
+              <div><label style={labelStyle}>Username / handle / email</label><input style={inputStyle} value={newAccount.handle} onChange={e => setNewAccount({...newAccount, handle: e.target.value})} placeholder={PLACEHOLDERS.walletHandle} /></div>
             </div>
             <div style={{ display: 'flex', gap: '12px' }}>
               <button onClick={() => setShowAddAccount(false)} style={{ flex: 1, border: '1px solid var(--border)', padding: '14px', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--muted-foreground)', background: 'transparent', cursor: 'pointer', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>Cancel</button>

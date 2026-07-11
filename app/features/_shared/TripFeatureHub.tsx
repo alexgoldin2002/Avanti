@@ -53,7 +53,7 @@ export default function TripFeatureHub({
   if (loading) return <SuitcaseLoader message="Loading your trips" />
 
   return (
-    <main style={{ minHeight: '100vh', background: '#fafaf8', ...s }}>
+    <main style={{ minHeight: '100vh', background: '#ffffff', ...s }}>
       <div style={{ maxWidth: '480px', margin: '0 auto', padding: '48px 24px 80px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '32px' }}>
           <AvantiLogo size="sm" />

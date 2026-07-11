@@ -14,6 +14,7 @@ import {
   type AccountCompanion,
 } from '@/lib/account-companions'
 import { SIGNUP_PASSWORD_HINT, validateSignupPassword } from '@/lib/auth/password-strength'
+import { PLACEHOLDERS } from '@/lib/form-placeholders'
 
 type JoinStep = 'landing' | 'nickname' | 'travel_party' | 'companion'
 type TravelMode = 'self' | 'manage'
@@ -68,21 +69,31 @@ export default function JoinTrip() {
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       setUser(user)
-      const { data: tripData } = await supabase.from('trips').select('*').eq('invite_code', code).maybeSingle()
-      if (tripData?.invites_closed || tripData?.invite_locked) {
+      // Uses a SECURITY DEFINER RPC that returns only safe preview fields — the
+      // trips/travelers rows themselves are not readable by non-members.
+      const { data: previewRows } = await supabase.rpc('invite_preview', { p_invite_code: code })
+      const preview = Array.isArray(previewRows) ? previewRows[0] : null
+      if (preview?.invites_closed || preview?.invite_locked) {
         setLinkClosed(true)
         setLinkClosedReason(
-          tripData.invites_closed
+          preview.invites_closed
             ? 'The organizer has closed this trip to new guests. If you think this is a mistake, reach out to the trip organizer directly.'
             : 'The organizer is finalizing trip settings — new joins are paused for now. Ask them to unlock the invite link if you still need to join.'
         )
         setLoading(false)
         return
       }
-      if (tripData) {
-        setTrip(tripData)
-        const { data: orgData } = await supabase.from('travelers').select('*').eq('trip_id', tripData.id).eq('role', 'organizer').single()
-        if (orgData) setOrganizer(orgData)
+      if (preview) {
+        setTrip({
+          id: preview.trip_id,
+          name: preview.trip_name,
+          destination: preview.destination,
+          start_date: preview.start_date,
+          end_date: preview.end_date,
+          cover_image: preview.cover_image,
+          cover_color: preview.cover_color,
+        })
+        setOrganizer({ nickname: preview.organizer_name })
       }
       setLoading(false)
     }
@@ -395,7 +406,7 @@ export default function JoinTrip() {
               <h2 style={{ fontSize: '28px', fontWeight: 300, color: 'var(--foreground)', margin: '0 0 8px', ...s }}>One last thing</h2>
               <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', marginBottom: '8px', lineHeight: 1.7 }}>What should the group call you on this trip?</p>
               <p style={{ fontSize: '11px', color: 'var(--muted-foreground)', marginBottom: '28px', fontStyle: 'italic' }}>Your legal name is used for reservations. This is just your nickname for the group.</p>
-              <input value={nickname} onChange={e => setNickname(e.target.value)} placeholder="M, Em, Alex..."
+              <input value={nickname} onChange={e => setNickname(e.target.value)} placeholder={PLACEHOLDERS.nicknameExamples}
                 style={{ ...inputStyle, fontSize: '20px', textAlign: 'center', letterSpacing: '0.1em', marginBottom: '24px' }} />
               <button onClick={() => setStep('travel_party')} disabled={!nickname.trim()}
                 style={{ width: '100%', border: '1px solid var(--forest-deep)', background: 'var(--forest-deep)', color: '#fff', padding: '16px', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '0', opacity: !nickname.trim() ? 0.5 : 1, ...s }}>
@@ -504,7 +515,7 @@ export default function JoinTrip() {
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <input style={{ ...inputStyle, flex: 1, borderBottom: '1px solid #d4d4c8' }} type="email" value={linkEmail}
                     onChange={e => { setLinkEmail(e.target.value); setLinkLookupMsg(''); setLinkedUserId(null) }}
-                    placeholder="partner@email.com" />
+                    placeholder={PLACEHOLDERS.inviteEmail} />
                   <button type="button" onClick={lookupLinkedProfile} disabled={linkLoading || !linkEmail.trim()}
                     style={{ padding: '8px 12px', fontSize: '10px', letterSpacing: '0.12em', textTransform: 'uppercase', border: '1px solid var(--forest-deep)', background: 'transparent', color: 'var(--forest-deep)', cursor: 'pointer', whiteSpace: 'nowrap', ...s }}>
                     {linkLoading ? '…' : 'Link'}
@@ -630,7 +641,7 @@ export default function JoinTrip() {
               <form onSubmit={handleAuth} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 <div>
                   <label style={labelStyle}>Email</label>
-                  <input type="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder="your@email.com" style={inputStyle} />
+                  <input type="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder={PLACEHOLDERS.email} style={inputStyle} />
                 </div>
                 <div>
                   <label style={labelStyle}>Password</label>

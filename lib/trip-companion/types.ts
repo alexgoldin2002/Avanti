@@ -106,10 +106,68 @@ export type DayBriefings = {
   morning?: MorningBriefing
 }
 
+export type VisaRequirement = {
+  nationality: string
+  visa_required: boolean
+  visa_type: string | null
+  how_to_apply: string | null
+  processing_time: string | null
+  cost: string | null
+  passport_validity: string | null
+  notes: string | null
+}
+
+export type RequiredDocument = {
+  name: string
+  required: boolean
+  details: string
+}
+
+export type VaccineRequirement = {
+  name: string
+  status: 'required' | 'recommended'
+  details: string | null
+}
+
+export type MedicationAdvisory = {
+  name: string
+  who: string | null
+  status: 'ok' | 'restricted' | 'banned' | 'bring_supply' | 'unknown'
+  guidance: string
+  documents_needed: string[]
+}
+
+export type EntryRequirements = {
+  destination: string
+  country: string
+  summary: string | null
+  visas: VisaRequirement[]
+  documents: RequiredDocument[]
+  vaccines: VaccineRequirement[]
+  medications: MedicationAdvisory[]
+  bring_from_home: string[]
+  disclaimer: string | null
+  generated_at: string
+}
+
+export type EntryRequirementsMed = {
+  name: string
+  dosage?: string
+  unit?: string
+  who?: string
+}
+
+export type EntryRequirementsInput = {
+  trip: { name: string; destination: string; start_date: string; end_date: string }
+  nationalities: string[]
+  medications: EntryRequirementsMed[]
+}
+
 export type TripCompanionOptions = {
   essentials?: DestinationEssentials
   country_apps?: CountryAppsGuide
   briefings?: Record<string, DayBriefings>
+  entry_requirements?: EntryRequirements
 }
 
 export type CompanionContext = {

@@ -70,6 +70,19 @@ export async function upsertAccountCompanion(
   return data as AccountCompanion
 }
 
+export async function deleteAccountCompanion(
+  supabase: SupabaseClient,
+  userId: string,
+  companionId: string
+) {
+  const { error } = await supabase
+    .from('account_companions')
+    .delete()
+    .eq('id', companionId)
+    .eq('owner_user_id', userId)
+  if (error) throw error
+}
+
 export async function createManagedTripTraveler(
   supabase: SupabaseClient,
   input: {

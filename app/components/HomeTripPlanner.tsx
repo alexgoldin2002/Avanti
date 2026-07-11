@@ -1,20 +1,47 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import DestinationCard from './DestinationCard'
+import Link from 'next/link'
 import ProtectedContent from './ProtectedContent'
-import { fetchPreviewDestinationCards, GENERATION_TIME_HINT } from '@/lib/fetch-destination-batches'
-import { savePreviewTrip, loadPreviewTrip, markPendingShare, TRIP_REGION_OPTIONS, TRIP_ACTIVITY_OPTIONS } from '@/lib/preview-trip-storage'
+import { GENERATION_TIME_HINT } from '@/lib/fetch-destination-batches'
+import { fetchPreviewDestinationMatrix } from '@/lib/fetch-destination-matrix'
+import {
+  savePreviewTrip,
+  loadPreviewTrip,
+  markPendingShare,
+  TRIP_REGION_OPTIONS,
+  TRIP_ACTIVITY_OPTIONS,
+} from '@/lib/preview-trip-storage'
 import DateRangeFields, { isValidDateRange } from './DateRangeFields'
 import {
   departureCitiesToStoredString,
   parseDepartureCitiesFromStep2,
 } from '@/lib/departure-cities'
+import { PLANNING_PATH_OPTIONS, type DestinationPlanningPath } from '@/lib/step2/planning-path'
+import { loadGoogleMapsScript, whenGooglePlacesReady } from '@/lib/google-maps-loader'
+import DestinationMatrix from '@/components/voting/DestinationMatrix'
+import type { ParsedDestinationCard } from '@/lib/parse-destination-cards'
+import {
+  buildConsideringPathCards,
+  enrichMatrixChipRows,
+  enrichMatrixPairings,
+  type DestinationMatrixCombo,
+  type DestinationMatrixRow,
+} from '@/lib/parse-destination-matrix'
+import type { MatrixTabId } from '@/lib/matrix-trip-shape'
+import { PLACEHOLDERS } from '@/lib/form-placeholders'
 
-type Stage = 1 | 2 | 3 | 'generate' | 'done'
+type Stage = 'path' | 'known' | 1 | 2 | 3 | 'generate' | 'done'
 
-export default function HomeTripPlanner({ onSignupRequest, onSigninRequest }: { onSignupRequest: () => void; onSigninRequest: () => void }) {
-  const [stage, setStage] = useState<Stage>(1)
+export default function HomeTripPlanner({
+  onSignupRequest,
+  onSigninRequest,
+}: {
+  onSignupRequest: () => void
+  onSigninRequest: () => void
+}) {
+  const [stage, setStage] = useState<Stage>('path')
+  const [planningPath, setPlanningPath] = useState<DestinationPlanningPath | null>(null)
   const [q1, setQ1] = useState('')
   const [departureCityInput, setDepartureCityInput] = useState('')
   const [departureCities, setDepartureCities] = useState<string[]>([])
@@ -37,6 +64,19 @@ export default function HomeTripPlanner({ onSignupRequest, onSigninRequest }: { 
   const [generateError, setGenerateError] = useState<string | null>(null)
   const [generateStatus, setGenerateStatus] = useState<string | null>(null)
   const [cards, setCards] = useState<ParsedDestinationCard[]>([])
+  const [consideringList, setConsideringList] = useState<string[]>([])
+  const [consideringInput, setConsideringInput] = useState('')
+  const [matrixRows, setMatrixRows] = useState<DestinationMatrixRow[]>([])
+  const [matrixPairings, setMatrixPairings] = useState<DestinationMatrixCombo[]>([])
+  const [matrixTriples, setMatrixTriples] = useState<DestinationMatrixCombo[]>([])
+  const [matrixSummary, setMatrixSummary] = useState('')
+  const [matrixRecommendedTab, setMatrixRecommendedTab] = useState<MatrixTabId | null>(null)
+  const [matrixRecommendedShape, setMatrixRecommendedShape] = useState('')
+  const [knownPlaces, setKnownPlaces] = useState<string[]>([])
+  const [knownSearch, setKnownSearch] = useState('')
+
+  const isConsideringPath = planningPath === 'considering'
+  const isKnownPath = planningPath === 'known'
 
   const s = { fontFamily: 'var(--font-cormorant), Georgia, serif' }
   const inputStyle = { width: '100%', borderBottom: '1px solid #d4d4c8', background: 'transparent', padding: '8px 0', fontSize: '15px', color: 'var(--foreground)', outline: 'none', ...s }
@@ -52,6 +92,13 @@ export default function HomeTripPlanner({ onSignupRequest, onSigninRequest }: { 
 
   useEffect(() => {
     const saved = loadPreviewTrip()
+    if (saved.meta?.planningPath) {
+      setPlanningPath(saved.meta.planningPath)
+    }
+    if (saved.meta?.knownDestination) {
+      setKnownPlaces([saved.meta.knownDestination])
+    }
+    if (saved.meta?.consideringList) setConsideringList(saved.meta.consideringList)
     if (saved.answers) {
       const a = saved.answers
       if (a.q1) setQ1(String(a.q1))
@@ -76,28 +123,40 @@ export default function HomeTripPlanner({ onSignupRequest, onSigninRequest }: { 
       if (a.popularity) setPopularity(String(a.popularity))
       if (a.q3) setQ3(String(a.q3))
     }
-    if (saved.cards && Array.isArray(saved.cards) && saved.cards.length > 0) {
-      setCards(saved.cards as ParsedDestinationCard[])
+    if (saved.meta?.matrixRows?.length) {
+      setMatrixRows(saved.meta.matrixRows)
+      setMatrixPairings(saved.meta.matrixPairings ?? [])
+      setMatrixTriples(saved.meta.matrixTriples ?? [])
+      setMatrixSummary(saved.meta.matrixSummary ?? '')
+      setMatrixRecommendedTab(saved.meta.matrixRecommendedTab ?? null)
+      setMatrixRecommendedShape(saved.meta.matrixRecommendedShape ?? '')
+      setCards(
+        Array.isArray(saved.cards) && saved.cards.length > 0
+          ? (saved.cards as ParsedDestinationCard[])
+          : buildConsideringPathCards(
+              saved.meta.matrixRows,
+              saved.meta.matrixPairings ?? [],
+              saved.meta.matrixTriples ?? [],
+            ),
+      )
       setStage('done')
+    } else if (saved.meta?.planningPath === 'known' && saved.meta?.knownDestination && saved.answers?.q1) {
+      setStage('done')
+    } else if (saved.answers?.q1 && saved.meta?.planningPath) {
+      setStage(1)
     }
   }, [])
 
   useEffect(() => {
-    if ((window as Window & { google?: { maps?: { places?: unknown } } }).google?.maps?.places) return
-    if (document.getElementById('google-maps-script')) return
-    const script = document.createElement('script')
-    script.id = 'google-maps-script'
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_PLACES_KEY}&libraries=places`
-    script.async = true
-    document.head.appendChild(script)
+    loadGoogleMapsScript()
   }, [])
 
-  const showQ2 = (typeof stage === 'number' && stage >= 2) || stage === 'generate' || stage === 'done'
+  const showQ2 = planningPath && ((typeof stage === 'number' && stage >= 2) || stage === 'generate' || stage === 'done')
 
   useEffect(() => {
-    if (!showQ2) return
-    const tryInit = () => {
-      const input = document.getElementById('home-departure-city-input') as HTMLInputElement
+    if (stage !== 'known' && !showQ2) return
+    const initAutocomplete = (inputId: string, onPick: (name: string) => void) => {
+      const input = document.getElementById(inputId) as HTMLInputElement
       if (!input) return
       const g = (window as Window & { google?: { maps?: { places?: { Autocomplete: new (el: HTMLInputElement, opts: object) => { addListener: (ev: string, fn: () => void) => void; getPlace: () => { formatted_address?: string; name?: string; place_id?: string } } } } } }).google
       if (!g?.maps?.places) return
@@ -109,17 +168,50 @@ export default function HomeTripPlanner({ onSignupRequest, onSigninRequest }: { 
         const place = autocomplete.getPlace()
         if (!place?.place_id) return
         const name = place.formatted_address || place.name || ''
-        if (!name) return
+        if (name) onPick(name)
+      })
+    }
+    const tryInit = () => {
+      initAutocomplete('home-departure-city-input', name => {
         setDepartureCities(prev => (prev.includes(name) ? prev : [...prev, name]))
         setDepartureCityInput('')
       })
+      if (isConsideringPath) {
+        initAutocomplete('home-considering-place-input', name => {
+          setConsideringList(prev => (prev.includes(name) ? prev : [...prev, name]))
+          setConsideringInput('')
+        })
+      }
+      if (isKnownPath) {
+        initAutocomplete('home-known-destination-input', name => {
+          setKnownPlaces(prev => (prev.includes(name) ? prev : [...prev, name]))
+          setKnownSearch('')
+        })
+      }
     }
-    tryInit()
-    const timer = setTimeout(tryInit, 1000)
-    return () => clearTimeout(timer)
-  }, [showQ2, stage])
+    whenGooglePlacesReady().then(() => tryInit())
+  }, [showQ2, stage, isConsideringPath, isKnownPath])
+
+  const isKnownSetupComplete = () => {
+    if (knownPlaces.length === 0) return false
+    if (!dates) return false
+    if ((dates === 'Fixed dates' || dates === 'Flexible — I have a range') && !isValidDateRange(fixedDates.start, fixedDates.end)) return false
+    if (dates === 'Flexible — I have a range' && !flexLength) return false
+    return true
+  }
 
   const isQ2Complete = () => {
+    if (isKnownPath) {
+      if (departureCities.length === 0) return false
+      if (activities.length === 0) return false
+      if (vibe.length === 0) return false
+      if (vibe.includes('Other') && !vibeOther.trim()) return false
+      if (!accommodation) return false
+      if (!budget) return false
+      if (budget === 'Other' && !budgetOther.trim()) return false
+      return true
+    }
+    if (isConsideringPath && consideringList.length < 2) return false
     if (departureCities.length === 0) return false
     if (!dates) return false
     if ((dates === 'Fixed dates' || dates === 'Flexible — I have a range') && !isValidDateRange(fixedDates.start, fixedDates.end)) return false
@@ -134,7 +226,7 @@ export default function HomeTripPlanner({ onSignupRequest, onSigninRequest }: { 
     if (!accommodation) return false
     if (!budget) return false
     if (budget === 'Other' && !budgetOther.trim()) return false
-    if (!popularity) return false
+    if (!isConsideringPath && !popularity) return false
     return true
   }
 
@@ -146,11 +238,33 @@ export default function HomeTripPlanner({ onSignupRequest, onSigninRequest }: { 
     setter(arr.includes(val) ? arr.filter(x => x !== val) : [...arr, val])
   }
 
+  const buildMetaPayload = (): import('@/lib/preview-trip-storage').PreviewTripMeta => ({
+    planningPath: planningPath!,
+    consideringList: isConsideringPath ? consideringList : [],
+    knownDestination: isKnownPath ? knownPlaces[0] : undefined,
+    knownDates: isKnownPath
+      ? { mode: dates, fixedDates, flexLength }
+      : undefined,
+    matrixRows,
+    matrixPairings,
+    matrixTriples,
+    matrixSummary,
+    matrixRecommendedTab,
+    matrixRecommendedShape,
+  })
+
   const handleShare = () => {
-    if (q1.trim() || cards.length > 0) {
-      savePreviewTrip(buildAnswersPayload(), cards)
-      markPendingShare()
-    }
+    if (!planningPath) return
+    const answers = buildAnswersPayload()
+    savePreviewTrip(answers, cards, buildMetaPayload())
+    markPendingShare()
+  }
+
+  const finishKnownPreview = () => {
+    if (!planningPath || !isKnownPath) return
+    const answers = buildAnswersPayload()
+    savePreviewTrip(answers, [], buildMetaPayload())
+    setStage('done')
   }
 
   const requestSignup = () => {
@@ -186,23 +300,38 @@ export default function HomeTripPlanner({ onSignupRequest, onSigninRequest }: { 
   })
 
   const generateDestinations = async () => {
+    if (!planningPath) return
     setGenerating(true)
     setGenerateError(null)
     setCards([])
+    setMatrixRows([])
+    setMatrixPairings([])
+    setMatrixTriples([])
     const answers = buildAnswersPayload()
 
     try {
-      const parsed = await fetchPreviewDestinationCards(answers, {
-        preview: true,
+      const result = await fetchPreviewDestinationMatrix({
+        planningPath,
+        answers,
+        consideringList: isConsideringPath ? consideringList : [],
+        mode: isConsideringPath ? 'considering' : 'brainstorm',
         onStatus: setGenerateStatus,
-        onPartialCards: partial => {
-          setCards(partial)
-          if (partial.length > 0) setStage('done')
-        },
       })
+
+      enrichMatrixChipRows(result.matrix)
+      enrichMatrixPairings(result.pairings)
+      enrichMatrixChipRows(result.triples)
+
+      const parsed = buildConsideringPathCards(result.matrix, result.pairings, result.triples)
+      setMatrixRows(result.matrix)
+      setMatrixPairings(result.pairings)
+      setMatrixTriples(result.triples)
+      setMatrixSummary(result.summary)
+      setMatrixRecommendedTab(result.recommendedTab)
+      setMatrixRecommendedShape(result.recommendedShape)
       setCards(parsed)
       setStage('done')
-      savePreviewTrip(answers, parsed)
+      savePreviewTrip(answers, parsed, buildMetaPayload())
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : 'Something went wrong generating trip ideas'
       setGenerateError(message)
@@ -220,7 +349,7 @@ export default function HomeTripPlanner({ onSignupRequest, onSigninRequest }: { 
       style={{
         padding: '14px 32px', border: '1px solid var(--forest-deep)',
         background: disabled ? 'transparent' : 'var(--forest-deep)',
-        color: disabled ? '#d4d4c8' : '#fafaf8',
+        color: disabled ? '#d4d4c8' : '#ffffff',
         fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase',
         cursor: disabled ? 'default' : 'pointer', ...s,
       }}
@@ -250,16 +379,49 @@ export default function HomeTripPlanner({ onSignupRequest, onSigninRequest }: { 
 
   return (
     <div className="bg-cream text-forest-deep py-16 md:py-24 px-6" style={s}>
-      <div className="max-w-2xl mx-auto">
+      <div className={`mx-auto px-0 ${stage === 'done' ? 'max-w-6xl' : 'max-w-2xl'}`}>
         <div className="text-center mb-12">
           <p className="eyebrow text-muted-foreground mb-3">Try it free</p>
           <h2 className="font-serif text-3xl md:text-4xl text-forest-deep italic leading-tight">
             Tell us about your trip
           </h2>
           <p className="mt-4 text-muted-foreground text-base leading-relaxed max-w-md mx-auto">
-            No account needed to preview your picks. Sign in to share them with your group and start planning together.
+            No account needed to preview options. Create an account to save your picks, invite your group, and start voting together.
           </p>
         </div>
+
+        {stage === 'path' && (
+          <>
+            <AvantiQuestion>What stage best describes your group right now?</AvantiQuestion>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '24px', paddingLeft: '54px' }}>
+              {PLANNING_PATH_OPTIONS.map(opt => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => setPlanningPath(opt.id)}
+                  style={{
+                    padding: '14px 18px',
+                    cursor: 'pointer',
+                    border: `1px solid ${planningPath === opt.id ? 'var(--forest-deep)' : '#d4d4c8'}`,
+                    background: planningPath === opt.id ? '#e8f5ee' : '#fff',
+                    color: planningPath === opt.id ? 'var(--forest-deep)' : '#6a6a6a',
+                    textAlign: 'left',
+                    ...s,
+                  }}
+                >
+                  <span style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--muted-foreground)', display: 'block', marginBottom: '4px' }}>
+                    Step {opt.stepLabel}
+                  </span>
+                  <span style={{ display: 'block', fontSize: '16px', color: 'var(--foreground)', marginBottom: '4px' }}>{opt.title}</span>
+                  <span style={{ display: 'block', fontSize: '13px', color: 'var(--muted-foreground)', lineHeight: 1.5 }}>{opt.description}</span>
+                </button>
+              ))}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', paddingLeft: '54px' }}>
+              {nextBtn(() => setStage(1), !planningPath)}
+            </div>
+          </>
+        )}
 
         {(stage === 1) && (
           <>
@@ -270,18 +432,96 @@ export default function HomeTripPlanner({ onSignupRequest, onSigninRequest }: { 
               <textarea
                 value={q1}
                 onChange={e => setQ1(e.target.value)}
-                placeholder="e.g. 8 college friends, graduation trip, beaches and nightlife somewhere in Europe"
+                placeholder={PLACEHOLDERS.tripDescription}
                 rows={4}
                 style={{ ...underlineInputStyle, width: '100%' }}
               />
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '16px' }}>
-                {nextBtn(() => setStage(2), !q1.trim())}
+                {nextBtn(() => setStage(isKnownPath ? 'known' : 2), !q1.trim())}
               </div>
             </div>
           </>
         )}
 
-        {stage !== 1 && (
+        {stage === 'known' && (
+          <>
+            <AvantiQuestion>Where are you going, and when?</AvantiQuestion>
+            <div style={{ paddingLeft: '54px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+              <div>
+                <span style={sectionLabel}>Destination</span>
+                <p style={{ fontSize: '12px', color: 'var(--muted-foreground)', margin: '0 0 10px', ...s }}>
+                  Pick from the Google dropdown.
+                </p>
+                {knownPlaces.length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
+                    {knownPlaces.map((place, i) => (
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', background: '#e8f5ee', border: '1px solid #2d6a4f', borderRadius: '20px' }}>
+                        <span style={{ fontSize: '13px', color: 'var(--forest-deep)', ...s }}>{place}</span>
+                        <button type="button" onClick={() => setKnownPlaces(knownPlaces.filter((_, idx) => idx !== i))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#2d6a4f', fontSize: '14px', padding: 0 }}>×</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <input
+                  id="home-known-destination-input"
+                  type="text"
+                  value={knownSearch}
+                  onChange={e => setKnownSearch(e.target.value)}
+                  placeholder={PLACEHOLDERS.destination}
+                  style={inputStyle}
+                />
+              </div>
+              <div>
+                <span style={sectionLabel}>What are your dates?</span>
+                <p style={{ fontSize: '12px', color: 'var(--muted-foreground)', margin: '0 0 10px', lineHeight: 1.5, ...s }}>
+                  Pick a range — it can be wide, but we need start and end dates.
+                </p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '12px' }}>
+                  {['Fixed dates', 'Flexible — I have a range'].map(opt => (
+                    <button key={opt} type="button" onClick={() => setDates(opt)} style={chipStyle(dates === opt)}>{opt}</button>
+                  ))}
+                </div>
+                {dates === 'Fixed dates' && (
+                  <DateRangeFields
+                    start={fixedDates.start}
+                    end={fixedDates.end}
+                    onChange={setFixedDates}
+                    startLabel="Departure"
+                    endLabel="Return"
+                    inputStyle={inputStyle}
+                    labelStyle={labelStyle}
+                  />
+                )}
+                {dates === 'Flexible — I have a range' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <DateRangeFields
+                      start={fixedDates.start}
+                      end={fixedDates.end}
+                      onChange={setFixedDates}
+                      startLabel="Earliest departure"
+                      endLabel="Latest return"
+                      inputStyle={inputStyle}
+                      labelStyle={labelStyle}
+                    />
+                    <div>
+                      <span style={labelStyle}>Preferred trip length</span>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '8px' }}>
+                        {['3–4 nights', '5–7 nights', '8–10 nights', '11–14 nights', '2+ weeks'].map(opt => (
+                          <button key={opt} type="button" onClick={() => setFlexLength(opt)} style={chipStyle(flexLength === opt)}>{opt}</button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                {nextBtn(() => setStage(2), !isKnownSetupComplete())}
+              </div>
+            </div>
+          </>
+        )}
+
+        {stage !== 1 && stage !== 'path' && stage !== 'known' && (
           <div style={{ marginBottom: '32px' }}>
             <AvantiQuestion>
               Tell us about this trip. Who is going? What kind of trip are you looking for? Any idea where? What&apos;s the reason for the trip?
@@ -301,6 +541,34 @@ export default function HomeTripPlanner({ onSignupRequest, onSigninRequest }: { 
           <>
             <AvantiQuestion>A few more details — tap to answer each one.</AvantiQuestion>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '28px', marginBottom: showQ3 ? '32px' : '0', paddingLeft: '54px' }}>
+              {isConsideringPath && (
+                <div>
+                  <span style={sectionLabel}>Places you are considering</span>
+                  <p style={{ fontSize: '12px', color: 'var(--muted-foreground)', margin: '0 0 10px', lineHeight: 1.5, ...s }}>
+                    Add at least 2 destinations — pick from Google suggestions.
+                  </p>
+                  {consideringList.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
+                      {consideringList.map((place, i) => (
+                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', background: '#e8f5ee', border: '1px solid #2d6a4f', borderRadius: '20px' }}>
+                          <span style={{ fontSize: '13px', color: 'var(--forest-deep)', ...s }}>{place}</span>
+                          <button type="button" onClick={() => setConsideringList(consideringList.filter((_, idx) => idx !== i))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#2d6a4f', fontSize: '14px', lineHeight: 1, padding: '0 0 0 2px' }}>×</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <input
+                    id="home-considering-place-input"
+                    type="text"
+                    autoComplete="off"
+                    style={{ flex: 1, width: '100%', borderBottom: '1px solid #d4d4c8', background: 'transparent', padding: '8px 0', fontSize: '14px', color: 'var(--foreground)', outline: 'none', ...s }}
+                    value={consideringInput}
+                    onChange={e => setConsideringInput(e.target.value)}
+                    placeholder="e.g. Tokyo, Japan"
+                  />
+                </div>
+              )}
+              {isConsideringPath && <div style={{ borderTop: '0.5px solid #e4e4d8' }} />}
               <div>
                 <span style={sectionLabel}>Where are you flying from?</span>
                 <p style={{ fontSize: '12px', color: 'var(--muted-foreground)', margin: '0 0 10px', lineHeight: 1.5, ...s }}>
@@ -330,8 +598,10 @@ export default function HomeTripPlanner({ onSignupRequest, onSigninRequest }: { 
               </div>
               <div style={{ borderTop: '0.5px solid #e4e4d8' }} />
 
-              <div>
-                <span style={sectionLabel}>What are your dates?</span>
+              {!isKnownPath && (
+                <>
+                  <div>
+                    <span style={sectionLabel}>What are your dates?</span>
                 <p style={{ fontSize: '12px', color: 'var(--muted-foreground)', margin: '0 0 10px', lineHeight: 1.5, ...s }}>
                   Pick a range — it can be wide, but we need start and end dates.
                 </p>
@@ -405,6 +675,8 @@ export default function HomeTripPlanner({ onSignupRequest, onSigninRequest }: { 
                 {stops === 'Other' && <input style={{ ...inputStyle, marginTop: '8px' }} value={stopsOther} onChange={e => setStopsOther(e.target.value)} placeholder="Tell us more..." />}
               </div>
               <div style={{ borderTop: '0.5px solid #e4e4d8' }} />
+                </>
+              )}
 
               <div>
                 <span style={sectionLabel}>What kind of activities?</span>
@@ -448,14 +720,16 @@ export default function HomeTripPlanner({ onSignupRequest, onSigninRequest }: { 
               </div>
               <div style={{ borderTop: '0.5px solid #e4e4d8' }} />
 
-              <div>
-                <span style={sectionLabel}>How popular should the destination be?</span>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                  {['Well known & easy', 'A mix of both', 'Off the beaten path', 'Surprise us'].map(opt => (
-                    <button key={opt} type="button" onClick={() => setPopularity(opt)} style={chipStyle(popularity === opt)}>{opt}</button>
-                  ))}
+              {!isConsideringPath && !isKnownPath && (
+                <div>
+                  <span style={sectionLabel}>How popular should the destination be?</span>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                    {['Well known & easy', 'A mix of both', 'Off the beaten path', 'Surprise us'].map(opt => (
+                      <button key={opt} type="button" onClick={() => setPopularity(opt)} style={chipStyle(popularity === opt)}>{opt}</button>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {stage === 2 && (
                 <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '8px' }}>
@@ -480,7 +754,18 @@ export default function HomeTripPlanner({ onSignupRequest, onSigninRequest }: { 
                 />
                 {stage === 3 && (
                   <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '16px' }}>
-                    {nextBtn(() => { setStage('generate'); generateDestinations() }, !q3Valid, 'See my destinations →')}
+                    {nextBtn(
+                      () => {
+                        if (isKnownPath) {
+                          finishKnownPreview()
+                        } else {
+                          setStage('generate')
+                          void generateDestinations()
+                        }
+                      },
+                      !q3Valid,
+                      isKnownPath ? 'Save preview →' : 'Generate options →',
+                    )}
                   </div>
                 )}
               </div>
@@ -509,41 +794,78 @@ export default function HomeTripPlanner({ onSignupRequest, onSigninRequest }: { 
         {!generating && generateError && (
           <div style={{ marginTop: '32px', padding: '20px 24px', border: '1px solid #c0392b', background: '#fdf2f2', textAlign: 'center' }}>
             <p style={{ fontSize: '14px', color: '#c0392b', margin: '0 0 16px', lineHeight: 1.6, ...s }}>{generateError}</p>
-            <button type="button" onClick={() => generateDestinations()} style={{ padding: '12px 28px', border: '1px solid var(--forest-deep)', background: 'var(--forest-deep)', color: '#fafaf8', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', cursor: 'pointer', ...s }}>
+            <button type="button" onClick={() => generateDestinations()} style={{ padding: '12px 28px', border: '1px solid var(--forest-deep)', background: 'var(--forest-deep)', color: '#ffffff', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', cursor: 'pointer', ...s }}>
               Try again →
             </button>
           </div>
         )}
 
-        {!generating && cards.length > 0 && (
+        {!generating && isKnownPath && stage === 'done' && knownPlaces.length > 0 && (
+          <div className="text-center border border-forest-deep/20 bg-ivory p-8 md:p-10 mt-8">
+            <p className="eyebrow text-muted-foreground mb-2">Your preview</p>
+            <h3 className="font-serif text-2xl text-forest-deep italic mb-3">
+              {knownPlaces[0]}
+            </h3>
+            <p className="text-sm text-muted-foreground mb-6 max-w-sm mx-auto leading-relaxed">
+              Your preferences are saved. Create an account to start your trip, invite your group, and continue planning.
+            </p>
+            <button type="button" onClick={requestSignup} className="bg-forest-deep text-cream eyebrow px-10 py-4 hover:bg-forest-deep/90 transition">
+              Create account &amp; start trip →
+            </button>
+            <button type="button" onClick={requestSignin} className="mt-4 block w-full eyebrow text-muted-foreground hover:text-forest-deep transition">
+              Already have an account? Sign in
+            </button>
+          </div>
+        )}
+
+        {!generating && matrixRows.length > 0 && (
           <>
             <div className="mt-10 mb-8 text-center">
-              <p className="eyebrow text-muted-foreground mb-2">Your picks</p>
-              <h3 className="font-serif text-2xl text-forest-deep italic">Four destinations for your group</h3>
+              <p className="eyebrow text-muted-foreground mb-2">Your preview</p>
+              <h3 className="font-serif text-2xl text-forest-deep italic">
+                {isConsideringPath ? 'Your comparison matrix' : 'Destination options for your group'}
+              </h3>
+              {matrixSummary && (
+                <p className="mt-3 text-sm text-foreground max-w-lg mx-auto leading-relaxed">{matrixSummary}</p>
+              )}
               <p className="mt-3 text-sm text-muted-foreground max-w-md mx-auto leading-relaxed">
-                Browse your ideas here — create an account to share them with your group and vote together.
+                Voting and inviting your group requires an account — nothing is shared until you sign in.
               </p>
             </div>
-            <ProtectedContent className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-              {cards.map((card, i) => (
-                <DestinationCard
-                  key={i}
-                  card={card}
-                  previewMode
-                />
-              ))}
+            <ProtectedContent className="mb-8">
+              <DestinationMatrix
+                rows={matrixRows}
+                pairings={matrixPairings}
+                triples={matrixTriples}
+                summary={matrixSummary}
+                recommendedTab={matrixRecommendedTab}
+                recommendedShape={matrixRecommendedShape}
+                tripShapeAnswers={{
+                  stops: stops === 'Other' ? stopsOther : stops,
+                  stopsOther,
+                  flexLength,
+                  fixedDates,
+                  dates,
+                }}
+                selected={{}}
+                maxVotes={2}
+                onToggleSingle={() => {}}
+                onTogglePairing={() => {}}
+                onToggleTriple={() => {}}
+                readOnly
+              />
             </ProtectedContent>
             <div className="text-center border border-forest-deep/20 bg-ivory p-8 md:p-10">
-              <p className="font-serif text-xl text-forest-deep mb-3 italic">Like what you see?</p>
+              <p className="font-serif text-xl text-forest-deep mb-3 italic">Ready to share with your group?</p>
               <p className="text-sm text-muted-foreground mb-6 max-w-sm mx-auto leading-relaxed">
-                Share these ideas with your group, invite travel mates, and start voting — you&apos;ll need an account first.
+                Create an account to save these options, invite travel mates, and unlock group voting. You can&apos;t vote or invite anyone until you&apos;re signed in.
               </p>
               <button
                 type="button"
                 onClick={requestSignup}
                 className="bg-forest-deep text-cream eyebrow px-10 py-4 hover:bg-forest-deep/90 transition"
               >
-                Share the ideas with the group →
+                Share with friends →
               </button>
               <button
                 type="button"
@@ -552,6 +874,9 @@ export default function HomeTripPlanner({ onSignupRequest, onSigninRequest }: { 
               >
                 Already have an account? Sign in
               </button>
+              <Link href="/" className="mt-6 inline-block eyebrow text-muted-foreground/70 hover:text-forest-deep transition">
+                ← Back to home
+              </Link>
             </div>
           </>
         )}

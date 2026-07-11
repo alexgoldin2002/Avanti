@@ -20,7 +20,7 @@ function isPast(iso: string | null | undefined): boolean {
   return new Date(iso).getTime() <= nowMs()
 }
 
-function votingComplete(trip: TripPhaseFields): boolean {
+export function votingComplete(trip: TripPhaseFields): boolean {
   if (tripHasKnownDestination(trip)) return true
   return (
     !!trip.winning_destination_id ||

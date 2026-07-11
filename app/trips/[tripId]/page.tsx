@@ -409,14 +409,15 @@ export default function TripDashboard() {
     if (!trip?.invites_closed) return 1
     if (!votingComplete) return 2
     if (!trip?.flights_locked) return 3
-    return 4
+    if (!trip?.accommodation_locked) return 4
+    return 5
   }
 
   const getMainStepState = (stepNum: number): StepState => {
     const active = getActiveMainStep()
     if (stepNum < active) return 'done'
     if (stepNum === active) return 'active'
-    if (active >= 4 && stepNum <= 6) return 'active'
+    if (active >= 5 && stepNum <= 6) return 'active'
     return 'locked'
   }
 
@@ -507,7 +508,7 @@ export default function TripDashboard() {
   return (
     <>
       <main className="mx-auto w-full max-w-3xl px-6 sm:px-10 pt-24 sm:pt-32 pb-24 flex-1">
-        <BackLink href="/dashboard" />
+        <BackLink href="/dashboard" label="Dashboard" />
 
         {/* Hero card */}
         <section

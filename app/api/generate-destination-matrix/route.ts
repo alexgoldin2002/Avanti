@@ -15,6 +15,7 @@ import {
   type MatrixGenerationMode,
 } from '@/lib/generate-destination-matrix'
 import type { PairingCategory } from '@/lib/matrix-pairing-categories'
+import { isDestinationPlanningPath, type DestinationPlanningPath } from '@/lib/step2/planning-path'
 import { enrichMatrixChipRows, enrichMatrixPairings } from '@/lib/parse-destination-matrix'
 import { syncTripGroupOverlap } from '@/lib/group-date-overlap/sync-trip-overlap'
 import { tryCreateAdminClient } from '@/lib/supabase-admin'
@@ -50,54 +51,80 @@ export async function POST(request: NextRequest) {
       destinationName,
       existingNames,
       pairingCategory,
+      preview = false,
+      planningPath: planningPathRaw,
     } = await request.json()
 
-    if (!tripId) return NextResponse.json({ error: 'tripId required' }, { status: 400 })
-
-    const userClient = supabaseFromRequest(request)
-    try {
-      await requireUser(userClient)
-    } catch {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
+    const isPreview = preview === true || !tripId
     const list = (consideringList as string[] | undefined)?.map(s => s.trim()).filter(Boolean) || []
     const chatMessages = sanitizeChatMessages(messages)
-    const supabase = tryCreateAdminClient() ?? userClient
 
-    const { data: tripData, error: tripError } = await supabase
-      .from('trips')
-      .select('*')
-      .eq('id', tripId)
-      .single()
+    let tripData: Record<string, unknown>
+    let generationMode: MatrixGenerationMode
+    let travelerCount: number
 
-    if (tripError || !tripData) {
-      return NextResponse.json({ error: 'Trip not found' }, { status: 404 })
+    if (isPreview) {
+      const planningPath = planningPathRaw as DestinationPlanningPath
+      if (!isDestinationPlanningPath(planningPath) || planningPath === 'known') {
+        return NextResponse.json({ error: 'Valid planningPath required for preview' }, { status: 400 })
+      }
+      generationMode =
+        mode === 'brainstorm' || mode === 'considering'
+          ? mode
+          : planningPath === 'brainstorm'
+            ? 'brainstorm'
+            : 'considering'
+      tripData = {
+        trip_type: String(answers?.tripLabel || answers?.q1 || 'Group trip').slice(0, 80) || 'Group trip',
+        destination_planning_path: planningPath,
+      }
+      travelerCount = resolveGroupSize({ dbCount: 0, answers: answers ?? {}, chatMessages })
+    } else {
+      if (!tripId) return NextResponse.json({ error: 'tripId required' }, { status: 400 })
+
+      const userClient = supabaseFromRequest(request)
+      try {
+        await requireUser(userClient)
+      } catch {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      }
+
+      const supabase = tryCreateAdminClient() ?? userClient
+
+      const { data: loadedTrip, error: tripError } = await supabase
+        .from('trips')
+        .select('*')
+        .eq('id', tripId)
+        .single()
+
+      if (tripError || !loadedTrip) {
+        return NextResponse.json({ error: 'Trip not found' }, { status: 404 })
+      }
+
+      tripData = loadedTrip
+      const path = loadedTrip.destination_planning_path
+      if (path !== 'considering' && path !== 'brainstorm') {
+        return NextResponse.json({ error: 'This trip is not on a matrix planning path' }, { status: 400 })
+      }
+
+      generationMode =
+        mode === 'brainstorm' || mode === 'considering'
+          ? mode
+          : path === 'brainstorm'
+            ? 'brainstorm'
+            : 'considering'
+
+      const { data: travelers } = await supabase.from('travelers').select('*').eq('trip_id', tripId)
+      travelerCount = resolveGroupSize({
+        dbCount: travelers?.length || 0,
+        answers: answers ?? {},
+        chatMessages,
+      })
     }
-
-    const path = tripData.destination_planning_path
-    if (path !== 'considering' && path !== 'brainstorm') {
-      return NextResponse.json({ error: 'This trip is not on a matrix planning path' }, { status: 400 })
-    }
-
-    const generationMode: MatrixGenerationMode =
-      mode === 'brainstorm' || mode === 'considering'
-        ? mode
-        : path === 'brainstorm'
-          ? 'brainstorm'
-          : 'considering'
 
     if (generationMode === 'considering' && list.length < 2 && phase !== 'matrix-row') {
       return NextResponse.json({ error: 'Add at least 2 destinations to compare' }, { status: 400 })
     }
-
-    const { data: travelers } = await supabase.from('travelers').select('*').eq('trip_id', tripId)
-
-    const travelerCount = resolveGroupSize({
-      dbCount: travelers?.length || 0,
-      answers: answers ?? {},
-      chatMessages,
-    })
 
     const chatSupplement = buildChatSupplementBlock(chatMessages)
     const genOpts = {
@@ -192,8 +219,8 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    const admin = tryCreateAdminClient()
-    if (admin) {
+    const admin = !isPreview ? tryCreateAdminClient() : null
+    if (admin && tripId) {
       void syncTripGroupOverlap(admin, tripId).catch(() => {})
     }
 

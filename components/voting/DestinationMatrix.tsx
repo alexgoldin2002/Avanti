@@ -242,7 +242,7 @@ function SinglesComparisonDetails({
       </summary>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '12px' }}>
         {rows.map((row, index) => (
-          <div key={row.name} style={{ padding: '16px', border: '1px solid #e8e8e0', background: '#fafaf8' }}>
+          <div key={row.name} style={{ padding: '16px', border: '1px solid #e8e8e0', background: '#ffffff' }}>
             <p style={{ fontSize: '11px', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--forest-deep)', margin: '0 0 8px', fontWeight: 600, ...s }}>
               #{index + 1} · {row.overallScore}/10
             </p>
@@ -550,7 +550,7 @@ export default function DestinationMatrix({
           paddingTop: crossWinBlurb ? '36px' : '16px',
           paddingRight: crossWinBlurb ? '120px' : '16px',
           border: isSelected ? '1px solid var(--forest-deep)' : '1px solid #e8e8e0',
-          background: isSelected ? '#e8f5ee' : '#fafaf8',
+          background: isSelected ? '#e8f5ee' : '#ffffff',
           opacity: selectable && !readOnly && !isSelected && opts.selectedCount >= maxVotes ? 0.5 : 1,
           ...s,
         }}

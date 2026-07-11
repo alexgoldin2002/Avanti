@@ -1,5 +1,28 @@
 'use client'
 import { useEffect, useState } from 'react'
+
+/** The animated suitcase glyph on its own, for embedding inline (not full-screen). */
+export function SuitcaseSpinner({ size = 80 }: { size?: number }) {
+  return (
+    <svg width={size} height={size * 0.8} viewBox="0 0 80 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <style>{`
+        @keyframes drawCase {
+          0% { stroke-dashoffset: 300; opacity: 0.2; }
+          60% { stroke-dashoffset: 0; opacity: 1; }
+          100% { stroke-dashoffset: -300; opacity: 0.2; }
+        }
+        .suitcase-path { stroke-dasharray: 300; animation: drawCase 2.4s ease-in-out infinite; }
+      `}</style>
+      <rect className="suitcase-path" x="6" y="18" width="68" height="40" rx="4" stroke="var(--forest)" strokeWidth="1.5" fill="none"/>
+      <rect className="suitcase-path" x="26" y="6" width="28" height="14" rx="2" stroke="var(--forest)" strokeWidth="1.5" fill="none" style={{ animationDelay: '0.2s' }}/>
+      <line className="suitcase-path" x1="6" y1="32" x2="74" y2="32" stroke="var(--forest)" strokeWidth="1" style={{ animationDelay: '0.4s' }}/>
+      <line x1="38" y1="18" x2="38" y2="58" stroke="var(--forest)" strokeWidth="0.5" strokeDasharray="3 3" opacity="0.4"/>
+      <circle cx="18" cy="62" r="3.5" stroke="var(--forest)" strokeWidth="1.5" fill="none"/>
+      <circle cx="62" cy="62" r="3.5" stroke="var(--forest)" strokeWidth="1.5" fill="none"/>
+    </svg>
+  )
+}
+
 export default function SuitcaseLoader({ message = 'Loading' }: { message?: string }) {
   const [dots, setDots] = useState('')
   useEffect(() => {
@@ -8,22 +31,7 @@ export default function SuitcaseLoader({ message = 'Loading' }: { message?: stri
   }, [])
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--cream)', gap: '32px' }}>
-      <svg width="80" height="64" viewBox="0 0 80 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <style>{`
-          @keyframes drawCase {
-            0% { stroke-dashoffset: 300; opacity: 0.2; }
-            60% { stroke-dashoffset: 0; opacity: 1; }
-            100% { stroke-dashoffset: -300; opacity: 0.2; }
-          }
-          .suitcase-path { stroke-dasharray: 300; animation: drawCase 2.4s ease-in-out infinite; }
-        `}</style>
-        <rect className="suitcase-path" x="6" y="18" width="68" height="40" rx="4" stroke="var(--forest)" strokeWidth="1.5" fill="none"/>
-        <rect className="suitcase-path" x="26" y="6" width="28" height="14" rx="2" stroke="var(--forest)" strokeWidth="1.5" fill="none" style={{ animationDelay: '0.2s' }}/>
-        <line className="suitcase-path" x1="6" y1="32" x2="74" y2="32" stroke="var(--forest)" strokeWidth="1" style={{ animationDelay: '0.4s' }}/>
-        <line x1="38" y1="18" x2="38" y2="58" stroke="var(--forest)" strokeWidth="0.5" strokeDasharray="3 3" opacity="0.4"/>
-        <circle cx="18" cy="62" r="3.5" stroke="var(--forest)" strokeWidth="1.5" fill="none"/>
-        <circle cx="62" cy="62" r="3.5" stroke="var(--forest)" strokeWidth="1.5" fill="none"/>
-      </svg>
+      <SuitcaseSpinner />
       <p style={{ fontSize: '11px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--forest)' }}>{message}{dots}</p>
     </div>
   )

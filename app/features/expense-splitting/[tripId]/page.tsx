@@ -323,7 +323,7 @@ export default function TripExpenses() {
   )
 
   return (
-    <main style={{ minHeight:'100vh', background:'#fafaf8', ...s }}>
+    <main style={{ minHeight:'100vh', background:'#ffffff', ...s }}>
       <div style={{ maxWidth:'480px', margin:'0 auto', padding:'48px 24px 100px' }}>
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'24px' }}>
           <AvantiLogo size="sm" />
@@ -669,7 +669,7 @@ export default function TripExpenses() {
               <span style={{ fontSize:'13px', color:'#9a9a8a' }}>Total</span>
               <span style={{ fontSize:'15px', fontWeight:500, color:'#1a1a1a' }}>${grandTotal.toFixed(2)} ✓</span>
             </div>
-            <button onClick={finalizeReceiptExpense} style={{ width:'100%', border:'1px solid #1a3a2a', padding:'16px', fontSize:'10px', letterSpacing:'0.25em', textTransform:'uppercase', color:'#fafaf8', background:'#1a3a2a', cursor:'pointer', borderRadius:'8px', ...s }}>
+            <button onClick={finalizeReceiptExpense} style={{ width:'100%', border:'1px solid #1a3a2a', padding:'16px', fontSize:'10px', letterSpacing:'0.25em', textTransform:'uppercase', color:'#ffffff', background:'#1a3a2a', cursor:'pointer', borderRadius:'8px', ...s }}>
               Submit expense →
             </button>
             <button onClick={() => setStep('finalize')} style={{ width:'100%', border:'0.5px solid #d4d4c8', padding:'14px', fontSize:'10px', letterSpacing:'0.25em', textTransform:'uppercase', color:'#9a9a8a', background:'transparent', cursor:'pointer', ...s }}>

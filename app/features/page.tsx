@@ -19,6 +19,12 @@ const FEATURE_GROUPS = [
         subtitle: 'Cards, status, lounges — surfaced when it matters',
         icon: 'ti-credit-card',
       },
+      {
+        href: '/features/entry-requirements',
+        title: 'Entry requirements',
+        subtitle: 'Visas, documents, vaccines & medication rules by destination',
+        icon: 'ti-passport',
+      },
     ],
   },
   {
@@ -57,7 +63,7 @@ const FEATURE_GROUPS = [
       },
     ],
   },
-] as const
+]
 
 const ALL_FEATURES = FEATURE_GROUPS.flatMap(g => g.items)
 

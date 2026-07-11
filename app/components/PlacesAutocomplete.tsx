@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
+import { loadGoogleMapsScript, whenGooglePlacesReady } from '@/lib/google-maps-loader'
 
 interface PlaceResult {
   name: string
@@ -21,7 +22,6 @@ interface Props {
 declare global {
   interface Window {
     google: any
-    initGooglePlaces: () => void
   }
 }
 
@@ -37,18 +37,8 @@ export default function PlacesAutocomplete({ value, onChange, onSelect, placehol
   }, [value])
 
   useEffect(() => {
-    if (window.google) { initAutocomplete(); return }
-    if (document.getElementById('google-places-script')) {
-      window.initGooglePlaces = initAutocomplete
-      return
-    }
-    window.initGooglePlaces = initAutocomplete
-    const script = document.createElement('script')
-    script.id = 'google-places-script'
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_PLACES_KEY}&libraries=places&callback=initGooglePlaces`
-    script.async = true
-    script.defer = true
-    document.head.appendChild(script)
+    loadGoogleMapsScript()
+    whenGooglePlacesReady().then(() => initAutocomplete())
   }, [])
 
   const clearSelection = () => {

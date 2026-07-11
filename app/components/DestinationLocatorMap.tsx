@@ -25,7 +25,7 @@ function LocatorSvg({
   const water = dark ? '#1e332c' : '#d4ddd8'
   const countryFill = dark ? 'rgba(255,255,255,0.18)' : 'rgba(45,106,79,0.22)'
   const countryStroke = dark ? 'rgba(255,255,255,0.45)' : 'rgba(45,106,79,0.65)'
-  const dot = dark ? '#fafaf8' : '#1a1a1a'
+  const dot = dark ? '#ffffff' : '#1a1a1a'
 
   const { marker, countryRect, continentMarker } = payload.svg
 
@@ -130,7 +130,7 @@ export default function DestinationLocatorMap({
       className="absolute top-3 right-3 z-[5] w-[92px] sm:w-[104px] overflow-hidden border shadow-sm"
       style={{
         borderColor: dark ? 'rgba(255,255,255,0.18)' : 'rgba(26,26,26,0.12)',
-        background: dark ? 'rgba(0,0,0,0.15)' : '#fafaf8',
+        background: dark ? 'rgba(0,0,0,0.15)' : '#ffffff',
       }}
       title={`${destinationName} · ${payload?.continent ?? 'Map'}`}
     >

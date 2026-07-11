@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 export const maxDuration = 300
 
 import { adminOrAnon, requireOrganizer } from '@/lib/destination-decision/supabase-server'
-import { analyzeFlightScenarios } from '@/lib/flights/analyze-core'
+import { analyzeFlightScenarios, type FlightRefinement } from '@/lib/flights/analyze-core'
 import {
   buildFlightTravelerContexts,
   defaultMemberPrefs,
@@ -15,6 +15,13 @@ export async function POST(
 ) {
   try {
     const { tripId } = await params
+    let refine: FlightRefinement | undefined
+    try {
+      const body = (await request.json()) as { refine?: FlightRefinement | null }
+      refine = body?.refine || undefined
+    } catch {
+      refine = undefined
+    }
     const supabase = adminOrAnon(request)
     await requireOrganizer(supabase, tripId)
 
@@ -70,13 +77,16 @@ export async function POST(
         end_date: trip.end_date,
         locked_date_start: trip.locked_date_start,
         locked_date_end: trip.locked_date_end,
+        group_overlap_start: trip.group_overlap_start,
+        group_overlap_end: trip.group_overlap_end,
+        group_overlap_nights: trip.group_overlap_nights,
       },
       coordination_mode: session.coordination_mode as CoordinationMode,
       mix_notes: session.mix_notes,
       vote_estimate_per_person: session.vote_estimate_per_person,
       travelers: contexts,
       member_prefs,
-    })
+    }, refine)
 
     await supabase
       .from('trip_flight_sessions')

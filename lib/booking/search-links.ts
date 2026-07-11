@@ -123,6 +123,59 @@ export function getYourGuideTourUrl(tourUrl: string, ctx?: AffiliateContext): st
   return wrapGetYourGuideUrl(tourUrl, ctx)
 }
 
+export type RestaurantSearchParams = {
+  /** Restaurant name, when linking a specific suggestion. */
+  name?: string
+  /** City / destination for location context. */
+  destination: string
+  /** Reservation date YYYY-MM-DD. */
+  date?: string
+  /** 24h time HH:MM — defaults to 19:00. */
+  time?: string
+  partySize?: number
+}
+
+/**
+ * OpenTable search — the only major reservation platform with a stable,
+ * pre-fillable web search URL (no public API). Deep-links straight to a
+ * bookable results page with party size and date/time when provided.
+ */
+export function openTableSearchUrl(params: RestaurantSearchParams): string {
+  const term = [params.name?.trim(), params.destination?.trim()].filter(Boolean).join(' ')
+  const url = new URL('https://www.opentable.com/s')
+  if (term) url.searchParams.set('term', term)
+  if (params.partySize && params.partySize > 0) {
+    url.searchParams.set('covers', String(params.partySize))
+  }
+  if (params.date) {
+    url.searchParams.set('dateTime', `${params.date}T${params.time || '19:00'}:00`)
+  }
+  return url.toString()
+}
+
+/**
+ * Resy has no public search URL that reliably resolves an arbitrary venue, so
+ * we route through a Resy-scoped Google query, which lands on the exact Resy
+ * listing as the top result. (Resy's own booking API is partner-only.)
+ */
+export function resySearchUrl(params: RestaurantSearchParams): string {
+  const q = [params.name?.trim(), params.destination?.trim(), 'site:resy.com']
+    .filter(Boolean)
+    .join(' ')
+  return `https://www.google.com/search?q=${encodeURIComponent(q)}`
+}
+
+/**
+ * Beli is a social restaurant-ranking app (discovery, not reservations) with no
+ * web booking. This link helps users look a place up on Beli for reputation.
+ */
+export function beliSearchUrl(params: RestaurantSearchParams): string {
+  const q = [params.name?.trim(), params.destination?.trim(), 'beli app']
+    .filter(Boolean)
+    .join(' ')
+  return `https://www.google.com/search?q=${encodeURIComponent(q)}`
+}
+
 /** Airbnb has no public booking API — pre-filled search only (no affiliate program). */
 export function airbnbUrl(params: HotelSearchParams): string {
   const dest = params.destination.trim().replace(/,/g, '').replace(/\s+/g, '-')

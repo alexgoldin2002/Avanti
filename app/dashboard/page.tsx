@@ -1,10 +1,18 @@
 'use client'
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+
+import { useState, useEffect, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { fetchUserTrips } from '@/lib/user-trips'
-import { INSTAGRAM_URL, TIKTOK_URL } from '@/lib/social-links'
+import { PLACEHOLDERS } from '@/lib/form-placeholders'
+import { applyPreviewToTrip } from '@/lib/apply-preview-to-trip'
+import {
+  hasPreviewTrip,
+  isPendingShare,
+  loadPreviewTrip,
+  getCreateFormDefaultsFromPreviewWithMeta,
+} from '@/lib/preview-trip-storage'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -40,13 +48,13 @@ const EYEBROW: React.CSSProperties = {
 const FOREST_DEEP = 'var(--forest-deep)'
 const FOREST     = 'var(--forest)'
 const CREAM      = 'var(--cream)'
-const CREAM_15   = 'oklch(0.985 0.008 90 / 0.15)'
-const CREAM_40   = 'oklch(0.985 0.008 90 / 0.4)'
-const CREAM_50   = 'oklch(0.985 0.008 90 / 0.5)'
-const CREAM_60   = 'oklch(0.985 0.008 90 / 0.6)'
-const CREAM_80   = 'oklch(0.985 0.008 90 / 0.8)'
-const CREAM_90   = 'oklch(0.985 0.008 90 / 0.9)'
-const CREAM_80_HEX = 'oklch(0.985 0.008 90 / 0.8)'
+const CREAM_15   = 'rgba(255,255,255,0.15)'
+const CREAM_40   = 'rgba(255,255,255,0.4)'
+const CREAM_50   = 'rgba(255,255,255,0.5)'
+const CREAM_60   = 'rgba(255,255,255,0.6)'
+const CREAM_80   = 'rgba(255,255,255,0.8)'
+const CREAM_90   = 'rgba(255,255,255,0.9)'
+const CREAM_80_HEX = 'rgba(255,255,255,0.8)'
 const FOREST_DEEP_70 = 'oklch(0.22 0.04 150 / 0.7)'
 const FOREST_DEEP_80 = 'oklch(0.22 0.04 150 / 0.8)'
 
@@ -319,6 +327,7 @@ function CreateTripModal({ onClose, onCreated, profile }: {
   onCreated: () => void
   profile: any
 }) {
+  const router = useRouter()
   const GROUP_TYPES = [
     'Friends',
     'Couples',
@@ -365,6 +374,23 @@ function CreateTripModal({ onClose, onCreated, profile }: {
   })
   const [creating, setCreating] = useState(false)
   const [showErrors, setShowErrors] = useState(false)
+  const [showNameHelper, setShowNameHelper] = useState(false)
+  const [nameHelperInput, setNameHelperInput] = useState('')
+  const [nameSuggestions, setNameSuggestions] = useState<string[]>([])
+  const [loadingNames, setLoadingNames] = useState(false)
+
+  useEffect(() => {
+    if (!isPendingShare()) return
+    const { answers, meta } = loadPreviewTrip()
+    if (!answers?.q1) return
+    const defaults = getCreateFormDefaultsFromPreviewWithMeta(answers, meta)
+    const groupType = GROUP_TYPES.find(t => t.toLowerCase() === defaults.trip_type.toLowerCase()) || ''
+    setForm(prev => ({
+      ...prev,
+      name: prev.name || defaults.name,
+      groupType: prev.groupType || (groupType as typeof prev.groupType),
+    }))
+  }, [])
 
   const hasEvent = form.eventCentered === 'yes'
   const eventName = form.eventKind === 'Other' ? form.eventOther.trim() : form.eventKind
@@ -379,6 +405,27 @@ function CreateTripModal({ onClose, onCreated, profile }: {
     if (!form.event_date || !form.event_location.trim()) return false
     if (form.eventDateMode === 'range' && !form.event_date_end) return false
     return true
+  }
+
+  const getNameSuggestions = async () => {
+    if (!nameHelperInput.trim()) return
+    setLoadingNames(true)
+    setNameSuggestions([])
+    try {
+      const res = await fetch('/api/suggest-names', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ description: nameHelperInput.trim() }),
+      })
+      const data = await res.json()
+      if (Array.isArray(data.names)) {
+        setNameSuggestions(data.names)
+      }
+    } catch {
+      // ignore — user can retry
+    } finally {
+      setLoadingNames(false)
+    }
   }
 
   const handleCreate = async () => {
@@ -419,8 +466,13 @@ function CreateTripModal({ onClose, onCreated, profile }: {
       profile_complete: true,
     })
 
+    if (isPendingShare()) {
+      await applyPreviewToTrip(trip.id, profile?.email || user.email || '')
+    }
+
     setCreating(false)
     onCreated()
+    router.push(`/trips/${trip.id}`)
   }
 
   const inputStyle: React.CSSProperties = {
@@ -467,7 +519,7 @@ function CreateTripModal({ onClose, onCreated, profile }: {
       zIndex: 50, padding: 24,
     }}>
       <div style={{
-        background: '#fafaf8', width: '100%', maxWidth: 520,
+        background: '#ffffff', width: '100%', maxWidth: 520,
         maxHeight: '90vh', overflowY: 'auto', padding: 40,
         position: 'relative',
         fontFamily: 'Cormorant Garamond, ui-serif, Georgia, serif',
@@ -485,7 +537,30 @@ function CreateTripModal({ onClose, onCreated, profile }: {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
           <div>
-            <label style={labelStyle}>Trip name</label>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+              <label style={{ ...labelStyle, marginBottom: 0 }}>Trip name</label>
+              <button
+                type="button"
+                onClick={() => setShowNameHelper(v => !v)}
+                aria-label={showNameHelper ? 'Hide name suggestions' : 'Get AI name suggestions'}
+                title="Need help naming it?"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: 28,
+                  height: 28,
+                  border: `1px solid ${showNameHelper ? FOREST_DEEP : '#d4d4c8'}`,
+                  background: showNameHelper ? '#e8f5ee' : 'transparent',
+                  color: showNameHelper ? FOREST_DEEP : '#9a9a8a',
+                  cursor: 'pointer',
+                  borderRadius: '50%',
+                  padding: 0,
+                }}
+              >
+                <i className="ti ti-sparkles" style={{ fontSize: 14 }} aria-hidden />
+              </button>
+            </div>
             <input
               style={inputStyle}
               value={form.name}
@@ -494,6 +569,76 @@ function CreateTripModal({ onClose, onCreated, profile }: {
             />
             {showErrors && !form.name.trim() && (
               <p style={{ fontSize: 11, color: '#c0392b', margin: '4px 0 0' }}>Please enter a trip name</p>
+            )}
+            {showNameHelper && (
+              <div style={{ background: '#f5f5f0', padding: 16, marginTop: 8 }}>
+                <p style={{ fontSize: 11, color: '#9a9a8a', margin: '0 0 8px' }}>
+                  Describe your trip in a few words — we&apos;ll suggest something clever.
+                </p>
+                <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+                  <input
+                    value={nameHelperInput}
+                    onChange={e => setNameHelperInput(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') void getNameSuggestions() }}
+                    placeholder={PLACEHOLDERS.tripNameHelper}
+                    style={{
+                      flex: 1,
+                      borderBottom: '1px solid #d4d4c8',
+                      background: 'transparent',
+                      padding: '8px 0',
+                      fontSize: 13,
+                      color: FOREST_DEEP,
+                      outline: 'none',
+                      fontFamily: 'Cormorant Garamond, ui-serif, Georgia, serif',
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void getNameSuggestions()}
+                    disabled={loadingNames || !nameHelperInput.trim()}
+                    style={{
+                      padding: '6px 12px',
+                      border: `1px solid ${FOREST_DEEP}`,
+                      background: FOREST_DEEP,
+                      color: '#ffffff',
+                      cursor: loadingNames || !nameHelperInput.trim() ? 'default' : 'pointer',
+                      opacity: loadingNames || !nameHelperInput.trim() ? 0.5 : 1,
+                      fontSize: 11,
+                      fontFamily: 'Cormorant Garamond, ui-serif, Georgia, serif',
+                    }}
+                  >
+                    {loadingNames ? '…' : 'Go'}
+                  </button>
+                </div>
+                {nameSuggestions.length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {nameSuggestions.map(name => (
+                      <button
+                        key={name}
+                        type="button"
+                        onClick={() => {
+                          setForm(prev => ({ ...prev, name }))
+                          setShowNameHelper(false)
+                          setNameSuggestions([])
+                          setNameHelperInput('')
+                        }}
+                        style={{
+                          textAlign: 'left',
+                          padding: '8px 12px',
+                          border: '1px solid #d4d4c8',
+                          background: '#fff',
+                          cursor: 'pointer',
+                          fontSize: 13,
+                          color: FOREST_DEEP,
+                          fontFamily: 'Cormorant Garamond, ui-serif, Georgia, serif',
+                        }}
+                      >
+                        {name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             )}
           </div>
 
@@ -682,8 +827,9 @@ function CreateTripModal({ onClose, onCreated, profile }: {
 
 // ─── Main page ─────────────────────────────────────────────────────────────────
 
-export default function Dashboard() {
+function DashboardContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [loading, setLoading] = useState(true)
   const [profile, setProfile] = useState<any>(null)
   const [trips, setTrips] = useState<Trip[]>([])
@@ -716,6 +862,12 @@ export default function Dashboard() {
   }
 
   useEffect(() => { loadData() }, [])
+
+  useEffect(() => {
+    if (searchParams.get('share') === '1' && hasPreviewTrip()) {
+      setShowModal(true)
+    }
+  }, [searchParams])
 
   if (loading) {
     return (
@@ -763,5 +915,13 @@ export default function Dashboard() {
         />
       )}
     </>
+  )
+}
+
+export default function Dashboard() {
+  return (
+    <Suspense fallback={null}>
+      <DashboardContent />
+    </Suspense>
   )
 }

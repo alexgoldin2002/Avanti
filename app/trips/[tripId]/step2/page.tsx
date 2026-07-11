@@ -4,7 +4,6 @@ import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import SuitcaseLoader from '../../../components/SuitcaseLoader'
 import DestinationCard from '../../../components/DestinationCard'
-import { BackLink } from '../../../components/SubpageShell'
 import { fetchFullDestinationCards, fetchRemainingDestinationCards, GENERATION_TIME_HINT, regenerateSingleDestinationCard } from '@/lib/fetch-destination-batches'
 import { fetchDestinationMatrix, fetchRegenerateMatrixRow } from '@/lib/fetch-destination-matrix'
 import type { ParsedDestinationCard } from '@/lib/parse-destination-cards'
@@ -15,6 +14,10 @@ import DestinationMatrix from '@/components/voting/DestinationMatrix'
 import DateRangeFields from '@/app/components/DateRangeFields'
 import PhaseBanner from '@/components/trip-phases/PhaseBanner'
 import PhaseLockedScreen from '@/components/trip-phases/PhaseLockedScreen'
+import Step2WorkspaceShell from '@/components/step2/Step2WorkspaceShell'
+import Step2QuestionBlock from '@/components/step2/Step2QuestionBlock'
+import Step2ChatBar from '@/components/step2/Step2ChatBar'
+import { STEP2_WORKSPACE_PANEL, STEP2_WORKSPACE_BOX, STEP2_WORKSPACE_BOX_PAD } from '@/components/step2/workspace-layout'
 import { useTripPhase } from '@/lib/trip-phases/useTripPhase'
 import { groupDatesBlockSubmission } from '@/components/trip/GroupDateOverlapBanner'
 import { analyzeGroupDateOverlap, travelerProfilesFromRows } from '@/lib/group-date-overlap'
@@ -24,6 +27,8 @@ import {
   parseDepartureCitiesFromStep2,
 } from '@/lib/departure-cities'
 import { pathStepLabel } from '@/lib/step2/planning-path'
+import { loadGoogleMapsScript, whenGooglePlacesReady } from '@/lib/google-maps-loader'
+import { votingComplete } from '@/lib/trip-phases/state'
 import type { DestinationMatrixRow, DestinationMatrixCombo } from '@/lib/parse-destination-matrix'
 import { buildConsideringPathCards, enrichMatrixChipRows, enrichMatrixPairings, sortMatrixRowsByScore } from '@/lib/parse-destination-matrix'
 import type { MatrixTabId } from '@/lib/matrix-trip-shape'
@@ -114,6 +119,10 @@ export default function Step2() {
   const [showRegenerateConfirm, setShowRegenerateConfirm] = useState(false)
   const [showEditConfirm, setShowEditConfirm] = useState(false)
   const [showRestorePriorConfirm, setShowRestorePriorConfirm] = useState(false)
+  const [showChangePathConfirm, setShowChangePathConfirm] = useState(false)
+  const [changingPath, setChangingPath] = useState(false)
+  const [showStartOverConfirm, setShowStartOverConfirm] = useState(false)
+  const [startingOver, setStartingOver] = useState(false)
   const [refreshingChat, setRefreshingChat] = useState(false)
   const [generating, setGenerating] = useState(false)
   const [regeneratingCardIndex, setRegeneratingCardIndex] = useState<number | null>(null)
@@ -175,7 +184,7 @@ export default function Step2() {
       style={{
         padding: '14px 32px', border: '1px solid var(--forest-deep)',
         background: disabled ? 'transparent' : 'var(--forest-deep)',
-        color: disabled ? '#d4d4c8' : '#fafaf8',
+        color: disabled ? '#d4d4c8' : '#ffffff',
         fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase',
         cursor: disabled ? 'default' : 'pointer', ...s,
       }}
@@ -294,9 +303,8 @@ export default function Step2() {
       router.replace(`/trips/${tripId}`)
       return
     }
-    if (trip.invites_closed && !trip.destination_planning_path) {
-      return
-    }
+    // No path chosen yet — the host picks it on the path page; everyone else
+    // waits there and is auto-routed here once a path is set.
     if (!trip.destination_planning_path) {
       router.replace(`/trips/${tripId}/step2/path`)
     }
@@ -306,6 +314,49 @@ export default function Step2() {
   const isBrainstormPath = trip?.destination_planning_path === 'brainstorm'
   const isMatrixPath = isConsideringPath || isBrainstormPath
   const step2Label = pathStepLabel(trip?.destination_planning_path)
+  const canChangePlanningPath =
+    isOrganizer &&
+    isMatrixPath &&
+    (trip?.voting_round == null || trip.voting_round < 1)
+
+  const destinationFinalized = !!trip && votingComplete(trip)
+  const canStartOver = isOrganizer && !!trip?.destination_planning_path && !destinationFinalized
+
+  const confirmStartOver = async () => {
+    setStartingOver(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const headers: HeadersInit = {}
+      if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`
+      const res = await fetch(`/api/trips/${tripId}/reset-step2`, { method: 'POST', headers })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Could not start over')
+      setShowStartOverConfirm(false)
+      router.push(data.redirectTo || `/trips/${tripId}/step2/path`)
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Could not start over')
+    } finally {
+      setStartingOver(false)
+    }
+  }
+
+  const confirmChangePlanningPath = async () => {
+    setChangingPath(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const headers: HeadersInit = {}
+      if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`
+      const res = await fetch(`/api/trips/${tripId}/planning-path`, { method: 'DELETE', headers })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Could not change path')
+      setShowChangePathConfirm(false)
+      router.push(data.redirectTo || `/trips/${tripId}/step2/path`)
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Could not change path')
+    } finally {
+      setChangingPath(false)
+    }
+  }
 
   const hasGeneratedContent = isMatrixPath
     ? matrixRows.length > 0
@@ -456,13 +507,7 @@ export default function Step2() {
   const showQ3 = editMode || stage === 'generate' || stage === 'done' || (typeof stage === 'number' && stage >= 3 && q2Valid)
 
   useEffect(() => {
-    if ((window as any).google?.maps?.places) return
-    if (document.getElementById('google-maps-script')) return
-    const script = document.createElement('script')
-    script.id = 'google-maps-script'
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_PLACES_KEY}&libraries=places`
-    script.async = true
-    document.head.appendChild(script)
+    loadGoogleMapsScript()
   }, [])
 
   useEffect(() => {
@@ -484,9 +529,7 @@ export default function Step2() {
         setDepartureCityInput('')
       })
     }
-    tryInit()
-    const timer = setTimeout(tryInit, 1000)
-    return () => clearTimeout(timer)
+    whenGooglePlacesReady().then(() => tryInit())
   }, [showQ2, stage])
 
   const addConsideringPlace = (name: string) => {
@@ -1174,15 +1217,10 @@ export default function Step2() {
     setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
   }
 
-  const avatarStyle = { width: '40px', height: '40px', borderRadius: '50%', background: 'var(--forest-deep)', flexShrink: 0 } as const
-  const questionTextStyle = { fontSize: '16px', color: 'var(--foreground)', lineHeight: 1.7, margin: 0, ...s }
   const underlineInputStyle = { width: '100%', border: 'none', borderBottom: '1px solid #d4d4c8', background: 'transparent', padding: '8px 0', fontSize: '15px', color: 'var(--foreground)', outline: 'none', resize: 'none' as const, lineHeight: 1.6, ...s }
 
   const AvantiQuestion = ({ children }: { children: React.ReactNode }) => (
-    <div style={{ display: 'flex', gap: '14px', alignItems: 'flex-start', marginBottom: '20px' }}>
-      <div style={avatarStyle} />
-      <p style={questionTextStyle}>{children}</p>
-    </div>
+    <Step2QuestionBlock>{children}</Step2QuestionBlock>
   )
 
   const UserBubble = ({ children }: { children: React.ReactNode }) => (
@@ -1197,104 +1235,98 @@ export default function Step2() {
 
   if (brainstormPhase && !canViewBrainstorm) {
     return (
-      <main style={{ minHeight: '100vh', background: 'transparent', paddingBottom: '140px', ...s }}>
-        <div style={{ maxWidth: '640px', margin: '0 auto', padding: '48px 24px' }}>
-          <BackLink href={`/trips/${tripId}`} wrapperClassName="mb-8 flex justify-end" />
-          <PhaseBanner tripId={tripId} phase={brainstormPhase} isOrganizer={isOrganizer} onUpdated={() => void reloadPhase()} />
-          <PhaseLockedScreen phase={brainstormPhase} backHref={`/trips/${tripId}`} />
-        </div>
-      </main>
+      <Step2WorkspaceShell tripId={tripId} stepLabel={step2Label} tripName={trip?.name}>
+        <PhaseBanner
+          tripId={tripId}
+          phase={brainstormPhase}
+          isOrganizer={isOrganizer}
+          onUpdated={() => void reloadPhase()}
+          workspace
+        />
+        <PhaseLockedScreen phase={brainstormPhase} backHref={`/trips/${tripId}`} />
+      </Step2WorkspaceShell>
     )
   }
 
   if (trip && !trip.invites_closed) {
     return (
-      <main style={{ minHeight: '100vh', background: 'transparent', paddingBottom: '140px', ...s }}>
-        <div style={{ maxWidth: '480px', margin: '0 auto', padding: '80px 24px', textAlign: 'center' }}>
-          <p style={{ fontSize: '22px', fontWeight: 300, marginBottom: '12px' }}>Step 2 not open yet</p>
-          <p style={{ fontSize: '14px', color: 'var(--muted-foreground)', marginBottom: '24px', lineHeight: 1.6 }}>
+      <Step2WorkspaceShell tripId={tripId} stepLabel={step2Label} tripName={trip?.name}>
+        <div className="text-center py-12">
+          <p className="font-serif text-[22px] font-light mb-3">Step 2 not open yet</p>
+          <p className="text-sm text-muted-foreground mb-6 leading-relaxed max-w-sm mx-auto">
             The host needs to start Step 2 from Invite guests and set the suggestion window.
           </p>
           <button
             type="button"
             onClick={() => router.push(`/trips/${tripId}/invite`)}
-            style={{ padding: '14px 28px', border: 'none', background: 'var(--forest-deep)', color: '#fafaf8', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', cursor: 'pointer', ...s }}
+            className="avanti-btn-primary"
           >
             Go to Invite →
           </button>
         </div>
-      </main>
+      </Step2WorkspaceShell>
     )
   }
 
   return (
-    <main style={{ minHeight: '100vh', background: 'transparent', paddingBottom: '140px', ...s }}>
-      <div style={{ maxWidth: '640px', margin: '0 auto', padding: '48px 24px' }}>
-        <BackLink href={`/trips/${tripId}`} wrapperClassName="mb-8 flex justify-end" />
-        <div style={{ marginBottom: '20px', textAlign: 'center' }}>
-          <p style={{ fontSize: '10px', letterSpacing: '0.28em', textTransform: 'uppercase', color: 'var(--muted-foreground)', margin: '0 0 6px', ...s }}>
-            Step {step2Label} · Your trip
-          </p>
-          <p style={{ fontSize: '18px', fontWeight: 400, color: 'var(--foreground)', margin: 0, ...s }}>
-            {trip?.name}
-          </p>
-        </div>
+    <>
+    <Step2WorkspaceShell
+      tripId={tripId}
+      stepLabel={step2Label}
+      tripName={trip?.name}
+      onChangePath={canChangePlanningPath ? () => setShowChangePathConfirm(true) : undefined}
+      changePathLabel="← Choose a different path (2A / 2B / 2C)"
+      onStartOver={canStartOver ? () => setShowStartOverConfirm(true) : undefined}
+      startOverLabel="Start Step 2 over from scratch"
+      footer={
+        <Step2ChatBar
+          chatInput={chatInput}
+          onChatInputChange={setChatInput}
+          onSend={() => void sendChat()}
+          chatLoading={chatLoading}
+          chatMessages={chatMessages}
+          onRefreshChat={() => setShowRefreshChatConfirm(true)}
+          refreshingChat={refreshingChat}
+        />
+      }
+    >
         {brainstormPhase && (
           <PhaseBanner
             tripId={tripId}
             phase={brainstormPhase}
             isOrganizer={isOrganizer}
             onUpdated={() => void reloadPhase()}
+            workspace
           />
         )}
 
         {(stage === 1 || editMode) && (
-          <>
+          <div className={`${STEP2_WORKSPACE_PANEL} ${STEP2_WORKSPACE_BOX} ${STEP2_WORKSPACE_BOX_PAD}`}>
             <AvantiQuestion>
               Tell us about this trip. Who is going? What kind of trip are you looking for? Any idea where? What&apos;s the reason for the trip?
             </AvantiQuestion>
 
-            <div style={{ paddingLeft: '56px', marginTop: '16px' }}>
+            <div className="pl-[54px] sm:pl-[58px]">
               <textarea
                 value={q1}
                 onChange={e => setQ1(e.target.value)}
                 placeholder="e.g. 8 college friends, graduation trip, beaches and nightlife somewhere in Europe"
-                rows={4}
-                style={{
-                  width: '100%',
-                  border: 'none',
-                  outline: 'none',
-                  background: 'transparent',
-                  padding: '0',
-                  fontSize: '15px',
-                  color: 'var(--foreground)',
-                  resize: 'none',
-                  lineHeight: 1.7,
-                  fontFamily: 'var(--font-cormorant), Georgia, serif',
-                  display: 'block',
-                  pointerEvents: 'auto',
-                }}
+                rows={6}
+                className="w-full min-h-[140px] border-0 outline-none bg-transparent p-0 text-[15px] sm:text-base text-foreground resize-none leading-[1.7] font-serif placeholder:italic placeholder:text-muted-foreground/75"
               />
               {stage === 1 && !editMode && (
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '16px' }}>
+                <div className="flex justify-end mt-5">
                   <button
                     onClick={() => { setStage(2); saveProgress(2) }}
                     disabled={!q1.trim()}
-                    style={{
-                      padding: '12px 28px', border: '1px solid var(--forest-deep)',
-                      background: q1.trim() ? 'var(--forest-deep)' : 'transparent',
-                      color: q1.trim() ? '#fafaf8' : '#d4d4c8',
-                      fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase',
-                      cursor: q1.trim() ? 'pointer' : 'default',
-                      fontFamily: 'var(--font-cormorant), Georgia, serif',
-                    }}
+                    className="px-7 py-3 border border-foreground/20 text-[10px] uppercase tracking-[0.25em] font-serif transition-colors disabled:cursor-default disabled:text-muted-foreground/40 disabled:bg-transparent enabled:text-foreground enabled:cursor-pointer enabled:hover:border-forest-deep enabled:hover:text-forest-deep"
                   >
                     Next →
                   </button>
                 </div>
               )}
             </div>
-          </>
+          </div>
         )}
 
         <CollapsiblePreferences collapse={shouldCollapseInputs} summary={preferencesSummary}>
@@ -1593,7 +1625,7 @@ export default function Step2() {
                         padding: '14px 32px',
                         border: '1px solid var(--forest-deep)',
                         background: 'var(--forest-deep)',
-                        color: '#fafaf8',
+                        color: '#ffffff',
                         fontSize: '10px',
                         letterSpacing: '0.25em',
                         textTransform: 'uppercase',
@@ -1649,7 +1681,7 @@ export default function Step2() {
               style={{
                 width: '100%', padding: '18px',
                 border: '1px solid var(--forest-deep)', background: 'var(--forest-deep)',
-                color: '#fafaf8', fontSize: '11px', letterSpacing: '0.25em',
+                color: '#ffffff', fontSize: '11px', letterSpacing: '0.25em',
                 textTransform: 'uppercase', cursor: 'pointer',
                 fontFamily: 'var(--font-cormorant), Georgia, serif',
                 opacity: !q3Valid || !q2Valid || !q1.trim() ? 0.5 : 1,
@@ -1688,7 +1720,7 @@ export default function Step2() {
                 padding: '12px 28px',
                 border: '1px solid var(--forest-deep)',
                 background: 'var(--forest-deep)',
-                color: '#fafaf8',
+                color: '#ffffff',
                 fontSize: '10px',
                 letterSpacing: '0.2em',
                 textTransform: 'uppercase',
@@ -1739,7 +1771,7 @@ export default function Step2() {
                   padding: '10px 18px',
                   border: '1px solid var(--forest-deep)',
                   background: 'var(--forest-deep)',
-                  color: '#fafaf8',
+                  color: '#ffffff',
                   fontSize: '10px',
                   letterSpacing: '0.15em',
                   textTransform: 'uppercase',
@@ -1770,7 +1802,7 @@ export default function Step2() {
                 <p style={{ fontSize: '13px', color: '#8a6a10', margin: '0 0 10px', lineHeight: 1.6, fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
                   {generateError} — showing {cards.length} of 4 picks so far.
                 </p>
-                <button type="button" onClick={() => generateDestinations({ resume: true })} style={{ padding: '10px 20px', border: '1px solid var(--forest-deep)', background: 'var(--forest-deep)', color: '#fafaf8', fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', cursor: 'pointer', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+                <button type="button" onClick={() => generateDestinations({ resume: true })} style={{ padding: '10px 20px', border: '1px solid var(--forest-deep)', background: 'var(--forest-deep)', color: '#ffffff', fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', cursor: 'pointer', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
                   Finish generating →
                 </button>
               </div>
@@ -1834,7 +1866,7 @@ export default function Step2() {
             <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', margin: '0 0 12px', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
               {cards.length} of 4 destinations ready — tap to generate the rest.
             </p>
-            <button type="button" onClick={() => generateDestinations({ resume: true })} style={{ padding: '10px 20px', border: '1px solid var(--forest-deep)', background: 'var(--forest-deep)', color: '#fafaf8', fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', cursor: 'pointer', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+            <button type="button" onClick={() => generateDestinations({ resume: true })} style={{ padding: '10px 20px', border: '1px solid var(--forest-deep)', background: 'var(--forest-deep)', color: '#ffffff', fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', cursor: 'pointer', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
               Finish generating →
             </button>
           </div>
@@ -1929,85 +1961,7 @@ export default function Step2() {
         )}
 
         <div ref={chatEndRef} />
-      </div>
-
-      <div style={{
-        position: 'fixed', bottom: 0, left: 0, right: 0,
-        background: 'var(--card)', borderTop: '0.5px solid #e4e4d8',
-        padding: '12px 24px 20px', zIndex: 50,
-      }}>
-        <div style={{ maxWidth: '600px', margin: '0 auto' }}>
-          {(chatMessages.length > 0 || chatLoading) && (
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }}>
-              <button
-                type="button"
-                onClick={() => setShowRefreshChatConfirm(true)}
-                disabled={chatLoading || refreshingChat}
-                style={{
-                  fontSize: '10px',
-                  letterSpacing: '0.15em',
-                  textTransform: 'uppercase',
-                  color: 'var(--muted-foreground)',
-                  background: 'none',
-                  border: 'none',
-                  cursor: chatLoading || refreshingChat ? 'default' : 'pointer',
-                  opacity: chatLoading || refreshingChat ? 0.4 : 1,
-                  ...s,
-                }}
-              >
-                Refresh chat
-              </button>
-            </div>
-          )}
-          {chatMessages.length > 0 && (
-            <div style={{ maxHeight: '160px', overflowY: 'auto', marginBottom: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {chatMessages.map((msg, i) => (
-                <div key={i} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
-                  <div style={{
-                    maxWidth: '80%', padding: '8px 14px', borderRadius: '0', fontSize: '13px', lineHeight: 1.5,
-                    background: msg.role === 'user' ? 'var(--forest-deep)' : '#f5f5f0',
-                    color: msg.role === 'user' ? '#fff' : '#1a1a1a',
-                  }}>
-                    {msg.content}
-                  </div>
-                </div>
-              ))}
-              {chatLoading && (
-                <div style={{ display: 'flex', gap: '4px', padding: '8px 14px' }}>
-                  {[0, 1, 2].map(i => (
-                    <div key={i} style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#9a9a8a', animation: `pulse 1.2s ease-in-out ${i * 0.2}s infinite` }} />
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-            <input
-              value={chatInput}
-              onChange={e => setChatInput(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && sendChat()}
-              placeholder="Ask Avanti anything about this trip..."
-              style={{
-                flex: 1, border: 'none', borderBottom: '1px solid #d4d4c8',
-                background: 'transparent', padding: '8px 0', fontSize: '14px',
-                color: 'var(--foreground)', outline: 'none', ...s,
-              }}
-            />
-            <button
-              onClick={sendChat}
-              disabled={!chatInput.trim() || chatLoading}
-              style={{
-                padding: '8px 18px', background: 'var(--forest-deep)', border: 'none',
-                color: '#fff', fontSize: '10px', letterSpacing: '0.15em',
-                textTransform: 'uppercase', cursor: 'pointer',
-                opacity: chatInput.trim() ? 1 : 0.4, borderRadius: '6px', ...s,
-              }}
-            >
-              Send
-            </button>
-          </div>
-        </div>
-      </div>
+    </Step2WorkspaceShell>
 
       {showRefreshChatConfirm && (
         <Step2ConfirmModal
@@ -2054,12 +2008,34 @@ export default function Step2() {
         />
       )}
 
+      {showChangePathConfirm && (
+        <Step2ConfirmModal
+          title="Choose a different path?"
+          body="You’ll return to the Step 2 path picker to choose 2A, 2B, or 2C again. Your answers so far stay saved, but you may need to regenerate options after switching."
+          confirmLabel={changingPath ? 'Updating…' : 'Choose again'}
+          loading={changingPath}
+          onCancel={() => { if (!changingPath) setShowChangePathConfirm(false) }}
+          onConfirm={() => void confirmChangePlanningPath()}
+        />
+      )}
+
+      {showStartOverConfirm && (
+        <Step2ConfirmModal
+          title="Start Step 2 completely over?"
+          body="This erases everything in Step 2 for the whole group — the planning path, every traveler’s questionnaire answers, all generated destinations, and any votes cast. It cannot be undone, and everyone returns to choosing a path (2A / 2B / 2C). Once a destination is finalized, this is no longer possible."
+          confirmLabel={startingOver ? 'Erasing…' : 'Yes, erase everything'}
+          loading={startingOver}
+          onCancel={() => { if (!startingOver) setShowStartOverConfirm(false) }}
+          onConfirm={() => void confirmStartOver()}
+        />
+      )}
+
       {submitToast && (
         <div style={{ position: 'fixed', bottom: '24px', left: '50%', transform: 'translateX(-50%)', background: 'var(--forest-deep)', color: '#ffffff', padding: '10px 20px', borderRadius: '24px', fontSize: '12px', letterSpacing: '0.1em', zIndex: 100, ...s }}>
           {submitToast}
         </div>
       )}
-    </main>
+    </>
   )
 }
 
@@ -2082,7 +2058,7 @@ function CollapsiblePreferences({
       style={{
         marginBottom: '28px',
         border: '1px solid #d4d4c8',
-        background: '#fafaf8',
+        background: '#ffffff',
       }}
     >
       <summary

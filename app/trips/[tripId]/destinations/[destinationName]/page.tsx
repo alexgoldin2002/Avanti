@@ -106,7 +106,7 @@ export default function DestinationDeepDive() {
         <div style={{ marginTop: '48px' }}>
           <button
             onClick={() => router.push(`/trips/${tripId}`)}
-            style={{ width: '100%', padding: '16px', border: 'none', background: 'var(--forest-deep)', color: '#fafaf8', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', cursor: 'pointer', ...s }}
+            style={{ width: '100%', padding: '16px', border: 'none', background: 'var(--forest-deep)', color: '#ffffff', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', cursor: 'pointer', ...s }}
           >
             Choose destination →
           </button>

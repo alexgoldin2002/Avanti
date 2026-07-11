@@ -67,7 +67,7 @@ export default function RoundOneCard({ destination, rank, dragProps }: RoundOneC
           gap: '12px',
           padding: '12px 16px',
           borderBottom: '1px solid #f0f0e8',
-          background: '#fafaf8',
+          background: '#ffffff',
           flexShrink: 0,
         }}
       >
@@ -77,7 +77,7 @@ export default function RoundOneCard({ destination, rank, dragProps }: RoundOneC
             height: '32px',
             borderRadius: '50%',
             background: 'var(--forest-deep)',
-            color: '#fafaf8',
+            color: '#ffffff',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',

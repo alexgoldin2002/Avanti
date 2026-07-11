@@ -218,6 +218,28 @@ export function analyzeGroupDateOverlap(travelers: TravelerDateProfile[]): Group
     }
   }
 
+  // Solo traveler: with only one date window there is no other schedule to
+  // reconcile against, so their own window is trivially "the overlap". Skip the
+  // cross-group conflict checks that would otherwise block a single person.
+  if (withWindows.length < 2) {
+    const only = withWindows[0]
+    const soloNights = nightsBetween(only.start, only.end)
+    return {
+      status: 'ok',
+      participants: 1,
+      pendingNames,
+      overlapStart: only.start,
+      overlapEnd: only.end,
+      overlapNights: soloNights,
+      minRequiredNights: minRequiredNights ?? (soloNights > 0 ? soloNights : null),
+      minRequiredBy: minTraveler
+        ? { travelerId: minTraveler.travelerId, displayName: minTraveler.displayName, label: minTraveler.preferredLabel }
+        : null,
+      fixes: [],
+      summary: `Your dates are set (${formatDateRange(only.start, only.end)}). Group overlap will update as others add theirs.`,
+    }
+  }
+
   const overlapStart = withWindows.reduce((max, p) => (p.start > max ? p.start : max), withWindows[0].start)
   const overlapEnd = withWindows.reduce((min, p) => (p.end < min ? p.end : min), withWindows[0].end)
   const overlapNights = overlapStart <= overlapEnd ? nightsBetween(overlapStart, overlapEnd) : 0

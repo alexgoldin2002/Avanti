@@ -1,5 +1,10 @@
 'use client'
 
+import { todayIsoDate, isValidDateRange } from '@/lib/date-range'
+
+// Re-exported for existing client imports; server code should import from '@/lib/date-range'.
+export { todayIsoDate, isValidDateRange }
+
 type DateRangeFieldsProps = {
   start: string
   end: string
@@ -10,25 +15,10 @@ type DateRangeFieldsProps = {
   labelStyle?: React.CSSProperties
 }
 
-export function todayIsoDate(): string {
-  const d = new Date()
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
-}
-
 function formatPickerHint(iso: string): string {
   const d = new Date(`${iso.slice(0, 10)}T12:00:00`)
   if (Number.isNaN(d.getTime())) return iso
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-}
-
-export function isValidDateRange(start: string, end: string): boolean {
-  if (!start || !end) return false
-  const today = todayIsoDate()
-  if (start < today || end < start) return false
-  return end >= start
 }
 
 export default function DateRangeFields({
