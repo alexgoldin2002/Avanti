@@ -59,8 +59,8 @@ export default function AppNav({ userName }: { userName?: string }) {
 
   return (
     <header className="sticky top-0 z-40 bg-forest-deep text-cream">
-      <nav className="relative mx-auto flex max-w-7xl items-center justify-between px-6 py-5 sm:px-10">
-        <div className="flex items-center gap-8 min-w-0 flex-1">
+      <nav className="relative mx-auto grid max-w-7xl grid-cols-3 items-center px-6 py-5 sm:px-10">
+        <div className="flex items-center gap-8 min-w-0">
           {MENU_LINKS.filter(l => l.href !== '/dashboard' && l.href !== '/profile' && l.href !== '/features').map(item => (
             <Link
               key={item.label}
@@ -72,14 +72,23 @@ export default function AppNav({ userName }: { userName?: string }) {
           ))}
         </div>
 
-        <Link
-          href="/"
-          className="absolute left-1/2 -translate-x-1/2 font-serif text-lg tracking-[0.5em] text-cream whitespace-nowrap"
-        >
-          AVANTI
-        </Link>
+        <div className="flex justify-center">
+          <Link
+            href="/"
+            prefetch={false}
+            onClick={(e) => {
+              if (pathname === '/') return
+              e.preventDefault()
+              window.location.href = '/'
+            }}
+            className="font-serif text-lg tracking-[0.5em] text-cream whitespace-nowrap px-2"
+            aria-label="Avanti home"
+          >
+            AVANTI
+          </Link>
+        </div>
 
-        <div className="flex items-center justify-end gap-4 flex-1">
+        <div className="flex items-center justify-end gap-4 min-w-0">
           {displayName && (
             <Link
               href="/dashboard"

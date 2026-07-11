@@ -221,14 +221,20 @@ function Footer() {
       }}>
         {/* Brand column */}
         <div>
-          <div style={{
-            fontFamily: 'Cormorant Garamond, ui-serif, Georgia, serif',
-            letterSpacing: '0.45em',
-            fontSize: '1.2rem',
-            fontStyle: 'oblique 8deg',
-          }}>
+          <Link
+            href="/"
+            style={{
+              textDecoration: 'none',
+              color: 'inherit',
+              fontFamily: 'Cormorant Garamond, ui-serif, Georgia, serif',
+              letterSpacing: '0.45em',
+              fontSize: '1.2rem',
+              fontStyle: 'oblique 8deg',
+            }}
+            aria-label="Avanti home"
+          >
             AVANTI
-          </div>
+          </Link>
           <p style={{
             marginTop: 24,
             fontFamily: 'Cormorant Garamond, ui-serif, Georgia, serif',
