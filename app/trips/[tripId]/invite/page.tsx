@@ -222,7 +222,27 @@ export default function InviteGuests() {
     setStartingStep2(true)
     try {
       setShowStartPlanningConfirm(false)
-      router.push(`/trips/${tripId}/step2/path`)
+      const { data: { session } } = await supabase.auth.getSession()
+      const headers: HeadersInit = { 'Content-Type': 'application/json' }
+      if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`
+      const res = await fetch(`/api/trips/${tripId}/begin-step-2`, { method: 'POST', headers })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        alert(data.error || 'Could not start Step 2')
+        return
+      }
+      setInvitesClosed(true)
+      setTrip((t: { destination_planning_path?: string | null } | null) =>
+        t ? { ...t, invites_closed: true } : t,
+      )
+      const path = trip?.destination_planning_path
+      if (path === 'known') {
+        router.push(`/trips/${tripId}/step2/preferences`)
+      } else if (path) {
+        router.push(`/trips/${tripId}/step2`)
+      } else {
+        router.push(`/trips/${tripId}/step2/path`)
+      }
     } finally {
       setStartingStep2(false)
     }

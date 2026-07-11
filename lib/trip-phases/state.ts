@@ -44,6 +44,12 @@ export function getBrainstormAccess(
   const legacyOpen = trip.invites_closed && !trip.brainstorm_opened_at
 
   if (!trip.invites_closed) {
+    if (isOrganizer && trip.destination_planning_path) {
+      return {
+        access: 'active',
+        note: 'You can keep working on your picks. Invite friends from Step 1 anytime — when everyone has joined, start planning there to open the group submission window.',
+      }
+    }
     return {
       access: 'not_opened',
       note: isOrganizer

@@ -1253,13 +1253,20 @@ export default function Step2() {
     )
   }
 
-  if (trip && !trip.invites_closed) {
+  const step2AwaitingHostKickoff =
+    trip &&
+    !trip.invites_closed &&
+    (!isOrganizer || !trip.destination_planning_path)
+
+  if (step2AwaitingHostKickoff) {
     return (
       <Step2WorkspaceShell tripId={tripId} stepLabel={step2Label} tripName={trip?.name}>
         <div className="text-center py-12">
           <p className="font-serif text-[22px] font-light mb-3">Step 2 not open yet</p>
           <p className="text-sm text-muted-foreground mb-6 leading-relaxed max-w-sm mx-auto">
-            The host needs to start Step 2 from Invite guests and set the suggestion window.
+            {isOrganizer
+              ? 'Go to Invite guests and tap “All travelers in? Start Planning” when your group is ready. That unlocks the suggestion window for everyone.'
+              : 'The host needs to start Step 2 from Invite guests and set the suggestion window.'}
           </p>
           <button
             type="button"
