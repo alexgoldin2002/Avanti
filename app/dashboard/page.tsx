@@ -438,40 +438,59 @@ function CreateTripModal({ onClose, onCreated, profile }: {
   const handleCreate = async () => {
     if (!canCreate()) { setShowErrors(true); return }
     setCreating(true)
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+    const [{ data: { user } }, { data: { session } }] = await Promise.all([
+      supabase.auth.getUser(),
+      supabase.auth.getSession(),
+    ])
+    if (!user) {
+      setCreating(false)
+      alert('Your session expired — please sign in again.')
+      return
+    }
 
-    const tripData: Record<string, unknown> = {
+    const tripPayload = {
       name: form.name.trim(),
       trip_type: form.groupType,
       destination: 'TBD',
       destination_type: 'flexible',
       date_type: 'flexible',
       cover_color: 'oklch(0.22 0.04 150)',
-      organizer_id: user.id,
       status: 'planning',
       is_event_centered: hasEvent,
+      ...(hasEvent
+        ? {
+            event_name: eventName,
+            event_date: form.event_date,
+            event_date_end: form.eventDateMode === 'range' ? form.event_date_end : null,
+            event_location: form.event_location.trim(),
+          }
+        : {}),
+      traveler: {
+        full_name: profile?.full_name || '',
+        email: profile?.email || user.email || '',
+        nickname: profile?.full_name?.split(' ')[0] || '',
+        profile_complete: true,
+      },
     }
 
-    if (hasEvent) {
-      tripData.event_name = eventName
-      tripData.event_date = form.event_date
-      tripData.event_date_end = form.eventDateMode === 'range' ? form.event_date_end : null
-      tripData.event_location = form.event_location.trim()
+    const headers: HeadersInit = { 'Content-Type': 'application/json' }
+    if (session?.access_token) {
+      headers.Authorization = `Bearer ${session.access_token}`
     }
 
-    const { data: trip, error } = await supabase.from('trips').insert(tripData).select().single()
-    if (error || !trip) { setCreating(false); alert('Error: ' + error?.message); return }
-
-    await supabase.from('travelers').insert({
-      trip_id: trip.id,
-      user_id: user.id,
-      full_name: profile?.full_name || '',
-      email: profile?.email || '',
-      nickname: profile?.full_name?.split(' ')[0] || '',
-      role: 'organizer',
-      profile_complete: true,
+    const res = await fetch('/api/trips/create', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(tripPayload),
     })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok || !data.trip) {
+      setCreating(false)
+      alert('Error: ' + (data.error || 'Failed to create trip'))
+      return
+    }
+
+    const trip = data.trip
 
     if (isPendingShare()) {
       await applyPreviewToTrip(trip.id, profile?.email || user.email || '')

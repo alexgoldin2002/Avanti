@@ -15,6 +15,42 @@ import {
 import { coerceMatrixRecommendedTab, shouldIncludeTripleRoutes, type MatrixTabId } from '@/lib/matrix-trip-shape'
 import type { ChatMessage } from '@/lib/infer-trip-context'
 
+export const MATRIX_GENERATION_TIME_HINT =
+  'This usually takes 2–3 minutes to build your destination options.'
+
+function formatMatrixProgress(completed: number, total: number, label: string): string {
+  const percent = total > 0 ? Math.min(100, Math.round((completed / total) * 100)) : 0
+  return `${percent}% done — ${label}`
+}
+
+export function parseMatrixProgressStatus(status: string | null): {
+  percent: number | null
+  label: string
+} {
+  if (!status) {
+    return {
+      percent: null,
+      label: 'Weighing destinations against your vibe, budget, and deal breakers…',
+    }
+  }
+  const match = status.match(/^(\d+)% done — (.+)$/)
+  if (match) {
+    return { percent: Number(match[1]), label: match[2] }
+  }
+  return { percent: null, label: status }
+}
+
+function matrixGenerationStepCount(
+  mode: MatrixGenerationMode,
+  answers: Record<string, unknown>,
+  consideringCount: number,
+): number {
+  const rowCount =
+    mode === 'considering' ? consideringCount : BRAINSTORM_MATRIX_DESTINATION_COUNT
+  const includeTriples = shouldIncludeTripleRoutes(answers) && rowCount >= 3
+  return rowCount + PAIRING_CATEGORY_ORDER.length + (includeTriples ? 1 : 0) + 1
+}
+
 type MatrixFetchOpts = {
   tripId?: string
   preview?: boolean
@@ -88,7 +124,7 @@ const MATRIX_ROW_ATTEMPTS = 3
 async function fetchBrainstormMatrixRow(
   baseBody: Record<string, unknown>,
   existingNames: string[],
-  onStatus?: (message: string) => void,
+  onProgress?: (label: string) => void,
   slot = 1,
   total = BRAINSTORM_MATRIX_DESTINATION_COUNT,
 ): Promise<DestinationMatrixRow> {
@@ -96,10 +132,8 @@ async function fetchBrainstormMatrixRow(
 
   for (let attempt = 0; attempt < MATRIX_ROW_ATTEMPTS; attempt++) {
     if (attempt > 0) {
-      onStatus?.(`Retrying destination ${slot} of ${total}…`)
+      onProgress?.(`Retrying destination ${slot} of ${total}…`)
       await new Promise(resolve => setTimeout(resolve, 1200 * attempt))
-    } else {
-      onStatus?.(`Finding destination ${slot} of ${total}…`)
     }
 
     const { res, data } = await postMatrixPhaseWithRetry({
@@ -142,6 +176,21 @@ async function fetchMatrixBatched(opts: MatrixFetchOpts): Promise<MatrixFetchRes
       ? 'considering'
       : 'brainstorm')
   const matrix: DestinationMatrixRow[] = []
+  const totalSteps = matrixGenerationStepCount(
+    mode,
+    opts.answers,
+    opts.consideringList?.length ?? 0,
+  )
+  let completedSteps = 0
+
+  const report = (label: string) => {
+    opts.onStatus?.(formatMatrixProgress(completedSteps, totalSteps, label))
+  }
+
+  const finishStep = (label: string) => {
+    completedSteps += 1
+    opts.onStatus?.(formatMatrixProgress(completedSteps, totalSteps, label))
+  }
 
   if (mode === 'considering') {
     const list = opts.consideringList ?? []
@@ -149,12 +198,11 @@ async function fetchMatrixBatched(opts: MatrixFetchOpts): Promise<MatrixFetchRes
       const destinationName = list[i]
       let lastError: Error | null = null
       for (let attempt = 0; attempt < MATRIX_ROW_ATTEMPTS; attempt++) {
-        if (attempt > 0) {
-          opts.onStatus?.(`Retrying ${destinationName.split(',')[0]?.trim() || destinationName}…`)
-          await new Promise(resolve => setTimeout(resolve, 1200 * attempt))
-        } else {
-          opts.onStatus?.(`Scoring ${destinationName.split(',')[0]?.trim() || destinationName} (${i + 1}/${list.length})…`)
-        }
+        report(
+          attempt > 0
+            ? `Retrying ${destinationName.split(',')[0]?.trim() || destinationName}…`
+            : `Scoring ${destinationName.split(',')[0]?.trim() || destinationName}…`,
+        )
         const { res, data } = await postMatrixPhaseWithRetry({
           ...baseBody,
           phase: 'matrix-row',
@@ -168,6 +216,7 @@ async function fetchMatrixBatched(opts: MatrixFetchOpts): Promise<MatrixFetchRes
         if (row?.name) {
           matrix.push(row)
           lastError = null
+          finishStep(`Scored ${row.name.split(',')[0]?.trim() || row.name}`)
           break
         }
         lastError = new Error('Could not parse destination — try again')
@@ -177,15 +226,17 @@ async function fetchMatrixBatched(opts: MatrixFetchOpts): Promise<MatrixFetchRes
   } else {
     const existingNames: string[] = []
     for (let i = 0; i < BRAINSTORM_MATRIX_DESTINATION_COUNT; i++) {
+      report(`Researching destination ${i + 1} of ${BRAINSTORM_MATRIX_DESTINATION_COUNT}…`)
       const row = await fetchBrainstormMatrixRow(
         baseBody,
         existingNames,
-        opts.onStatus,
+        label => report(label),
         i + 1,
         BRAINSTORM_MATRIX_DESTINATION_COUNT,
       )
       matrix.push(row)
       existingNames.push(row.name)
+      finishStep(`Researched ${row.name.split(',')[0]?.trim() || row.name}`)
     }
   }
 
@@ -198,7 +249,7 @@ async function fetchMatrixBatched(opts: MatrixFetchOpts): Promise<MatrixFetchRes
   const pairings: DestinationMatrixCombo[] = []
 
   for (const category of PAIRING_CATEGORY_ORDER) {
-    opts.onStatus?.(`Building ${PAIRING_CATEGORY_SECTION_LABELS[category].toLowerCase()}…`)
+    report(`Building ${PAIRING_CATEGORY_SECTION_LABELS[category].toLowerCase()}…`)
     const { res, data } = await postMatrixPhaseWithRetry({
       ...baseBody,
       phase: 'pairing-category',
@@ -207,11 +258,12 @@ async function fetchMatrixBatched(opts: MatrixFetchOpts): Promise<MatrixFetchRes
     })
     if (!res.ok) throw matrixFetchError(res, data)
     pairings.push(...((data.pairings as DestinationMatrixCombo[]) || []))
+    finishStep(`Built ${PAIRING_CATEGORY_SECTION_LABELS[category].toLowerCase()}`)
   }
 
   let triples: DestinationMatrixCombo[] = []
   if (shouldIncludeTripleRoutes(opts.answers) && destinationNames.length >= 3) {
-    opts.onStatus?.('Building three-stop routes…')
+    report('Building three-stop routes…')
     const { res, data } = await postMatrixPhaseWithRetry({
       ...baseBody,
       phase: 'triples',
@@ -219,15 +271,17 @@ async function fetchMatrixBatched(opts: MatrixFetchOpts): Promise<MatrixFetchRes
     })
     if (!res.ok) throw matrixFetchError(res, data)
     triples = (data.triples as DestinationMatrixCombo[]) || []
+    finishStep('Built three-stop routes')
   }
 
-  opts.onStatus?.('Finalizing recommendations…')
+  report('Finalizing recommendations…')
   const { res: recRes, data: recData } = await postMatrixPhaseWithRetry({
     ...baseBody,
     phase: 'recommendations',
     destinationNames,
   })
   if (!recRes.ok) throw matrixFetchError(recRes, recData)
+  finishStep('Recommendations ready')
 
   return {
     matrix,

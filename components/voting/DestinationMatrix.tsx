@@ -53,6 +53,8 @@ type DestinationMatrixProps = {
   onRegenerateSingle?: (name: string) => void
   regeneratingSingleName?: string | null
   readOnly?: boolean
+  previewGated?: boolean
+  onPreviewGate?: () => void
 }
 
 const s = { fontFamily: 'var(--font-cormorant), Georgia, serif' } as const
@@ -147,13 +149,127 @@ function BudgetBreakdown({ budgetFit }: { budgetFit: string }) {
   )
 }
 
-function PairingCardDetails({ combo }: { combo: DestinationMatrixCombo }) {
+function DisclosureChevron({ open, size = '11px' }: { open: boolean; size?: string }) {
+  return (
+    <span
+      aria-hidden
+      style={{
+        fontSize: size,
+        lineHeight: 1,
+        opacity: 0.75,
+        display: 'inline-block',
+        transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
+        transition: 'transform 0.15s ease',
+      }}
+    >
+      ▾
+    </span>
+  )
+}
+
+function LockIcon({ size = 12 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      style={{ flexShrink: 0, opacity: 0.7 }}
+    >
+      <rect x="5" y="11" width="14" height="10" rx="2" />
+      <path d="M8 11V8a4 4 0 0 1 8 0v3" />
+    </svg>
+  )
+}
+
+function GatedDetailsLink({
+  label,
+  onGate,
+  s,
+}: {
+  label: string
+  onGate: () => void
+  s: { fontFamily: string }
+}) {
+  const [hover, setHover] = useState(false)
+
+  return (
+    <div
+      style={{ position: 'relative', marginTop: '4px', display: 'inline-block' }}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+    >
+      <button
+        type="button"
+        onClick={onGate}
+        style={{
+          fontSize: '12px',
+          color: 'var(--forest-deep)',
+          cursor: 'pointer',
+          listStyle: 'none',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '6px',
+          background: 'none',
+          border: 'none',
+          padding: 0,
+          ...s,
+        }}
+      >
+        {label}
+        <LockIcon />
+      </button>
+      {hover && (
+        <span
+          role="tooltip"
+          style={{
+            position: 'absolute',
+            left: 0,
+            bottom: 'calc(100% + 6px)',
+            zIndex: 20,
+            whiteSpace: 'nowrap',
+            fontSize: '11px',
+            lineHeight: 1.4,
+            padding: '6px 10px',
+            borderRadius: '4px',
+            background: 'var(--forest-deep)',
+            color: '#fff',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
+            ...s,
+          }}
+        >
+          Sign up/in to reveal breakdown
+        </span>
+      )}
+    </div>
+  )
+}
+
+function PairingCardDetails({
+  combo,
+  gated,
+  onGate,
+  s,
+}: {
+  combo: DestinationMatrixCombo
+  gated?: boolean
+  onGate?: () => void
+  s: { fontFamily: string }
+}) {
   const [open, setOpen] = useState(false)
   const hasDetails = Boolean(
     combo.routing || combo.tradeoff || budgetBreakdownDetailBody(combo.budgetFit),
   )
 
   if (!hasDetails) return null
+  if (gated && onGate) {
+    return <GatedDetailsLink label="Routing, tradeoffs & budget" onGate={onGate} s={s} />
+  }
 
   return (
     <details
@@ -193,32 +309,22 @@ function PairingCardDetails({ combo }: { combo: DestinationMatrixCombo }) {
   )
 }
 
-function DisclosureChevron({ open, size = '11px' }: { open: boolean; size?: string }) {
-  return (
-    <span
-      aria-hidden
-      style={{
-        fontSize: size,
-        lineHeight: 1,
-        opacity: 0.75,
-        display: 'inline-block',
-        transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
-        transition: 'transform 0.15s ease',
-      }}
-    >
-      ▾
-    </span>
-  )
-}
-
 function SinglesComparisonDetails({
   rows,
   s,
+  gated,
+  onGate,
 }: {
   rows: DestinationMatrixRow[]
   s: { fontFamily: string }
+  gated?: boolean
+  onGate?: () => void
 }) {
   const [open, setOpen] = useState(false)
+  if (gated && onGate) {
+    return <GatedDetailsLink label="Full comparison details" onGate={onGate} s={s} />
+  }
+
   return (
     <details
       open={open}
@@ -304,7 +410,13 @@ export default function DestinationMatrix({
   onRegenerateSingle,
   regeneratingSingleName = null,
   readOnly = false,
+  previewGated = false,
+  onPreviewGate,
 }: DestinationMatrixProps) {
+  const gateSelection = previewGated && !!onPreviewGate
+  const triggerGate = () => {
+    if (gateSelection) onPreviewGate!()
+  }
   const includeTripleRoutes = shouldIncludeTripleRoutes(tripShapeAnswers)
   const visibleTriples = includeTripleRoutes ? triples : []
   const safeRecommendedTab = coerceMatrixRecommendedTab(recommendedTab, tripShapeAnswers)
@@ -390,11 +502,19 @@ export default function DestinationMatrix({
   } as const
 
   const handlePairingClick = (combo: DestinationMatrixCombo) => {
+    if (gateSelection) {
+      triggerGate()
+      return
+    }
     if (readOnly) return
     onTogglePairing(combo.label)
   }
 
   const handleTripleClick = (combo: DestinationMatrixCombo) => {
+    if (gateSelection) {
+      triggerGate()
+      return
+    }
     if (readOnly) return
     onToggleTriple(combo.label)
   }
@@ -418,7 +538,7 @@ export default function DestinationMatrix({
         <tbody>
           {sortedRows.map((row, index) => {
             const isSelected = !!selected[row.name]
-            const canSelect = readOnly || isSelected || singlesSelectedCount < maxVotes
+            const canSelect = gateSelection || readOnly || isSelected || singlesSelectedCount < maxVotes
             const proChip = resolveHighlightChip(row.highlight || '', {
               synopsis: row.synopsis,
               logistics: row.logistics,
@@ -439,10 +559,14 @@ export default function DestinationMatrix({
                 style={{
                   borderBottom: '1px solid #e8e8e0',
                   background: isSelected ? '#e8f5ee' : 'transparent',
-                  cursor: readOnly ? 'default' : canSelect ? 'pointer' : 'not-allowed',
-                  opacity: !readOnly && !canSelect ? 0.5 : 1,
+                  cursor: gateSelection ? 'pointer' : readOnly ? 'default' : canSelect ? 'pointer' : 'not-allowed',
+                  opacity: !gateSelection && !readOnly && !canSelect ? 0.5 : 1,
                 }}
                 onClick={() => {
+                  if (gateSelection) {
+                    triggerGate()
+                    return
+                  }
                   if (readOnly || !canSelect) return
                   onToggleSingle(row.name)
                 }}
@@ -451,8 +575,14 @@ export default function DestinationMatrix({
                   <input
                     type="checkbox"
                     checked={isSelected}
-                    disabled={readOnly || (!isSelected && singlesSelectedCount >= maxVotes)}
-                    onChange={() => onToggleSingle(row.name)}
+                    disabled={!gateSelection && (readOnly || (!isSelected && singlesSelectedCount >= maxVotes))}
+                    onChange={() => {
+                      if (gateSelection) {
+                        triggerGate()
+                        return
+                      }
+                      onToggleSingle(row.name)
+                    }}
                     onClick={e => e.stopPropagation()}
                   />
                 </td>
@@ -526,7 +656,7 @@ export default function DestinationMatrix({
     },
   ) => {
     const isSelected = !!selected[combo.label]
-    const canSelect = selectable && !readOnly && (isSelected || opts.selectedCount < maxVotes)
+    const canSelect = gateSelection || (selectable && !readOnly && (isSelected || opts.selectedCount < maxVotes))
     const alsoWins = alsoWinsByLabel.get(combo.label.trim().toLowerCase()) ?? []
     const crossWinBlurb = crossCategoryWinBlurb(alsoWins)
     const isPromotedRunnerUp =
@@ -551,7 +681,11 @@ export default function DestinationMatrix({
           paddingRight: crossWinBlurb ? '120px' : '16px',
           border: isSelected ? '1px solid var(--forest-deep)' : '1px solid #e8e8e0',
           background: isSelected ? '#e8f5ee' : '#ffffff',
-          opacity: selectable && !readOnly && !isSelected && opts.selectedCount >= maxVotes ? 0.5 : 1,
+          opacity: gateSelection
+            ? 1
+            : selectable && !readOnly && !isSelected && opts.selectedCount >= maxVotes
+              ? 0.5
+              : 1,
           ...s,
         }}
       >
@@ -593,8 +727,14 @@ export default function DestinationMatrix({
               <input
                 type="checkbox"
                 checked={isSelected}
-                disabled={readOnly || (!isSelected && opts.selectedCount >= maxVotes)}
-                onChange={() => opts.onToggle(combo)}
+                disabled={!gateSelection && (readOnly || (!isSelected && opts.selectedCount >= maxVotes))}
+                onChange={() => {
+                  if (gateSelection) {
+                    triggerGate()
+                    return
+                  }
+                  opts.onToggle(combo)
+                }}
                 style={{ marginTop: '6px', cursor: canSelect ? 'pointer' : 'not-allowed' }}
               />
             )}
@@ -610,6 +750,10 @@ export default function DestinationMatrix({
                   ...s,
                 }}
                 onClick={() => {
+                  if (gateSelection) {
+                    triggerGate()
+                    return
+                  }
                   if (!selectable || readOnly || !canSelect) return
                   opts.onToggle(combo)
                 }}
@@ -677,7 +821,12 @@ export default function DestinationMatrix({
         <p style={{ fontSize: '12px', margin: '0 0 8px', lineHeight: 1.6, color: 'var(--muted-foreground)' }}>
           {combineSynopsisWithBudgetVerdict(combo.synopsis, combo.budgetFit)}
         </p>
-        <PairingCardDetails combo={combo} />
+        <PairingCardDetails
+          combo={combo}
+          gated={gateSelection}
+          onGate={triggerGate}
+          s={s}
+        />
       </div>
     )
   }
@@ -816,7 +965,12 @@ export default function DestinationMatrix({
       )}
 
       {activeTab === 'singles' && (
-        <SinglesComparisonDetails rows={sortedRows} s={s} />
+        <SinglesComparisonDetails
+          rows={sortedRows}
+          s={s}
+          gated={gateSelection}
+          onGate={triggerGate}
+        />
       )}
     </div>
   )

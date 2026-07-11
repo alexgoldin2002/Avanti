@@ -3,8 +3,11 @@
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import ProtectedContent from './ProtectedContent'
-import { GENERATION_TIME_HINT } from '@/lib/fetch-destination-batches'
-import { fetchPreviewDestinationMatrix } from '@/lib/fetch-destination-matrix'
+import {
+  fetchPreviewDestinationMatrix,
+  MATRIX_GENERATION_TIME_HINT,
+  parseMatrixProgressStatus,
+} from '@/lib/fetch-destination-matrix'
 import {
   savePreviewTrip,
   loadPreviewTrip,
@@ -75,6 +78,7 @@ export default function HomeTripPlanner({
   const [knownPlaces, setKnownPlaces] = useState<string[]>([])
   const [knownSearch, setKnownSearch] = useState('')
   const previewResultsRef = useRef<HTMLDivElement>(null)
+  const [authPromptOpen, setAuthPromptOpen] = useState(false)
 
   const isConsideringPath = planningPath === 'considering'
   const isKnownPath = planningPath === 'known'
@@ -275,6 +279,25 @@ export default function HomeTripPlanner({
 
   const requestSignin = () => {
     handleShare()
+    onSigninRequest()
+  }
+
+  const openAuthPrompt = () => {
+    handleShare()
+    setAuthPromptOpen(true)
+  }
+
+  const closeAuthPrompt = () => {
+    setAuthPromptOpen(false)
+  }
+
+  const authPromptSignup = () => {
+    setAuthPromptOpen(false)
+    onSignupRequest()
+  }
+
+  const authPromptSignin = () => {
+    setAuthPromptOpen(false)
     onSigninRequest()
   }
 
@@ -796,21 +819,27 @@ export default function HomeTripPlanner({
           </>
         )}
 
-        {generating && (
+        {generating && (() => {
+          const { percent, label } = parseMatrixProgressStatus(generateStatus)
+          return (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '60px 0', gap: '16px' }}>
             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#2d6a4f" strokeWidth="1.5" strokeLinecap="round">
               <style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
               <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" style={{ animation: 'spin 1.5s linear infinite', transformOrigin: 'center' }} />
             </svg>
             <p style={{ fontSize: '11px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#2d6a4f', ...s }}>Avanti is thinking...</p>
+            <p style={{ fontSize: '28px', color: 'var(--forest-deep)', textAlign: 'center', margin: 0, ...s }}>
+              {percent != null ? `${percent}% done` : 'Starting…'}
+            </p>
             <p style={{ fontSize: '15px', color: 'var(--foreground)', textAlign: 'center', maxWidth: '320px', lineHeight: 1.6, ...s }}>
-              {GENERATION_TIME_HINT}
+              {label}
             </p>
             <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', textAlign: 'center', maxWidth: '280px', lineHeight: 1.6, ...s }}>
-              {generateStatus && generateStatus !== GENERATION_TIME_HINT ? generateStatus : 'Weighing destinations against your vibe, budget, and deal breakers…'}
+              {MATRIX_GENERATION_TIME_HINT}
             </p>
           </div>
-        )}
+          )
+        })()}
 
         {!generating && generateError && (
           <div style={{ marginTop: '32px', padding: '20px 24px', border: '1px solid #c0392b', background: '#fdf2f2', textAlign: 'center' }}>
@@ -870,10 +899,11 @@ export default function HomeTripPlanner({
                 }}
                 selected={{}}
                 maxVotes={2}
-                onToggleSingle={() => {}}
-                onTogglePairing={() => {}}
-                onToggleTriple={() => {}}
-                readOnly
+                onToggleSingle={openAuthPrompt}
+                onTogglePairing={openAuthPrompt}
+                onToggleTriple={openAuthPrompt}
+                previewGated
+                onPreviewGate={openAuthPrompt}
               />
             </ProtectedContent>
             <div className="text-center border border-forest-deep/20 bg-ivory p-8 md:p-10">
@@ -902,6 +932,61 @@ export default function HomeTripPlanner({
           </div>
         )}
       </div>
+
+      {authPromptOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-forest-deep/75 backdrop-blur-sm p-6"
+          onClick={closeAuthPrompt}
+        >
+          <div
+            className="relative w-full max-w-md bg-cream p-8 md:p-10 shadow-2xl border border-forest-deep/10"
+            onClick={e => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="preview-auth-title"
+          >
+            <button
+              type="button"
+              onClick={closeAuthPrompt}
+              aria-label="Close"
+              className="absolute top-4 right-4 text-muted-foreground hover:text-forest-deep transition text-xl leading-none"
+            >
+              ×
+            </button>
+            <div className="text-center mb-6">
+              <p className="font-serif tracking-[0.45em] text-forest-deep text-lg">AVANTI</p>
+              <h3 id="preview-auth-title" className="font-serif text-2xl text-forest-deep italic mt-4 mb-3">
+                Save your picks &amp; invite your group
+              </h3>
+              <p className="text-sm text-muted-foreground leading-relaxed max-w-sm mx-auto">
+                Create a free account to select destinations, see full breakdowns, and start voting with your travel mates.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={authPromptSignup}
+              className="w-full bg-forest-deep text-cream eyebrow py-4 hover:bg-forest-deep/90 transition"
+            >
+              Create account →
+            </button>
+            <button
+              type="button"
+              onClick={authPromptSignin}
+              className="mt-4 w-full eyebrow text-muted-foreground hover:text-forest-deep transition"
+            >
+              Already have an account? Sign in
+            </button>
+            <button
+              type="button"
+              onClick={closeAuthPrompt}
+              className="mt-6 w-full text-sm text-muted-foreground hover:text-forest-deep transition"
+              style={s}
+            >
+              Keep browsing preview
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -9,6 +9,19 @@ const CARDS_KEY = 'avanti_preview_cards'
 const META_KEY = 'avanti_preview_meta'
 const PENDING_SHARE_KEY = 'avanti_preview_pending_share'
 
+const PREVIEW_STORAGE_KEYS = [ANSWERS_KEY, CARDS_KEY, META_KEY, PENDING_SHARE_KEY]
+
+let legacyLocalPreviewPurged = false
+
+/** Drop old localStorage preview data — anonymous try-it should not persist across visits. */
+function purgeLegacyLocalPreviewStorage() {
+  if (typeof window === 'undefined' || legacyLocalPreviewPurged) return
+  legacyLocalPreviewPurged = true
+  for (const key of PREVIEW_STORAGE_KEYS) {
+    localStorage.removeItem(key)
+  }
+}
+
 export type PreviewTripMeta = {
   planningPath?: DestinationPlanningPath
   consideringList?: string[]
@@ -28,14 +41,15 @@ export type PreviewTripMeta = {
 
 function readStorage(key: string): string | null {
   if (typeof window === 'undefined') return null
-  return sessionStorage.getItem(key) ?? localStorage.getItem(key)
+  purgeLegacyLocalPreviewStorage()
+  return sessionStorage.getItem(key)
 }
 
 function writeStorage(key: string, value: string) {
   if (typeof window === 'undefined') return
+  purgeLegacyLocalPreviewStorage()
   try {
     sessionStorage.setItem(key, value)
-    localStorage.setItem(key, value)
   } catch {
     // ignore quota errors
   }

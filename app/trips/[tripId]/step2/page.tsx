@@ -5,7 +5,12 @@ import { supabase } from '@/lib/supabase'
 import SuitcaseLoader from '../../../components/SuitcaseLoader'
 import DestinationCard from '../../../components/DestinationCard'
 import { fetchFullDestinationCards, fetchRemainingDestinationCards, GENERATION_TIME_HINT, regenerateSingleDestinationCard } from '@/lib/fetch-destination-batches'
-import { fetchDestinationMatrix, fetchRegenerateMatrixRow } from '@/lib/fetch-destination-matrix'
+import {
+  fetchDestinationMatrix,
+  fetchRegenerateMatrixRow,
+  MATRIX_GENERATION_TIME_HINT,
+  parseMatrixProgressStatus,
+} from '@/lib/fetch-destination-matrix'
 import type { ParsedDestinationCard } from '@/lib/parse-destination-cards'
 import { STOP_OPTIONS, TRIP_REGION_OPTIONS, TRIP_ACTIVITY_OPTIONS } from '@/lib/preview-trip-storage'
 import { findTravelerForUser, patchTravelerStep2 } from '@/lib/traveler-lookup'
@@ -871,7 +876,7 @@ export default function Step2() {
     setGenerateError(null)
     setGenerateStatus(
       isMatrixPath
-        ? (isConsideringPath ? 'Comparing your destinations…' : 'Building your destination options…')
+        ? '0% done — Starting…'
         : GENERATION_TIME_HINT,
     )
     if (!resume) {
@@ -1692,7 +1697,28 @@ export default function Step2() {
           </div>
         )}
 
-        {generating && cards.length === 0 && (
+        {generating && (isMatrixPath ? matrixRows.length === 0 : cards.length === 0) && (
+          isMatrixPath ? (() => {
+            const { percent, label } = parseMatrixProgressStatus(generateStatus)
+            return (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '60px 0', gap: '16px' }}>
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#2d6a4f" strokeWidth="1.5" strokeLinecap="round">
+                  <style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
+                  <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" style={{ animation: 'spin 1.5s linear infinite', transformOrigin: 'center' }} />
+                </svg>
+                <p style={{ fontSize: '11px', letterSpacing: '0.2em', textTransform: 'uppercase', color: '#2d6a4f', fontFamily: 'var(--font-cormorant), Georgia, serif' }}>Avanti is thinking...</p>
+                <p style={{ fontSize: '28px', color: 'var(--forest-deep)', textAlign: 'center', margin: 0, fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
+                  {percent != null ? `${percent}% done` : 'Starting…'}
+                </p>
+                <p style={{ fontSize: '15px', color: 'var(--foreground)', textAlign: 'center', maxWidth: '320px', lineHeight: 1.6, fontFamily: 'var(--font-cormorant), Georgia, serif', margin: 0 }}>
+                  {label}
+                </p>
+                <p style={{ fontSize: '13px', color: 'var(--muted-foreground)', textAlign: 'center', maxWidth: '320px', lineHeight: 1.6, fontFamily: 'var(--font-cormorant), Georgia, serif', margin: 0 }}>
+                  {MATRIX_GENERATION_TIME_HINT}
+                </p>
+              </div>
+            )
+          })() : (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '60px 0', gap: '16px' }}>
             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#2d6a4f" strokeWidth="1.5" strokeLinecap="round">
               <style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
@@ -1706,6 +1732,7 @@ export default function Step2() {
               {generateStatus && generateStatus !== GENERATION_TIME_HINT ? generateStatus : 'Weighing destinations against your vibe, budget, and deal breakers…'}
             </p>
           </div>
+          )
         )}
 
         {!generating && generateError && cards.length === 0 && (
