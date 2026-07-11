@@ -13,6 +13,7 @@ import {
   loadPreviewTrip,
   getCreateFormDefaultsFromPreviewWithMeta,
 } from '@/lib/preview-trip-storage'
+import { INSTAGRAM_URL, TIKTOK_URL } from '@/lib/social-links'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
