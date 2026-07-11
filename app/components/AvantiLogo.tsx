@@ -5,7 +5,7 @@ type LogoVariant = 'light' | 'dark'
 export default function AvantiLogo({
   size = 'md',
   variant = 'light',
-  href = '/dashboard',
+  href = '/',
 }: {
   size?: 'sm' | 'md' | 'lg'
   variant?: LogoVariant

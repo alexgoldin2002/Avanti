@@ -73,7 +73,7 @@ export default function AppNav({ userName }: { userName?: string }) {
         </div>
 
         <Link
-          href="/dashboard"
+          href="/"
           className="absolute left-1/2 -translate-x-1/2 font-serif text-lg tracking-[0.5em] text-cream whitespace-nowrap"
         >
           AVANTI

@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
@@ -45,21 +45,6 @@ export default function Home() {
   const [error, setError] = useState('')
   const [rememberMe, setRememberMe] = useState(true)
   const [authChannel, setAuthChannel] = useState<'email' | 'phone'>('email')
-
-  useEffect(() => {
-    const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (session) {
-        const { data: profile } = await supabase
-          .from('user_profiles')
-          .select('profile_complete')
-          .eq('user_id', session.user.id)
-          .maybeSingle()
-        router.push(getPostAuthPath(Boolean(profile?.profile_complete)))
-      }
-    }
-    checkSession()
-  }, [router])
 
   const openAuth = (mode: 'signin' | 'signup') => {
     setAuthMode(mode)
