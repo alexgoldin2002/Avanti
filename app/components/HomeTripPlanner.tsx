@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import ProtectedContent from './ProtectedContent'
 import { GENERATION_TIME_HINT } from '@/lib/fetch-destination-batches'
@@ -74,6 +74,7 @@ export default function HomeTripPlanner({
   const [matrixRecommendedShape, setMatrixRecommendedShape] = useState('')
   const [knownPlaces, setKnownPlaces] = useState<string[]>([])
   const [knownSearch, setKnownSearch] = useState('')
+  const previewResultsRef = useRef<HTMLDivElement>(null)
 
   const isConsideringPath = planningPath === 'considering'
   const isKnownPath = planningPath === 'known'
@@ -331,10 +332,30 @@ export default function HomeTripPlanner({
       setMatrixRecommendedShape(result.recommendedShape)
       setCards(parsed)
       setStage('done')
-      savePreviewTrip(answers, parsed, buildMetaPayload())
+      savePreviewTrip(answers, parsed, {
+        planningPath: planningPath!,
+        consideringList: isConsideringPath ? consideringList : [],
+        knownDestination: isKnownPath ? knownPlaces[0] : undefined,
+        knownDates: isKnownPath
+          ? { mode: dates, fixedDates, flexLength }
+          : undefined,
+        matrixRows: result.matrix,
+        matrixPairings: result.pairings,
+        matrixTriples: result.triples,
+        matrixSummary: result.summary,
+        matrixRecommendedTab: result.recommendedTab,
+        matrixRecommendedShape: result.recommendedShape,
+      })
+      requestAnimationFrame(() => {
+        previewResultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      })
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : 'Something went wrong generating trip ideas'
-      setGenerateError(message)
+      setGenerateError(
+        message.includes('timed out') || message.includes('504')
+          ? `${message} Generation can take 2–3 minutes — please wait a moment and try again.`
+          : message,
+      )
     } finally {
       setGenerating(false)
       setGenerateStatus(null)
@@ -819,7 +840,7 @@ export default function HomeTripPlanner({
         )}
 
         {!generating && matrixRows.length > 0 && (
-          <>
+          <div ref={previewResultsRef}>
             <div className="mt-10 mb-8 text-center">
               <p className="eyebrow text-muted-foreground mb-2">Your preview</p>
               <h3 className="font-serif text-2xl text-forest-deep italic">
@@ -878,7 +899,7 @@ export default function HomeTripPlanner({
                 ← Back to home
               </Link>
             </div>
-          </>
+          </div>
         )}
       </div>
     </div>

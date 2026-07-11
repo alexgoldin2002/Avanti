@@ -75,11 +75,50 @@ async function postMatrixPhaseWithRetry(
     if (res.ok) return { res, data }
     lastRes = res
     lastData = data
-    if (res.status !== 504 || attempt === retries) break
+    const retryable = res.status === 504 || res.status === 502 || res.status === 500
+    if (!retryable || attempt === retries) break
     await new Promise(resolve => setTimeout(resolve, 1200 * (attempt + 1)))
   }
 
   return { res: lastRes!, data: lastData }
+}
+
+const MATRIX_ROW_ATTEMPTS = 3
+
+async function fetchBrainstormMatrixRow(
+  baseBody: Record<string, unknown>,
+  existingNames: string[],
+  onStatus?: (message: string) => void,
+  slot = 1,
+  total = BRAINSTORM_MATRIX_DESTINATION_COUNT,
+): Promise<DestinationMatrixRow> {
+  let lastError: Error | null = null
+
+  for (let attempt = 0; attempt < MATRIX_ROW_ATTEMPTS; attempt++) {
+    if (attempt > 0) {
+      onStatus?.(`Retrying destination ${slot} of ${total}…`)
+      await new Promise(resolve => setTimeout(resolve, 1200 * attempt))
+    } else {
+      onStatus?.(`Finding destination ${slot} of ${total}…`)
+    }
+
+    const { res, data } = await postMatrixPhaseWithRetry({
+      ...baseBody,
+      phase: 'matrix-row',
+      existingNames,
+    })
+
+    if (!res.ok) {
+      lastError = matrixFetchError(res, data)
+      continue
+    }
+
+    const row = data.row as DestinationMatrixRow | undefined
+    if (row?.name) return row
+    lastError = new Error('Could not parse destination — try again')
+  }
+
+  throw lastError ?? new Error('Could not parse destination — try again')
 }
 
 async function fetchMatrixBatched(opts: MatrixFetchOpts): Promise<MatrixFetchResult> {
@@ -107,31 +146,46 @@ async function fetchMatrixBatched(opts: MatrixFetchOpts): Promise<MatrixFetchRes
   if (mode === 'considering') {
     const list = opts.consideringList ?? []
     for (let i = 0; i < list.length; i++) {
-      opts.onStatus?.(`Scoring ${list[i].split(',')[0]?.trim() || list[i]} (${i + 1}/${list.length})…`)
-      const { res, data } = await postMatrixPhaseWithRetry({
-        ...baseBody,
-        phase: 'matrix-row',
-        destinationName: list[i],
-      })
-      if (!res.ok) throw matrixFetchError(res, data)
-      const row = data.row as DestinationMatrixRow
-      if (row) matrix.push(row)
+      const destinationName = list[i]
+      let lastError: Error | null = null
+      for (let attempt = 0; attempt < MATRIX_ROW_ATTEMPTS; attempt++) {
+        if (attempt > 0) {
+          opts.onStatus?.(`Retrying ${destinationName.split(',')[0]?.trim() || destinationName}…`)
+          await new Promise(resolve => setTimeout(resolve, 1200 * attempt))
+        } else {
+          opts.onStatus?.(`Scoring ${destinationName.split(',')[0]?.trim() || destinationName} (${i + 1}/${list.length})…`)
+        }
+        const { res, data } = await postMatrixPhaseWithRetry({
+          ...baseBody,
+          phase: 'matrix-row',
+          destinationName,
+        })
+        if (!res.ok) {
+          lastError = matrixFetchError(res, data)
+          continue
+        }
+        const row = data.row as DestinationMatrixRow | undefined
+        if (row?.name) {
+          matrix.push(row)
+          lastError = null
+          break
+        }
+        lastError = new Error('Could not parse destination — try again')
+      }
+      if (lastError) throw lastError
     }
   } else {
     const existingNames: string[] = []
     for (let i = 0; i < BRAINSTORM_MATRIX_DESTINATION_COUNT; i++) {
-      opts.onStatus?.(`Finding destination ${i + 1} of ${BRAINSTORM_MATRIX_DESTINATION_COUNT}…`)
-      const { res, data } = await postMatrixPhaseWithRetry({
-        ...baseBody,
-        phase: 'matrix-row',
+      const row = await fetchBrainstormMatrixRow(
+        baseBody,
         existingNames,
-      })
-      if (!res.ok) throw matrixFetchError(res, data)
-      const row = data.row as DestinationMatrixRow
-      if (row) {
-        matrix.push(row)
-        existingNames.push(row.name)
-      }
+        opts.onStatus,
+        i + 1,
+        BRAINSTORM_MATRIX_DESTINATION_COUNT,
+      )
+      matrix.push(row)
+      existingNames.push(row.name)
     }
   }
 

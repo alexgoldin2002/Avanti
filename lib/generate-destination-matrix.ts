@@ -529,6 +529,36 @@ async function callClaude(client: Anthropic, system: string, userMessage: string
     .join('\n')
 }
 
+const PARSE_RETRY_ATTEMPTS = 3
+
+async function sleep(ms: number) {
+  await new Promise(resolve => setTimeout(resolve, ms))
+}
+
+/** Retry Claude calls when the model response fails to parse. */
+async function callClaudeUntilParsed<T>(
+  client: Anthropic,
+  system: string,
+  userMessage: string,
+  maxTokens: number,
+  parse: (text: string) => T | null,
+  label: string,
+): Promise<T | null> {
+  let lastPreview = ''
+  for (let attempt = 0; attempt < PARSE_RETRY_ATTEMPTS; attempt++) {
+    if (attempt > 0) await sleep(900 * attempt)
+    const text = await callClaude(client, system, userMessage, maxTokens)
+    lastPreview = text.slice(0, 400)
+    const parsed = parse(text)
+    if (parsed != null) return parsed
+    console.warn(`generate-destination-matrix: ${label} parse failed`, {
+      attempt: attempt + 1,
+      textPreview: lastPreview,
+    })
+  }
+  return null
+}
+
 /** Phase 1 — score single destinations only (keeps serverless calls under timeout). */
 export async function generateDestinationMatrixRows(
   client: Anthropic,
@@ -636,8 +666,14 @@ Already suggested:
 ${keepList}
 </task>`
 
-  const text = await callClaude(client, SINGLE_MATRIX_ROW_SYSTEM, userMessage, 1800)
-  return parseSingleMatrixRowFromText(text)
+  return callClaudeUntilParsed(
+    client,
+    SINGLE_MATRIX_ROW_SYSTEM,
+    userMessage,
+    1800,
+    parseSingleMatrixRowFromText,
+    'brainstorm matrix row',
+  )
 }
 
 /** Score one fixed destination from a considering list. */
@@ -658,8 +694,14 @@ export async function generateConsideringMatrixRow(
 Score ONLY "${opts.destinationName}" for this group — do not suggest alternatives. Output one MATRIX row block only.
 </task>`
 
-  const text = await callClaude(client, SINGLE_MATRIX_ROW_SYSTEM, userMessage, 1800)
-  return parseSingleMatrixRowFromText(text)
+  return callClaudeUntilParsed(
+    client,
+    SINGLE_MATRIX_ROW_SYSTEM,
+    userMessage,
+    1800,
+    parseSingleMatrixRowFromText,
+    `considering matrix row (${opts.destinationName})`,
+  )
 }
 
 /** Two pairings for one category — travel simplicity, budget, or activity/vibe. */
@@ -705,8 +747,18 @@ ${task}
 Output ${header}: with exactly two --- blocks (RANK 1 and RANK 2). Nothing else.
 </task>`
 
-  const text = await callClaude(client, system, userMessage, 2800)
-  return parsePairingsForCategory(text, opts.category)
+  const pairings = await callClaudeUntilParsed(
+    client,
+    system,
+    userMessage,
+    2800,
+    text => {
+      const parsed = parsePairingsForCategory(text, opts.category)
+      return parsed.length > 0 ? parsed : null
+    },
+    `${opts.category} pairings`,
+  )
+  return pairings ?? []
 }
 
 /** Up to three three-stop routes when the trip length supports them. */
