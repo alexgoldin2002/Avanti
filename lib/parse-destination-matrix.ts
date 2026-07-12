@@ -1,3 +1,4 @@
+import { isSingleCityPlace } from './matrix-geo-rules'
 import { truncateBlurb } from './matrix-display-helpers'
 import type { MatrixTabId } from './matrix-trip-shape'
 import type { ParsedDestinationCard } from './parse-destination-cards'
@@ -103,7 +104,7 @@ function chipContextFromSingleRow(clean: string) {
 
 function parseSingleRow(clean: string): DestinationMatrixRow | null {
   const name = getField(clean, 'NAME')
-  if (!name || name.length < 2) return null
+  if (!name || name.length < 2 || !isSingleCityPlace(name)) return null
 
   const ctx = chipContextFromSingleRow(clean)
 
@@ -129,7 +130,7 @@ function parseComboRow(
   pairingCategory: PairingCategory,
 ): DestinationMatrixCombo | null {
   const places = parsePlaces(getField(clean, 'PLACES'))
-  if (places.length < 2) return null
+  if (places.length !== 2 || !places.every(isSingleCityPlace)) return null
 
   const rank = parseRank(getField(clean, 'RANK'), index + 1)
   const rawTitle = getField(clean, 'PAIRING TITLE').trim()
@@ -138,7 +139,7 @@ function parseComboRow(
   return {
     rank,
     places,
-    label: places.join(' · '),
+    label: pairingCardLabel(places),
     overallScore: parseScore(getField(clean, 'SCORE')),
     pairingCategory,
     pairingTitle,
@@ -273,13 +274,13 @@ function limitPairingsPerCategory(pairings: DestinationMatrixCombo[]): Destinati
 
 function parseTripleRow(clean: string, index: number): DestinationMatrixCombo | null {
   const places = parsePlaces(getField(clean, 'PLACES'))
-  if (places.length < 2) return null
+  if (places.length !== 3 || !places.every(isSingleCityPlace)) return null
 
   const rank = parseRank(getField(clean, 'RANK'), index + 1)
   return {
     rank,
     places,
-    label: places.join(' · '),
+    label: pairingCardLabel(places),
     overallScore: parseScore(getField(clean, 'SCORE')),
     synopsis: getField(clean, 'SYNOPSIS'),
     routing: getField(clean, 'ROUTING'),

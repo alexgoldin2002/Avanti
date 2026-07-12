@@ -1,3 +1,5 @@
+import { comboLabelFromPlaces } from './matrix-geo-rules'
+
 export type PairingCategory = 'travel_simplicity' | 'budget' | 'activity_vibe'
 
 /** Display order in the Pairings tab */
@@ -23,7 +25,7 @@ export function normalizePairingCategory(raw: string): PairingCategory | null {
 }
 
 export function pairingCardLabel(places: string[]): string {
-  return places.map(p => p.split(',')[0]?.trim() || p).join(' · ')
+  return comboLabelFromPlaces(places)
 }
 
 /** AI sometimes repeats the section name instead of naming the pair. */

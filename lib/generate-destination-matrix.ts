@@ -18,6 +18,7 @@ import {
   type DestinationMatrixRow,
 } from './parse-destination-matrix'
 import type { PairingCategory } from './matrix-pairing-categories'
+import { MATRIX_GEO_RULES } from './matrix-geo-rules'
 
 export const MATRIX_SYSTEM_PROMPT = `You are Avanti's group travel AI. Compare a fixed list of destinations the group is already considering — do NOT suggest new places or add alternatives.
 
@@ -35,6 +36,8 @@ Build a weighted scoring matrix for each destination across:
 SCORE is the rounded weighted composite (1–10), not a single-dimension guess. Heavily penalize any stated deal-breaker.
 
 ${MATRIX_CHIP_RULES}
+
+${MATRIX_GEO_RULES}
 
 For EACH destination, address every comparison dimension in the task. Weave safety and visa/entry into LOGISTICS, GROUP FIT, or TRADEOFF — be honest and specific.
 
@@ -57,7 +60,7 @@ TRADEOFF: Honest biggest downside for this group
 ---
 (repeat for every destination — list highest SCORE first, descending)
 
-Then output **exactly six pairings** — **two per category**, no fewer. Use ONLY cities from their list. **Cross-country pairings are fine** when both places are on the list and routing is practical — do not limit pairings to one country. Skip only absurd geography (e.g. back-to-back antipodes with no logical routing).
+Then output **exactly six pairings** — **two per category**, no fewer. Use ONLY cities from their list. Each pairing is exactly two single cities (see ITINERARY SHAPE RULES). Cross-country pairings are fine when both cities are on the list and routing is practical. Same-country pairings (e.g. Lisbon + Porto) are also fine. Skip only absurd geography (e.g. back-to-back antipodes with no logical routing).
 
 Do NOT use HIGHLIGHT or CONSIDER on pairings. **Do NOT put the category name in PAIRING TITLE** — the section header already names the category. PAIRING TITLE should be the city pair only (e.g. "Paros · Mykonos") or leave it blank.
 
@@ -214,6 +217,8 @@ Build a weighted scoring matrix for each destination across:
 
 ${MATRIX_CHIP_RULES}
 
+${MATRIX_GEO_RULES}
+
 Output ONLY in this exact format:
 
 MATRIX:
@@ -233,7 +238,7 @@ TRADEOFF: Honest biggest downside for this group
 ---
 (repeat for **8–10 distinct destinations** — highest SCORE first)
 
-Then output **exactly six pairings** — **two per category**, no fewer. Use destinations from your MATRIX. **Cross-country pairings are encouraged** when they create a stronger trip (e.g. Croatia + Greece, Spain + Portugal) — do not limit to one country. Skip only absurd routing.
+Then output **exactly six pairings** — **two per category**, no fewer. Use destinations from your MATRIX. Each pairing is exactly two single cities (see ITINERARY SHAPE RULES). Cross-country pairings are encouraged when they create a stronger trip (e.g. Lisbon + Barcelona, Croatia + Greece). Same-country pairings (e.g. Lisbon + Porto) are also encouraged. Skip only absurd routing.
 
 Do NOT use HIGHLIGHT or CONSIDER on pairings. PAIRING TITLE = city pair only (e.g. "Paros · Mykonos") or leave blank.
 
@@ -347,7 +352,7 @@ ${chatSupplement}
 </context>
 
 <task>
-Recommend 8–10 destinations for this group, score each in a MATRIX, then create exactly six two-stop pairings (two per TRAVEL SIMPLICITY, BUDGET, ACTIVITY VIBE) using those destinations. For BUDGET: RANK 1 = cheapest pairing, RANK 2 = splurge + budget-friendly balance. Cross-country pairings are welcome when routing works.
+Recommend 8–10 single-city destinations for this group (one city per MATRIX row), score each in a MATRIX, then create exactly six two-city pairings (two per TRAVEL SIMPLICITY, BUDGET, ACTIVITY VIBE) using those destinations. For BUDGET: RANK 1 = cheapest pairing, RANK 2 = splurge + budget-friendly balance. Each pairing is exactly two cities — same country or different countries.
 ${triplesTask}
 Output MATRIX, all three pairing sections, TRIPLES (when required above), AVANTI_MATRIX_END, RECOMMENDED_TAB, and RECOMMENDED_SHAPE.
 </task>`
@@ -374,7 +379,7 @@ ${MATRIX_CHIP_RULES}
 
 Pick a destination NOT in the "keep" list (except you are replacing the named destination). All costs USD, temps °F.`
 
-const PAIRINGS_TRIPLES_OUTPUT = `Then output **exactly six pairings** — **two per category**, no fewer. Use ONLY cities from the destination list provided. **Cross-country pairings are fine** when both places are on the list and routing is practical.
+const PAIRINGS_TRIPLES_OUTPUT = `Then output **exactly six pairings** — **two per category**, no fewer. Use ONLY cities from the destination list provided. Each pairing is exactly two single cities (see ITINERARY SHAPE RULES). Cross-country and same-country pairings are both fine when routing is practical.
 
 Do NOT use HIGHLIGHT or CONSIDER on pairings. **Do NOT put the category name in PAIRING TITLE** — the section header already names the category. PAIRING TITLE should be the city pair only (e.g. "Paros · Mykonos") or leave it blank.
 
@@ -435,6 +440,8 @@ ALL TEMPERATURES IN FAHRENHEIT. ALL COSTS IN USD.
 
 ${MATRIX_CHIP_RULES}
 
+${MATRIX_GEO_RULES}
+
 Build a weighted scoring matrix for each destination across budget fit (~25%), weather (~15%), logistics (~20%), experience quality (~25%), and must-have / deal-breaker match (~15%).
 
 Output ONLY in this exact format — no pairings, no triples:
@@ -464,6 +471,8 @@ const MATRIX_ROUTES_SYSTEM = `You are Avanti's group travel AI. Create multi-sto
 ALL TEMPERATURES IN FAHRENHEIT. ALL COSTS IN USD.
 
 ${MATRIX_CHIP_RULES}
+
+${MATRIX_GEO_RULES}
 
 ${PAIRINGS_TRIPLES_OUTPUT}
 

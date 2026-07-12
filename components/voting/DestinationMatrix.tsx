@@ -309,27 +309,38 @@ function PairingCardDetails({
   )
 }
 
-function SinglesComparisonDetails({
-  rows,
-  s,
+function SingleCardDetails({
+  row,
   gated,
   onGate,
+  s,
 }: {
-  rows: DestinationMatrixRow[]
-  s: { fontFamily: string }
+  row: DestinationMatrixRow
   gated?: boolean
   onGate?: () => void
+  s: { fontFamily: string }
 }) {
   const [open, setOpen] = useState(false)
+  const hasDetails = Boolean(
+    row.logistics ||
+      row.weather ||
+      row.activities ||
+      row.groupFit ||
+      row.vibe ||
+      row.tradeoff ||
+      budgetBreakdownDetailBody(row.budgetFit),
+  )
+
+  if (!hasDetails) return null
   if (gated && onGate) {
-    return <GatedDetailsLink label="Full comparison details" onGate={onGate} s={s} />
+    return <GatedDetailsLink label="Routing, tradeoffs & budget" onGate={onGate} s={s} />
   }
 
   return (
     <details
       open={open}
       onToggle={e => setOpen(e.currentTarget.open)}
-      style={{ marginBottom: '8px' }}
+      style={{ marginTop: '4px' }}
     >
       <summary
         style={{
@@ -343,38 +354,41 @@ function SinglesComparisonDetails({
           ...s,
         }}
       >
-        Full comparison details
+        Routing, tradeoffs & budget
         <DisclosureChevron open={open} />
       </summary>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '12px' }}>
-        {rows.map((row, index) => (
-          <div key={row.name} style={{ padding: '16px', border: '1px solid #e8e8e0', background: '#ffffff' }}>
-            <p style={{ fontSize: '11px', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--forest-deep)', margin: '0 0 8px', fontWeight: 600, ...s }}>
-              #{index + 1} · {row.overallScore}/10
-            </p>
-            <ProConBubbles
-              highlight={row.highlight}
-              consider={row.consider}
-              tradeoff={row.tradeoff}
-              synopsis={row.synopsis}
-              logistics={row.logistics}
-            />
-            <p style={{ fontSize: '16px', fontWeight: 500, margin: '0 0 4px', ...s }}>{row.name}</p>
-            {costHeadlineFromBudget(row.budgetFit) && (
-              <p style={{ fontSize: '14px', fontWeight: 700, color: 'var(--forest-deep)', margin: '0 0 8px', ...s }}>{costHeadlineFromBudget(row.budgetFit)}</p>
-            )}
-            <p style={{ fontSize: '13px', margin: '0 0 8px', lineHeight: 1.6, ...s }}>{row.synopsis}</p>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '12px', lineHeight: 1.5, color: 'var(--muted-foreground)' }}>
-              <div><strong>Weather:</strong> {row.weather}</div>
-              <div><strong>Logistics:</strong> {row.logistics}</div>
-              <div><strong>Vibe:</strong> {row.vibe}</div>
-              <div><strong>Group fit:</strong> {row.groupFit}</div>
-            </div>
-            <p style={{ fontSize: '12px', margin: '8px 0 0', lineHeight: 1.5, ...s }}><strong>Activities:</strong> {row.activities}</p>
-            <p style={{ fontSize: '12px', margin: '8px 0 0', lineHeight: 1.5, color: 'var(--muted-foreground)', ...s }}><strong>Tradeoff:</strong> {row.tradeoff}</p>
-            <BudgetBreakdown budgetFit={row.budgetFit} />
-          </div>
-        ))}
+      <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        {row.logistics && (
+          <p style={{ fontSize: '12px', margin: 0, lineHeight: 1.5 }}>
+            <strong>Logistics:</strong> {row.logistics}
+          </p>
+        )}
+        {row.weather && (
+          <p style={{ fontSize: '12px', margin: 0, lineHeight: 1.5 }}>
+            <strong>Weather:</strong> {row.weather}
+          </p>
+        )}
+        {row.activities && (
+          <p style={{ fontSize: '12px', margin: 0, lineHeight: 1.5 }}>
+            <strong>Activities:</strong> {row.activities}
+          </p>
+        )}
+        {row.groupFit && (
+          <p style={{ fontSize: '12px', margin: 0, lineHeight: 1.5 }}>
+            <strong>Best for:</strong> {row.groupFit}
+          </p>
+        )}
+        {row.vibe && (
+          <p style={{ fontSize: '12px', margin: 0, lineHeight: 1.5 }}>
+            <strong>Vibe:</strong> {row.vibe}
+          </p>
+        )}
+        {row.tradeoff && (
+          <p style={{ fontSize: '12px', margin: 0, lineHeight: 1.5, color: 'var(--muted-foreground)' }}>
+            <strong>Tradeoff:</strong> {row.tradeoff}
+          </p>
+        )}
+        <BudgetBreakdown budgetFit={row.budgetFit} />
       </div>
     </details>
   )
@@ -501,6 +515,15 @@ export default function DestinationMatrix({
     ...s,
   } as const
 
+  const handleSingleClick = (row: DestinationMatrixRow) => {
+    if (gateSelection) {
+      triggerGate()
+      return
+    }
+    if (readOnly) return
+    onToggleSingle(row.name)
+  }
+
   const handlePairingClick = (combo: DestinationMatrixCombo) => {
     if (gateSelection) {
       triggerGate()
@@ -519,130 +542,131 @@ export default function DestinationMatrix({
     onToggleTriple(combo.label)
   }
 
-  const renderSinglesTable = () => (
-    <div style={{ overflowX: 'auto', marginBottom: '16px' }}>
-      <p style={{ fontSize: '12px', color: 'var(--muted-foreground)', margin: '0 0 12px', lineHeight: 1.5, ...s }}>
-        Pick up to {maxVotes} destinations — each counts as one choice for the group vote.
-      </p>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', ...s }}>
-        <thead>
-          <tr style={{ borderBottom: '1px solid #d4d4c8' }}>
-            <th style={{ textAlign: 'left', padding: '10px 8px', fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--muted-foreground)' }}>Pick</th>
-            <th style={{ textAlign: 'center', padding: '10px 8px', fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--muted-foreground)', width: '48px' }}>Rank</th>
-            <th style={{ textAlign: 'left', padding: '10px 8px', fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--muted-foreground)' }}>Destination</th>
-            <th style={{ textAlign: 'center', padding: '10px 8px', fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--muted-foreground)' }}>Score</th>
-            <th style={{ textAlign: 'left', padding: '10px 8px', fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--muted-foreground)' }}>Best for</th>
-            <th style={{ textAlign: 'left', padding: '10px 8px', fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--muted-foreground)' }}>Tradeoff</th>
-          </tr>
-        </thead>
-        <tbody>
-          {sortedRows.map((row, index) => {
-            const isSelected = !!selected[row.name]
-            const canSelect = gateSelection || readOnly || isSelected || singlesSelectedCount < maxVotes
-            const proChip = resolveHighlightChip(row.highlight || '', {
-              synopsis: row.synopsis,
-              logistics: row.logistics,
-              groupFit: row.groupFit,
-              activities: row.activities,
-              vibe: row.vibe,
-            })
-            const conChip = resolveConsiderChip(row.consider || '', row.tradeoff || '', undefined, {
-              synopsis: row.synopsis,
-              logistics: row.logistics,
-              groupFit: row.groupFit,
-              activities: row.activities,
-              vibe: row.vibe,
-            })
-            return (
-              <tr
-                key={row.name}
+  const renderSingleCard = (row: DestinationMatrixRow, index: number) => {
+    const isSelected = !!selected[row.name]
+    const canSelect = gateSelection || readOnly || isSelected || singlesSelectedCount < maxVotes
+
+    return (
+      <div
+        key={row.name}
+        style={{
+          padding: '16px',
+          border: isSelected ? '1px solid var(--forest-deep)' : '1px solid #e8e8e0',
+          background: isSelected ? '#e8f5ee' : '#ffffff',
+          opacity: gateSelection
+            ? 1
+            : !readOnly && !isSelected && singlesSelectedCount >= maxVotes
+              ? 0.5
+              : 1,
+          ...s,
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', marginBottom: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', flex: 1 }}>
+            <input
+              type="checkbox"
+              checked={isSelected}
+              disabled={!gateSelection && (readOnly || (!isSelected && singlesSelectedCount >= maxVotes))}
+              onChange={() => handleSingleClick(row)}
+              style={{ marginTop: '6px', cursor: canSelect ? 'pointer' : 'not-allowed' }}
+            />
+            <div style={{ flex: 1 }}>
+              <strong
                 style={{
-                  borderBottom: '1px solid #e8e8e0',
-                  background: isSelected ? '#e8f5ee' : 'transparent',
-                  cursor: gateSelection ? 'pointer' : readOnly ? 'default' : canSelect ? 'pointer' : 'not-allowed',
-                  opacity: !gateSelection && !readOnly && !canSelect ? 0.5 : 1,
+                  display: 'block',
+                  fontSize: '18px',
+                  fontWeight: 500,
+                  lineHeight: 1.3,
+                  color: '#1a1a1a',
+                  cursor: canSelect ? 'pointer' : 'default',
+                  ...s,
                 }}
                 onClick={() => {
-                  if (gateSelection) {
-                    triggerGate()
-                    return
-                  }
-                  if (readOnly || !canSelect) return
-                  onToggleSingle(row.name)
+                  if (!canSelect) return
+                  handleSingleClick(row)
                 }}
               >
-                <td style={{ padding: '12px 8px', verticalAlign: 'top' }}>
-                  <input
-                    type="checkbox"
-                    checked={isSelected}
-                    disabled={!gateSelection && (readOnly || (!isSelected && singlesSelectedCount >= maxVotes))}
-                    onChange={() => {
-                      if (gateSelection) {
-                        triggerGate()
-                        return
-                      }
-                      onToggleSingle(row.name)
-                    }}
-                    onClick={e => e.stopPropagation()}
-                  />
-                </td>
-                <td style={{ padding: '12px 8px', verticalAlign: 'top', textAlign: 'center', fontWeight: 600, color: 'var(--forest-deep)' }}>
-                  #{index + 1}
-                </td>
-                <td style={{ padding: '12px 8px', verticalAlign: 'top', minWidth: '140px' }}>
-                  <div style={{ display: 'flex', gap: '6px', marginBottom: '6px', flexWrap: 'wrap' }}>
-                    {proChip && (
-                      <span style={{ ...proBubbleStyle, fontSize: '9px' }}>{proChip}</span>
-                    )}
-                    {conChip && (
-                      <span style={{ ...conBubbleStyle, fontSize: '9px' }}>{conChip}</span>
-                    )}
-                  </div>
-                  <strong style={{ display: 'block', marginBottom: '4px' }}>{row.name}</strong>
-                  {onRegenerateSingle && !readOnly && (
-                    <button
-                      type="button"
-                      onClick={e => {
-                        e.stopPropagation()
-                        onRegenerateSingle(row.name)
-                      }}
-                      disabled={regeneratingSingleName === row.name}
-                      style={{
-                        marginBottom: '6px',
-                        padding: '3px 8px',
-                        border: '1px solid #d4d4c8',
-                        background: 'transparent',
-                        color: 'var(--muted-foreground)',
-                        fontSize: '9px',
-                        letterSpacing: '0.1em',
-                        textTransform: 'uppercase',
-                        cursor: regeneratingSingleName === row.name ? 'default' : 'pointer',
-                        opacity: regeneratingSingleName === row.name ? 0.5 : 1,
-                        ...s,
-                      }}
-                    >
-                      {regeneratingSingleName === row.name ? '…' : '↻ New'}
-                    </button>
-                  )}
-                  {costHeadlineFromBudget(row.budgetFit) && (
-                    <span style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: 'var(--forest-deep)', marginBottom: '4px' }}>{costHeadlineFromBudget(row.budgetFit)}</span>
-                  )}
-                  <span style={{ fontSize: '12px', color: 'var(--muted-foreground)', lineHeight: 1.5 }}>{row.synopsis}</span>
-                </td>
-                <td style={{ padding: '12px 8px', verticalAlign: 'top', textAlign: 'center', fontWeight: 600, color: 'var(--forest-deep)' }}>
-                  {row.overallScore}/10
-                </td>
-                <td style={{ padding: '12px 8px', verticalAlign: 'top', fontSize: '12px', lineHeight: 1.5, maxWidth: '200px' }}>
-                  {row.groupFit}
-                </td>
-                <td style={{ padding: '12px 8px', verticalAlign: 'top', fontSize: '12px', lineHeight: 1.5, maxWidth: '180px', color: 'var(--muted-foreground)' }}>
-                  {row.tradeoff}
-                </td>
-              </tr>
-            )
-          })}
-        </tbody>
-      </table>
+                {row.name}
+              </strong>
+              <span
+                style={{
+                  display: 'block',
+                  fontSize: '10px',
+                  letterSpacing: '0.12em',
+                  textTransform: 'uppercase',
+                  color: 'var(--muted-foreground)',
+                  marginTop: '4px',
+                  ...s,
+                }}
+              >
+                Rank #{index + 1}
+              </span>
+              {onRegenerateSingle && !readOnly && (
+                <button
+                  type="button"
+                  onClick={() => onRegenerateSingle(row.name)}
+                  disabled={regeneratingSingleName === row.name}
+                  style={{
+                    marginTop: '8px',
+                    padding: '3px 8px',
+                    border: '1px solid #d4d4c8',
+                    background: 'transparent',
+                    color: 'var(--muted-foreground)',
+                    fontSize: '9px',
+                    letterSpacing: '0.1em',
+                    textTransform: 'uppercase',
+                    cursor: regeneratingSingleName === row.name ? 'default' : 'pointer',
+                    opacity: regeneratingSingleName === row.name ? 0.5 : 1,
+                    ...s,
+                  }}
+                >
+                  {regeneratingSingleName === row.name ? '…' : '↻ New'}
+                </button>
+              )}
+            </div>
+          </div>
+          {row.overallScore > 0 && (
+            <span style={{ fontWeight: 600, color: 'var(--forest-deep)', flexShrink: 0, fontSize: '13px' }}>
+              {row.overallScore}/10
+            </span>
+          )}
+        </div>
+        <ProConBubbles
+          highlight={row.highlight}
+          consider={row.consider}
+          tradeoff={row.tradeoff}
+          synopsis={row.synopsis}
+          logistics={row.logistics}
+        />
+        {costHeadlineFromBudget(row.budgetFit) && (
+          <p style={{ fontSize: '14px', fontWeight: 700, color: 'var(--forest-deep)', margin: '0 0 10px', lineHeight: 1.4, ...s }}>
+            {costHeadlineFromBudget(row.budgetFit)}
+          </p>
+        )}
+        <p style={{ fontSize: '12px', margin: '0 0 8px', lineHeight: 1.6, color: 'var(--muted-foreground)' }}>
+          {combineSynopsisWithBudgetVerdict(row.synopsis, row.budgetFit)}
+        </p>
+        <SingleCardDetails
+          row={row}
+          gated={gateSelection}
+          onGate={triggerGate}
+          s={s}
+        />
+      </div>
+    )
+  }
+
+  const renderSingles = () => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '16px' }}>
+      {matrixBlurb && (
+        <p style={{ fontSize: '13px', color: 'var(--forest-deep)', margin: 0, lineHeight: 1.5, ...s }}>
+          {matrixBlurb}
+        </p>
+      )}
+      <p style={{ fontSize: '12px', color: 'var(--muted-foreground)', margin: 0, lineHeight: 1.5, ...s }}>
+        Pick up to {maxVotes} destinations — each counts as one choice for the group vote.
+      </p>
+      {sortedRows.map((row, index) => renderSingleCard(row, index))}
     </div>
   )
 
@@ -928,7 +952,7 @@ export default function DestinationMatrix({
         </div>
       )}
 
-      {activeTab === 'singles' && renderSinglesTable()}
+      {activeTab === 'singles' && renderSingles()}
 
       {activeTab === 'pairings' && (
         <>
@@ -962,15 +986,6 @@ export default function DestinationMatrix({
             </p>
           )}
         </>
-      )}
-
-      {activeTab === 'singles' && (
-        <SinglesComparisonDetails
-          rows={sortedRows}
-          s={s}
-          gated={gateSelection}
-          onGate={triggerGate}
-        />
       )}
     </div>
   )

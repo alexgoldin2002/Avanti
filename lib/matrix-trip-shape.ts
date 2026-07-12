@@ -164,17 +164,19 @@ export function describeTripShapeHint(answers: TripShapeAnswers): string {
     (nights == null || nights >= MIN_NIGHTS_FOR_THREE_STOPS || hostWantsThreeStops(answers))
 
   if (stops.includes('just one')) {
-    guidance = 'They prefer one base — lean single-destination; pairings only if helpful context.'
+    guidance =
+      'They prefer one base — MATRIX rows must each be a single city only; omit PAIRINGS/TRIPLES unless helpful for context.'
   } else if (stops.includes('2 stop')) {
     guidance = triplesFeasible
-      ? 'They want two stops — prioritize ranked PAIRINGS, but also include a TRIPLES section if dates comfortably fit three ~week-long bases.'
-      : 'They want two stops — prioritize ranked PAIRINGS and recommend a pairing tab if dates fit.'
+      ? 'They want two stops — prioritize ranked PAIRINGS (exactly two cities per pairing). Also include TRIPLES only if dates comfortably fit three ~week-long bases.'
+      : 'They want two stops — prioritize ranked PAIRINGS (exactly two cities per pairing, same country or different countries) and recommend a pairing tab if dates fit.'
   } else if (stops.includes('3 stop')) {
-    guidance = 'They chose three stops — include a TRIPLES section with up to 3 ranked three-stop routes.'
+    guidance =
+      'They chose three stops — include a TRIPLES section with up to 3 ranked routes; each route is exactly three single cities.'
   } else if (stops.includes('open')) {
     guidance = triplesFeasible
-      ? 'They are open on stop count — decide from dates and geography. Short trips favor one base; ~6–14 nights often suit two stops; ~21+ nights can support three bases — include TRIPLES when dates allow.'
-      : 'They are open on stop count — decide from dates and geography. A ~week trip often works best as two stops; shorter favors one. Omit TRIPLES when the trip is too short for three bases.'
+      ? 'They are open on stop count — MATRIX = single cities only; PAIRINGS = two cities; TRIPLES = three cities. Short trips favor one base; ~6–14 nights often suit two stops; ~21+ nights can support three bases.'
+      : 'They are open on stop count — MATRIX = single cities only; PAIRINGS = two cities. A ~week trip often works best as two stops; shorter favors one. Omit TRIPLES when the trip is too short for three bases.'
   } else if (triplesFeasible) {
     guidance += ` ~${nights ?? MIN_NIGHTS_FOR_THREE_STOPS}+ nights can support three bases — include a TRIPLES section with up to 3 ranked routes.`
   } else {
