@@ -12,6 +12,9 @@ import {
   generateMatrixPairingCategory,
   generateMatrixTriples,
   generateMatrixRecommendations,
+  generateTripSynthesis,
+  assertStep2InputsComplete,
+  Step2InputValidationError,
   type MatrixGenerationMode,
 } from '@/lib/generate-destination-matrix'
 import type { PairingCategory } from '@/lib/matrix-pairing-categories'
@@ -29,6 +32,8 @@ import {
   resolveGroupSize,
   sanitizeChatMessages,
 } from '@/lib/infer-trip-context'
+import { buildOrganizerDestinationProfile } from '@/lib/step2c/trip-generation-context'
+import { enrichMatrixRowsWithClimate } from '@/lib/weather/enrich-cards'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -57,6 +62,7 @@ export async function POST(request: NextRequest) {
       pairingCategory,
       existingPairings,
       matrixRows,
+      tripBrief: tripBriefInput,
       preview = false,
       planningPath: planningPathRaw,
     } = await request.json()
@@ -64,10 +70,18 @@ export async function POST(request: NextRequest) {
     const isPreview = preview === true || !tripId
     const list = (consideringList as string[] | undefined)?.map(s => s.trim()).filter(Boolean) || []
     const chatMessages = sanitizeChatMessages(messages)
+    const answersRecord = (answers ?? {}) as Record<string, unknown>
+    const tripBriefFromBody =
+      typeof tripBriefInput === 'string' && tripBriefInput.trim()
+        ? tripBriefInput.trim()
+        : typeof answersRecord.tripBrief === 'string'
+          ? answersRecord.tripBrief.trim()
+          : ''
 
     let tripData: Record<string, unknown>
     let generationMode: MatrixGenerationMode
     let travelerCount: number
+    let organizerProfile = null
 
     if (isPreview) {
       const planningPath = planningPathRaw as DestinationPlanningPath
@@ -81,16 +95,17 @@ export async function POST(request: NextRequest) {
             ? 'brainstorm'
             : 'considering'
       tripData = {
-        trip_type: String(answers?.tripLabel || answers?.q1 || 'Group trip').slice(0, 80) || 'Group trip',
+        trip_type: String(answersRecord.tripLabel || answersRecord.q1 || 'Group trip').slice(0, 80) || 'Group trip',
         destination_planning_path: planningPath,
       }
-      travelerCount = resolveGroupSize({ dbCount: 0, answers: answers ?? {}, chatMessages })
+      travelerCount = resolveGroupSize({ dbCount: 0, answers: answersRecord, chatMessages })
     } else {
       if (!tripId) return NextResponse.json({ error: 'tripId required' }, { status: 400 })
 
       const userClient = supabaseFromRequest(request)
+      let userId: string
       try {
-        await requireUser(userClient)
+        userId = (await requireUser(userClient)).id
       } catch {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
       }
@@ -123,12 +138,27 @@ export async function POST(request: NextRequest) {
       const { data: travelers } = await supabase.from('travelers').select('*').eq('trip_id', tripId)
       travelerCount = resolveGroupSize({
         dbCount: travelers?.length || 0,
-        answers: answers ?? {},
+        answers: answersRecord,
         chatMessages,
       })
+
+      organizerProfile = await buildOrganizerDestinationProfile(supabase, userId)
     }
 
-    if (generationMode === 'considering' && list.length < 2 && phase !== 'matrix-row') {
+    const requestPhase = typeof phase === 'string' ? phase : 'full'
+
+    if (requestPhase === 'synthesis' || requestPhase === 'full') {
+      try {
+        assertStep2InputsComplete(answersRecord, generationMode, list.length)
+      } catch (e) {
+        if (e instanceof Step2InputValidationError) {
+          return NextResponse.json({ error: e.message }, { status: 400 })
+        }
+        throw e
+      }
+    }
+
+    if (generationMode === 'considering' && list.length < 2 && requestPhase !== 'synthesis') {
       return NextResponse.json({ error: 'Add at least 2 destinations to compare' }, { status: 400 })
     }
 
@@ -136,13 +166,24 @@ export async function POST(request: NextRequest) {
     const genOpts = {
       trip: tripData,
       travelerCount,
-      answers: answers ?? {},
+      answers: answersRecord,
       consideringList: list,
       chatSupplement,
       mode: generationMode,
+      tripBrief: tripBriefFromBody || undefined,
+      organizerProfile,
     }
 
-    const requestPhase = typeof phase === 'string' ? phase : 'full'
+    if (requestPhase === 'synthesis') {
+      const tripBrief = await generateTripSynthesis(client, genOpts)
+      if (!tripBrief) {
+        return NextResponse.json(
+          { error: 'Could not complete trip analysis — try again', tripBrief: null },
+          { status: 502 },
+        )
+      }
+      return NextResponse.json({ tripBrief })
+    }
 
     if (requestPhase === 'matrix-row') {
       const row =
@@ -162,7 +203,8 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Could not parse destination — try again' }, { status: 502 })
       }
       enrichMatrixChipRows([row])
-      return NextResponse.json({ row })
+      const [enriched] = await enrichMatrixRowsWithClimate([row], tripData)
+      return NextResponse.json({ row: enriched })
     }
 
     if (requestPhase === 'pairing-category') {
@@ -225,7 +267,8 @@ export async function POST(request: NextRequest) {
       if (rows.length === 0) {
         return NextResponse.json({ error: 'Could not parse destination scores — try again' }, { status: 502 })
       }
-      return NextResponse.json({ matrix: rows })
+      const enriched = await enrichMatrixRowsWithClimate(rows, tripData)
+      return NextResponse.json({ matrix: enriched })
     }
 
     if (requestPhase === 'routes') {
@@ -254,8 +297,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Could not parse comparison matrix — try again' }, { status: 502 })
     }
 
+    const enrichedRows = await enrichMatrixRowsWithClimate(result.rows, tripData)
+
     return NextResponse.json({
-      matrix: result.rows,
+      matrix: enrichedRows,
       pairings: result.pairings,
       triples: result.triples,
       summary: result.summary,

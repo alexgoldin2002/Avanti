@@ -33,6 +33,11 @@ import {
 } from '@/lib/parse-destination-matrix'
 import type { MatrixTabId } from '@/lib/matrix-trip-shape'
 import { PLACEHOLDERS } from '@/lib/form-placeholders'
+import TravelPacePicker from './TravelPacePicker'
+import {
+  legacyStopsToTravelPace,
+  type TravelPacePreferenceId,
+} from '@/lib/travel-pace-preference'
 
 type Stage = 'path' | 'known' | 1 | 2 | 3 | 'generate' | 'done'
 
@@ -57,8 +62,7 @@ export default function HomeTripPlanner({
   const [flexLength, setFlexLength] = useState('')
   const [domestic, setDomestic] = useState('')
   const [regions, setRegions] = useState<string[]>([])
-  const [stops, setStops] = useState('')
-  const [stopsOther, setStopsOther] = useState('')
+  const [travelPace, setTravelPace] = useState<TravelPacePreferenceId | ''>('')
   const [activities, setActivities] = useState<string[]>([])
   const [vibe, setVibe] = useState<string[]>([])
   const [vibeOther, setVibeOther] = useState('')
@@ -82,6 +86,7 @@ export default function HomeTripPlanner({
   const [knownPlaces, setKnownPlaces] = useState<string[]>([])
   const [knownSearch, setKnownSearch] = useState('')
   const previewResultsRef = useRef<HTMLDivElement>(null)
+  const stepTopRef = useRef<HTMLDivElement>(null)
   const [authPromptOpen, setAuthPromptOpen] = useState(false)
 
   const isConsideringPath = planningPath === 'considering'
@@ -121,8 +126,12 @@ export default function HomeTripPlanner({
       if (a.flexLength) setFlexLength(String(a.flexLength))
       if (a.domestic) setDomestic(String(a.domestic))
       if (Array.isArray(a.regions)) setRegions(a.regions as string[])
-      if (a.stops) setStops(String(a.stops))
-      if (a.stopsOther) setStopsOther(String(a.stopsOther))
+      if (a.travelPace) {
+        setTravelPace(a.travelPace as TravelPacePreferenceId)
+      } else if (a.stops) {
+        const migrated = legacyStopsToTravelPace(String(a.stops))
+        if (migrated) setTravelPace(migrated)
+      }
       if (Array.isArray(a.activities)) setActivities(a.activities as string[])
       if (Array.isArray(a.vibe)) setVibe(a.vibe as string[])
       if (a.vibeOther) setVibeOther(String(a.vibeOther))
@@ -169,6 +178,17 @@ export default function HomeTripPlanner({
     else if (stage === 2) setStage(isKnownPath ? 'known' : 1)
     else if (stage === 3) setStage(2)
   }
+
+  useEffect(() => {
+    if (stage === 'generate' || stage === 'done') return
+    requestAnimationFrame(() => {
+      if (embedded) {
+        document.getElementById('try-it')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      } else {
+        stepTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }
+    })
+  }, [stage, embedded])
 
   useEffect(() => {
     if (stage !== 'known' && stage !== 2) return
@@ -235,8 +255,7 @@ export default function HomeTripPlanner({
     if (dates === 'Flexible — I have a range' && !flexLength) return false
     if (!domestic) return false
     if (domestic === 'International' && regions.length === 0) return false
-    if (!stops) return false
-    if (stops === 'Other' && !stopsOther.trim()) return false
+    if (!travelPace) return false
     if (activities.length === 0) return false
     if (vibe.length === 0) return false
     if (vibe.includes('Other') && !vibeOther.trim()) return false
@@ -322,8 +341,7 @@ export default function HomeTripPlanner({
     flexLength,
     domestic,
     regions,
-    stops: stops === 'Other' ? stopsOther : stops,
-    stopsOther,
+    travelPace,
     activities,
     vibe: vibe.includes('Other') ? [...vibe.filter(v => v !== 'Other'), vibeOther] : vibe,
     vibeOther,
@@ -364,6 +382,7 @@ export default function HomeTripPlanner({
       setMatrixSummary(result.summary)
       setMatrixRecommendedTab(result.recommendedTab)
       setMatrixRecommendedShape(result.recommendedShape)
+      setTripBrief(result.tripBrief || '')
       setCards(parsed)
       setStage('done')
       savePreviewTrip(answers, parsed, {
@@ -379,6 +398,7 @@ export default function HomeTripPlanner({
         matrixSummary: result.summary,
         matrixRecommendedTab: result.recommendedTab,
         matrixRecommendedShape: result.recommendedShape,
+        tripBrief: result.tripBrief || undefined,
       })
       requestAnimationFrame(() => {
         previewResultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -387,7 +407,7 @@ export default function HomeTripPlanner({
       const message = e instanceof Error ? e.message : 'Something went wrong generating trip ideas'
       setGenerateError(
         message.includes('timed out') || message.includes('504')
-          ? `${message} Generation can take 2–3 minutes — please wait a moment and try again.`
+          ? `${message} Generation can take 3–4 minutes — please wait a moment and try again.`
           : message,
       )
     } finally {
@@ -448,7 +468,11 @@ export default function HomeTripPlanner({
       <div className={`mx-auto px-0 ${stage === 'done' ? 'max-w-6xl' : 'max-w-2xl'}`}>
         {embedded && (
           <div className="flex items-center justify-between mb-6">
-            <span className="eyebrow text-muted-foreground">Try it free</span>
+            {stage === 'path' ? (
+              <span className="eyebrow text-muted-foreground">Try it free</span>
+            ) : (
+              <span />
+            )}
             {onCollapse && (
               <button
                 type="button"
@@ -474,12 +498,13 @@ export default function HomeTripPlanner({
           </div>
         )}
 
-        {embedded && stage !== 'done' && stage !== 'generate' && (
+        {embedded && stage === 'path' && (
           <p className="text-sm text-muted-foreground mb-8 leading-relaxed">
             No account needed to preview. Sign in when you&apos;re ready to vote with your group.
           </p>
         )}
 
+        <div ref={stepTopRef} />
         {backBtn}
 
         {stage === 'path' && (
@@ -738,15 +763,12 @@ export default function HomeTripPlanner({
               </div>
               <div style={{ borderTop: '0.5px solid #e4e4d8' }} />
 
-              <div>
-                <span style={sectionLabel}>How many places?</span>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                  {['Just one', '2 stops', '3 stops', 'Open to anything', 'Other'].map(opt => (
-                    <button key={opt} type="button" onClick={() => setStops(opt)} style={chipStyle(stops === opt)}>{opt}</button>
-                  ))}
-                </div>
-                {stops === 'Other' && <input style={{ ...inputStyle, marginTop: '8px' }} value={stopsOther} onChange={e => setStopsOther(e.target.value)} placeholder="Tell us more..." />}
-              </div>
+              <TravelPacePicker
+                value={travelPace}
+                onChange={setTravelPace}
+                sectionLabelStyle={sectionLabel}
+                buttonFontStyle={s}
+              />
               <div style={{ borderTop: '0.5px solid #e4e4d8' }} />
                 </>
               )}
@@ -911,8 +933,7 @@ export default function HomeTripPlanner({
                 recommendedTab={matrixRecommendedTab}
                 recommendedShape={matrixRecommendedShape}
                 tripShapeAnswers={{
-                  stops: stops === 'Other' ? stopsOther : stops,
-                  stopsOther,
+                  travelPace,
                   flexLength,
                   fixedDates,
                   dates,

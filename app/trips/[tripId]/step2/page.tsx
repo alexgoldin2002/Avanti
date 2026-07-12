@@ -12,7 +12,13 @@ import {
   parseMatrixProgressStatus,
 } from '@/lib/fetch-destination-matrix'
 import type { ParsedDestinationCard } from '@/lib/parse-destination-cards'
-import { STOP_OPTIONS, TRIP_REGION_OPTIONS, TRIP_ACTIVITY_OPTIONS } from '@/lib/preview-trip-storage'
+import { TRIP_REGION_OPTIONS, TRIP_ACTIVITY_OPTIONS } from '@/lib/preview-trip-storage'
+import TravelPacePicker from '@/app/components/TravelPacePicker'
+import {
+  legacyStopsToTravelPace,
+  travelPaceLabel,
+  type TravelPacePreferenceId,
+} from '@/lib/travel-pace-preference'
 import { findTravelerForUser, patchTravelerStep2 } from '@/lib/traveler-lookup'
 import SubmitChoicesButton from '@/components/voting/SubmitChoicesButton'
 import DestinationMatrix from '@/components/voting/DestinationMatrix'
@@ -105,8 +111,7 @@ export default function Step2() {
   const [datesOther, setDatesOther] = useState('')
   const [domestic, setDomestic] = useState('')
   const [regions, setRegions] = useState<string[]>([])
-  const [stops, setStops] = useState('')
-  const [stopsOther, setStopsOther] = useState('')
+  const [travelPace, setTravelPace] = useState<TravelPacePreferenceId | ''>('')
   const [activities, setActivities] = useState<string[]>([])
   const [vibe, setVibe] = useState<string[]>([])
   const [vibeOther, setVibeOther] = useState('')
@@ -156,6 +161,7 @@ export default function Step2() {
   const [matrixSummary, setMatrixSummary] = useState('')
   const [matrixRecommendedTab, setMatrixRecommendedTab] = useState<MatrixTabId | null>(null)
   const [matrixRecommendedShape, setMatrixRecommendedShape] = useState('')
+  const [tripBrief, setTripBrief] = useState('')
 
   const {
     phase: brainstormPhase,
@@ -231,9 +237,11 @@ export default function Step2() {
           if (s2.flexLength) setFlexLength(s2.flexLength as string)
           if (s2.domestic) setDomestic(s2.domestic as string)
           if (s2.regions) setRegions(s2.regions as string[])
-          if (s2.stops) {
-            if (STOP_OPTIONS.includes(s2.stops as string)) setStops(s2.stops as string)
-            else { setStops('Other'); setStopsOther(s2.stops as string) }
+          if (s2.travelPace) {
+            setTravelPace(s2.travelPace as TravelPacePreferenceId)
+          } else if (s2.stops) {
+            const migrated = legacyStopsToTravelPace(String(s2.stops))
+            if (migrated) setTravelPace(migrated)
           }
           if (s2.activities) setActivities(s2.activities as string[])
           if (s2.vibe) setVibe(s2.vibe as string[])
@@ -265,6 +273,7 @@ export default function Step2() {
           if (typeof s2.matrixSummary === 'string') setMatrixSummary(s2.matrixSummary)
           if (s2.matrixRecommendedTab) setMatrixRecommendedTab(s2.matrixRecommendedTab as MatrixTabId)
           if (typeof s2.matrixRecommendedShape === 'string') setMatrixRecommendedShape(s2.matrixRecommendedShape)
+          if (typeof s2.tripBrief === 'string') setTripBrief(s2.tripBrief)
           if (s2.priorGeneration && typeof s2.priorGeneration === 'object') {
             setPriorGenerationSnapshot(s2.priorGeneration as Step2GenerationSnapshot)
           }
@@ -402,7 +411,7 @@ export default function Step2() {
     }
     if (budget && budget !== 'Other') parts.push(budget)
     else if (budget === 'Other' && budgetOther.trim()) parts.push(budgetOther.trim())
-    if (stops) parts.push(stops === 'Other' ? stopsOther.trim() || 'Custom stops' : stops)
+    if (travelPace) parts.push(travelPaceLabel(travelPace))
     return parts.filter(Boolean).join(' · ') || 'View or edit your trip preferences'
   }, [
     isConsideringPath,
@@ -413,8 +422,7 @@ export default function Step2() {
     flexLength,
     budget,
     budgetOther,
-    stops,
-    stopsOther,
+    travelPace,
   ])
 
   const isQ2Complete = () => {
@@ -428,8 +436,7 @@ export default function Step2() {
       if (!domestic) return false
       if (domestic === 'International' && regions.length === 0) return false
     }
-    if (!stops) return false
-    if (stops === 'Other' && !stopsOther.trim()) return false
+    if (!travelPace) return false
     if (activities.length === 0) return false
     if (vibe.length === 0) return false
     if (vibe.includes('Other') && !vibeOther.trim()) return false
@@ -575,8 +582,7 @@ export default function Step2() {
     flexLength,
     domestic,
     regions,
-    stops,
-    stopsOther,
+    travelPace,
     activities,
     vibe,
     vibeOther,
@@ -605,16 +611,13 @@ export default function Step2() {
     setFlexLength(String(answers.flexLength || ''))
     setDomestic(String(answers.domestic || ''))
     setRegions(Array.isArray(answers.regions) ? (answers.regions as string[]) : [])
-    const stopsVal = String(answers.stops || '')
-    if (STOP_OPTIONS.includes(stopsVal)) {
-      setStops(stopsVal)
-      setStopsOther('')
-    } else if (stopsVal) {
-      setStops('Other')
-      setStopsOther(stopsVal)
+    if (answers.travelPace) {
+      setTravelPace(answers.travelPace as TravelPacePreferenceId)
+    } else if (answers.stops) {
+      const migrated = legacyStopsToTravelPace(String(answers.stops))
+      if (migrated) setTravelPace(migrated)
     } else {
-      setStops('')
-      setStopsOther('')
+      setTravelPace('')
     }
     setActivities(Array.isArray(answers.activities) ? (answers.activities as string[]) : [])
     const vibeList = Array.isArray(answers.vibe) ? (answers.vibe as string[]) : []
@@ -761,8 +764,7 @@ export default function Step2() {
     flexLength,
     domestic,
     regions,
-    stops,
-    stopsOther,
+    travelPace,
     activities,
     vibe,
     vibeOther,
@@ -782,7 +784,7 @@ export default function Step2() {
     await patchTravelerStep2(supabase, tid, {
       q1, departureCities, departureCity: departureCitiesToStoredString(departureCities),
       dates, fixedDates, flexLength,
-      domestic, regions, stops: stops === 'Other' ? stopsOther : stops,
+      domestic, regions, travelPace,
       activities, vibe: vibe.includes('Other') ? [...vibe.filter(v => v !== 'Other'), vibeOther] : vibe,
       accommodation, budget: budget === 'Other' ? budgetOther : budget,
       popularity, q3, stage: stageToSave,
@@ -793,6 +795,7 @@ export default function Step2() {
       matrixSummary,
       matrixRecommendedTab,
       matrixRecommendedShape,
+      tripBrief,
       chatMessages: messagesOverride ?? chatMessages,
     })
     void (async () => {
@@ -887,6 +890,7 @@ export default function Step2() {
       setMatrixSummary('')
       setMatrixRecommendedTab(null)
       setMatrixRecommendedShape('')
+      setTripBrief('')
     }
     await saveProgress('done')
 
@@ -899,8 +903,7 @@ export default function Step2() {
       flexLength,
       domestic,
       regions,
-      stops,
-      stopsOther,
+      travelPace,
       activities,
       vibe,
       vibeOther,
@@ -909,6 +912,7 @@ export default function Step2() {
       budgetOther,
       popularity,
       q3,
+      tripBrief,
     }
 
     try {
@@ -925,6 +929,7 @@ export default function Step2() {
           summary,
           recommendedTab,
           recommendedShape,
+          tripBrief: brief,
         } = await fetchDestinationMatrix({
           tripId,
           answers: answerPayload,
@@ -945,6 +950,7 @@ export default function Step2() {
         setMatrixSummary(summary)
         setMatrixRecommendedTab(recommendedTab)
         setMatrixRecommendedShape(recommendedShape)
+        setTripBrief(brief || '')
         setCards(parsed)
         setStage('done')
         setEditMode(false)
@@ -964,6 +970,7 @@ export default function Step2() {
               matrixSummary: summary,
               matrixRecommendedTab: recommendedTab,
               matrixRecommendedShape: recommendedShape,
+              tripBrief: brief || '',
               cardVotes: {},
               ...(isConsideringPath ? { consideringList } : {}),
             })
@@ -1066,8 +1073,7 @@ export default function Step2() {
         flexLength,
         domestic,
         regions,
-        stops,
-        stopsOther,
+        travelPace,
         activities,
         vibe,
         vibeOther,
@@ -1076,6 +1082,7 @@ export default function Step2() {
         budgetOther,
         popularity,
         q3,
+        tripBrief,
       }
       const newRow = await fetchRegenerateMatrixRow({
         tripId,
@@ -1136,8 +1143,7 @@ export default function Step2() {
         flexLength,
         domestic,
         regions,
-        stops,
-        stopsOther,
+        travelPace,
         activities,
         vibe,
         vibeOther,
@@ -1146,6 +1152,7 @@ export default function Step2() {
         budgetOther,
         popularity,
         q3,
+        tripBrief,
       }
       const nextCards = await regenerateSingleDestinationCard(cards, cardIndex, answerPayload, {
         tripId,
@@ -1198,7 +1205,7 @@ export default function Step2() {
             flexLength,
             domestic,
             regions,
-            stops: stops === 'Other' ? stopsOther : stops,
+            travelPace,
             activities,
             vibe: vibe.includes('Other') ? [...vibe.filter(v => v !== 'Other'), vibeOther] : vibe,
             accommodation,
@@ -1521,17 +1528,12 @@ export default function Step2() {
               )}
               <div style={{ borderTop: '0.5px solid #e4e4d8' }} />
 
-              <div>
-                <span style={sectionLabel}>How many places?</span>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                  {['Just one', '2 stops', '3 stops', 'Open to anything', 'Other'].map(opt => (
-                    <button key={opt} onClick={() => setStops(opt)} style={chipStyle(stops === opt)}>{opt}</button>
-                  ))}
-                </div>
-                {stops === 'Other' && (
-                  <input style={{ ...inputStyle, marginTop: '8px' }} value={stopsOther} onChange={e => setStopsOther(e.target.value)} placeholder="Tell us more..." />
-                )}
-              </div>
+              <TravelPacePicker
+                value={travelPace}
+                onChange={setTravelPace}
+                sectionLabelStyle={sectionLabel}
+                buttonFontStyle={s}
+              />
               <div style={{ borderTop: '0.5px solid #e4e4d8' }} />
 
               <div>
@@ -1850,7 +1852,7 @@ export default function Step2() {
               summary={displayMatrixSummary}
               recommendedTab={displayMatrixRecommendedTab}
               recommendedShape={displayMatrixRecommendedShape}
-              tripShapeAnswers={{ stops, stopsOther, flexLength, fixedDates, dates, q1, q3 }}
+              tripShapeAnswers={{ travelPace, flexLength, fixedDates, dates, q1, q3 }}
               selected={displayVotes}
               maxVotes={maxVotes}
               readOnly={!canEditBrainstorm || isViewingPrior}

@@ -1,11 +1,8 @@
 import Anthropic from '@anthropic-ai/sdk'
 import type { MessageParam } from '@anthropic-ai/sdk/resources/messages'
-import {
-  departureCitiesFromAnswers,
-  formatDepartureCitiesForPrompt,
-} from './departure-cities'
 import { describeTripShapeHint, triplesGenerationTaskLine, type MatrixTabId } from './matrix-trip-shape'
 import { MATRIX_CHIP_RULES } from './matrix-chip-fields'
+import { MATRIX_GEO_RULES } from './matrix-geo-rules'
 import {
   parseDestinationMatrix,
   parseDestinationMatrixRows,
@@ -18,12 +15,54 @@ import {
   type DestinationMatrixRow,
 } from './parse-destination-matrix'
 import type { PairingCategory } from './matrix-pairing-categories'
-import { MATRIX_GEO_RULES, describeRoutingRealismHint } from './matrix-geo-rules'
 import { truncateBlurb } from './matrix-display-helpers'
+import { MATRIX_TRIP_STRUCTURE_RULES } from './matrix-trip-structure-rules'
 import {
-  describeTripStructureContext,
-  MATRIX_TRIP_STRUCTURE_RULES,
-} from './matrix-trip-structure-rules'
+  assembleTripGenerationContext,
+  type OrganizerDestinationProfile,
+  type MatrixGenerationMode,
+} from './step2c/trip-generation-context'
+
+export { generateTripSynthesis } from './step2c/generate-trip-synthesis'
+export type { OrganizerDestinationProfile } from './step2c/trip-generation-context'
+export { assertStep2InputsComplete, Step2InputValidationError } from './step2c/trip-generation-context'
+export { parseTripBrief, isValidTripBrief } from './step2c/parse-trip-brief'
+
+export const MATRIX_CARD_EXECUTION_RULES = `CARD EXECUTION RULES (follow TRIP_BRIEF when present — execute strategy, do not re-derive):
+- Cross-check TRIP_BRIEF HARD_FILTERS, ROUTING_REALITY forbidden_combos, and PACE_AND_STOPS before scoring
+- Name specific neighborhoods, venues, and landmarks — no generic filler
+- Surface input tensions honestly in TRADEOFF when budget, dates, or activities conflict
+- Flag ethical tourism / overtourism in TRADEOFF when relevant
+- Note when a place needs more nights than they have — be honest in TRADEOFF or CONSIDER
+- Budget is a soft guide: prefer in-budget; modestly over is OK with honest BUDGET FIT`
+
+function formatTripBriefBlock(tripBrief?: string): string {
+  if (!tripBrief?.trim()) return ''
+  return `\n\nTRIP SYNTHESIS BRIEF (execute this strategy — do not re-derive from scratch):\n${tripBrief.trim()}\n`
+}
+
+function resolveMatrixMode(
+  opts: MatrixGenOpts,
+  override?: MatrixGenerationMode,
+): MatrixGenerationMode {
+  if (override) return override
+  if (opts.mode) return opts.mode
+  return opts.consideringList.length > 0 ? 'considering' : 'brainstorm'
+}
+
+function buildMatrixUserContext(opts: MatrixGenOpts, modeOverride?: MatrixGenerationMode): string {
+  const mode = resolveMatrixMode(opts, modeOverride)
+  const base = assembleTripGenerationContext({
+    trip: opts.trip,
+    travelerCount: opts.travelerCount,
+    answers: opts.answers,
+    chatSupplement: opts.chatSupplement,
+    mode,
+    consideringList: mode === 'considering' ? opts.consideringList : undefined,
+    organizerProfile: opts.organizerProfile,
+  })
+  return `${base}${formatTripBriefBlock(opts.tripBrief)}`
+}
 
 /** Shared scoring rubric — used in monolithic and batched matrix generation. */
 export const MATRIX_SCORING_WEIGHTS = `Build a weighted scoring matrix for each destination across:
@@ -121,7 +160,7 @@ RANK 2 — Splurge + balance: most expensive/splurge stop on the list + a budget
 ACTIVITY VIBE PAIRINGS:
 (exactly two blocks — RANK 1 and RANK 2)
 
-Include a TRIPLES section when their trip length supports three bases (~21+ nights) OR they chose "3 stops". Omit TRIPLES for short trips (≤14 nights) or when they want just one destination:
+Include a TRIPLES section when their trip length supports three bases (~21+ nights) OR their travel pace is "pack it in" with dates that fit three bases. Omit TRIPLES for short trips (≤14 nights) or when they want to stay put:
 
 TRIPLES:
 ---
@@ -149,80 +188,32 @@ RECOMMENDED_SHAPE: One short sentence (max 20 words) on ideal stop count for the
 
 Be specific — name neighborhoods, venues, and landmarks. No generic filler.`
 
-function buildMustHavesLine(answers: Record<string, unknown>): string {
-  const activities = answers.activities as string[] | undefined
-  const vibe = answers.vibe as string[] | undefined
-  const regions = answers.regions as string[] | undefined
-
-  return [
-    activities?.length ? `Activities: ${activities.join(', ')}` : null,
-    vibe?.length ? `Vibe: ${vibe.join(', ')}` : null,
-    answers.accommodation ? `Accommodation: ${answers.accommodation}` : null,
-    answers.stops ? `Trip shape: ${answers.stops}` : null,
-    answers.domestic ? `Scope: ${answers.domestic}` : null,
-    regions?.length ? `Regions of interest: ${regions.join(', ')}` : null,
-    answers.popularity ? `Popularity preference: ${answers.popularity}` : null,
-  ]
-    .filter(Boolean)
-    .join('; ') || 'Not specified'
-}
 
 function buildMatrixContextBlock(
   trip: Record<string, unknown> | null,
   travelerCount: number,
   answers: Record<string, unknown>,
   chatSupplement: string,
-  opts: { consideringList?: string[]; mode?: MatrixGenerationMode } = {},
+  opts: {
+    consideringList?: string[]
+    mode?: MatrixGenerationMode
+    tripBrief?: string
+    organizerProfile?: OrganizerDestinationProfile | null
+  } = {},
 ): string {
-  const mode = opts.mode ?? 'brainstorm'
-  const departure = formatDepartureCitiesForPrompt(departureCitiesFromAnswers(answers))
-  const fixedDates = answers.fixedDates as { start?: string; end?: string } | undefined
-  const datesLine = fixedDates?.start
-    ? `${fixedDates.start} to ${fixedDates.end}`
-    : (answers.dates as string) || 'Not specified'
-  const flexLength = answers.flexLength as string | undefined
-  const tripStory = String(answers.q1 || '').trim()
-  const tripType = String((trip?.trip_type as string) || answers.tripLabel || 'Group trip').trim()
-  const dealBreakers = String(answers.q3 || '').trim() || 'None stated'
-  const mustHaves = buildMustHavesLine(answers)
-  const tripShapeAnswers = {
-    stops: answers.stops as string | undefined,
-    stopsOther: answers.stopsOther as string | undefined,
-    flexLength,
-    fixedDates,
-    dates: answers.dates as string | undefined,
-  }
-  const shapeHint = describeTripShapeHint(tripShapeAnswers, {
-    q1: tripStory,
-    q3: dealBreakers,
-    chatSupplement,
-  })
-  const routingHint = describeRoutingRealismHint(departure)
-  const consideringBlock = opts.consideringList?.length
-    ? `Options I am considering:\n${opts.consideringList.map((d, i) => `${i + 1}. ${d}`).join('\n')}\n`
-    : ''
-  const purposeSuffix =
-    mode === 'considering'
-      ? ' — infer the closest category among vacation, honeymoon, family, adventure, digital nomad, and cultural from the story below'
-      : ''
-
-  return `<context>
-Trip purpose: ${tripType}${purposeSuffix}
-About this trip: ${tripStory || 'Not specified'}
-Group size: ${travelerCount} people
-Travel window: ${datesLine}${flexLength ? ` (preferred length: ${flexLength})` : ''}
-Budget: ${answers.budget || 'Not specified'} per person (total trip cost including flights, lodging, food, and activities)
-Must-haves: ${mustHaves}
-  (Score broadly against beach/water, mountains/nature, food scene, nightlife, relaxation/wellness, safety for this group, and stated activity/vibe fit — not just literal keyword matches)
-Deal-breakers: ${dealBreakers}
-  (Treat as hard filters where stated — e.g. long flights, extreme heat or cold, visa hassle, crowds, safety concerns, or anything they explicitly ruled out)
-Departure city: ${departure || 'Not specified'}
-${consideringBlock}Trip shape guidance: ${shapeHint}
-Routing realism: ${routingHint}
-
-${describeTripStructureContext(answers, chatSupplement)}
-${chatSupplement}
-</context>`
+  return buildMatrixUserContext(
+    {
+      trip,
+      travelerCount,
+      answers,
+      consideringList: opts.consideringList ?? [],
+      chatSupplement,
+      mode: opts.mode,
+      tripBrief: opts.tripBrief,
+      organizerProfile: opts.organizerProfile,
+    },
+    opts.mode,
+  )
 }
 
 function buildMatrixUserMessage(
@@ -237,11 +228,14 @@ function buildMatrixUserMessage(
     mode: 'considering',
   })
   const triplesTask = triplesGenerationTaskLine({
+    travelPace: answers.travelPace as string | undefined,
     stops: answers.stops as string | undefined,
     stopsOther: answers.stopsOther as string | undefined,
     flexLength: answers.flexLength as string | undefined,
     fixedDates: answers.fixedDates as { start?: string; end?: string } | undefined,
     dates: answers.dates as string | undefined,
+    q1: String(answers.q1 || ''),
+    q3: String(answers.q3 || ''),
   }, tripShapePromptOpts(answers, chatSupplement))
 
   return `${context}
@@ -258,7 +252,7 @@ Evaluate every destination in my list — do not add, remove, or substitute opti
 </task>`
 }
 
-export type MatrixGenerationMode = 'considering' | 'brainstorm'
+export type { MatrixGenerationMode } from './step2c/trip-generation-context'
 
 export const BRAINSTORM_MATRIX_SYSTEM_PROMPT = `You are Avanti's group travel AI. Recommend destinations and multi-stop routes for a group that wants help brainstorming — you choose the places.
 
@@ -326,7 +320,7 @@ RANK 2 — Splurge + balance: most expensive/splurge stop on the list + a budget
 ACTIVITY VIBE PAIRINGS:
 (exactly two blocks — RANK 1 and RANK 2)
 
-Include a TRIPLES section when their trip length supports three bases (~21+ nights) OR they chose "3 stops". Omit TRIPLES for short trips or one-stop-only preferences:
+Include a TRIPLES section when their trip length supports three bases (~21+ nights) OR their travel pace is "pack it in" with dates that fit three bases. Omit TRIPLES for short trips or one-stop-only preferences:
 
 TRIPLES:
 ---
@@ -360,11 +354,14 @@ function buildBrainstormMatrixUserMessage(
     mode: 'brainstorm',
   })
   const triplesTask = triplesGenerationTaskLine({
+    travelPace: answers.travelPace as string | undefined,
     stops: answers.stops as string | undefined,
     stopsOther: answers.stopsOther as string | undefined,
     flexLength: answers.flexLength as string | undefined,
     fixedDates: answers.fixedDates as { start?: string; end?: string } | undefined,
     dates: answers.dates as string | undefined,
+    q1: String(answers.q1 || ''),
+    q3: String(answers.q3 || ''),
   }, tripShapePromptOpts(answers, chatSupplement))
 
   return `${context}
@@ -387,6 +384,8 @@ ALL TEMPERATURES IN FAHRENHEIT. ALL COSTS IN USD.
 Before writing, classify the trip purpose from their story and trip type.
 
 ${MATRIX_SCORING_WEIGHTS}
+
+${MATRIX_CARD_EXECUTION_RULES}
 
 ${MATRIX_CHIP_RULES}
 
@@ -462,7 +461,7 @@ RANK 2 — Splurge + balance: most expensive/splurge stop on the list + a budget
 ACTIVITY VIBE PAIRINGS:
 (exactly two blocks — RANK 1 and RANK 2)
 
-Include a TRIPLES section when their trip length supports three bases (~21+ nights) OR they chose "3 stops". Omit TRIPLES for short trips (≤14 nights) or when they want just one destination:
+Include a TRIPLES section when their trip length supports three bases (~21+ nights) OR their travel pace is "pack it in" with dates that fit three bases. Omit TRIPLES for short trips (≤14 nights) or when they want to stay put:
 
 TRIPLES:
 ---
@@ -538,6 +537,8 @@ type MatrixGenOpts = {
   chatSupplement?: string
   mode?: MatrixGenerationMode
   matrixRows?: DestinationMatrixRow[]
+  tripBrief?: string
+  organizerProfile?: OrganizerDestinationProfile | null
 }
 
 function tripShapePromptOpts(
@@ -601,16 +602,7 @@ export async function generateDestinationMatrixRows(
   opts: MatrixGenOpts,
 ): Promise<DestinationMatrixRow[]> {
   const mode = opts.mode ?? (opts.consideringList.length > 0 ? 'considering' : 'brainstorm')
-  const context = buildMatrixContextBlock(
-    opts.trip,
-    opts.travelerCount,
-    opts.answers,
-    opts.chatSupplement || '',
-    {
-      mode,
-      consideringList: mode === 'considering' ? opts.consideringList : undefined,
-    },
-  )
+  const context = buildMatrixUserContext(opts, mode)
 
   const listBlock =
     mode === 'considering'
@@ -634,22 +626,16 @@ export async function generateDestinationMatrixRoutes(
   opts: MatrixGenOpts & { destinationNames: string[] },
 ): Promise<Omit<ReturnType<typeof parseDestinationMatrix>, 'rows' | 'rawBlock'>> {
   const mode = opts.mode ?? (opts.consideringList.length > 0 ? 'considering' : 'brainstorm')
-  const context = buildMatrixContextBlock(
-    opts.trip,
-    opts.travelerCount,
-    opts.answers,
-    opts.chatSupplement || '',
-    {
-      mode,
-      consideringList: mode === 'considering' ? opts.consideringList : undefined,
-    },
-  )
+  const context = buildMatrixUserContext(opts, mode)
   const tripShapeAnswers = {
+    travelPace: opts.answers.travelPace as string | undefined,
     stops: opts.answers.stops as string | undefined,
     stopsOther: opts.answers.stopsOther as string | undefined,
     flexLength: opts.answers.flexLength as string | undefined,
     fixedDates: opts.answers.fixedDates as { start?: string; end?: string } | undefined,
     dates: opts.answers.dates as string | undefined,
+    q1: String(opts.answers.q1 || ''),
+    q3: String(opts.answers.q3 || ''),
   }
   const triplesTask = triplesGenerationTaskLine(
     tripShapeAnswers,
@@ -697,13 +683,7 @@ export async function generateBrainstormMatrixRow(
   client: Anthropic,
   opts: MatrixGenOpts & { existingNames: string[] },
 ): Promise<DestinationMatrixRow | null> {
-  const context = buildMatrixContextBlock(
-    opts.trip,
-    opts.travelerCount,
-    opts.answers,
-    opts.chatSupplement || '',
-    { mode: 'brainstorm' },
-  )
+  const context = buildMatrixUserContext(opts, 'brainstorm')
   const keepList = opts.existingNames.length
     ? opts.existingNames.map((n, i) => `${i + 1}. ${n}`).join('\n')
     : '(none yet)'
@@ -712,8 +692,10 @@ export async function generateBrainstormMatrixRow(
 
 <task>
 Suggest ONE new **unique single-city** destination for this group that is NOT already listed below.
+Pick from CANDIDATE_CITIES_SHORTLIST in TRIP_BRIEF when present; cross-check TRIP_BRIEF before scoring.
 
 ${MATRIX_SINGLE_DESTINATION_TASK}
+${MATRIX_CARD_EXECUTION_RULES}
 
 Output a single MATRIX row block only.
 Already suggested:
@@ -735,20 +717,16 @@ export async function generateConsideringMatrixRow(
   client: Anthropic,
   opts: MatrixGenOpts & { destinationName: string },
 ): Promise<DestinationMatrixRow | null> {
-  const context = buildMatrixContextBlock(
-    opts.trip,
-    opts.travelerCount,
-    opts.answers,
-    opts.chatSupplement || '',
-    { mode: 'considering', consideringList: opts.consideringList },
-  )
+  const context = buildMatrixUserContext(opts, 'considering')
 
   const userMessage = `${context}
 
 <task>
 Score ONLY "${opts.destinationName}" for this group — do not suggest alternatives.
+Apply the same non-linear analysis from TRIP_BRIEF to this place; note SUGGESTED_ADJACENTS only in synopsis if relevant.
 
 ${MATRIX_SINGLE_DESTINATION_TASK}
+${MATRIX_CARD_EXECUTION_RULES}
 
 Output one MATRIX row block only.
 </task>`
@@ -774,16 +752,7 @@ export async function generateMatrixPairingCategory(
 ): Promise<DestinationMatrixCombo[]> {
   const { header, task } = PAIRING_CATEGORY_TASKS[opts.category]
   const mode = opts.mode ?? (opts.consideringList.length > 0 ? 'considering' : 'brainstorm')
-  const context = buildMatrixContextBlock(
-    opts.trip,
-    opts.travelerCount,
-    opts.answers,
-    opts.chatSupplement || '',
-    {
-      mode,
-      consideringList: mode === 'considering' ? opts.consideringList : undefined,
-    },
-  )
+  const context = buildMatrixUserContext(opts, mode)
   const destList = opts.destinationNames.map((d, i) => `${i + 1}. ${d}`).join('\n')
   const usedPairings = formatExistingPairingsBlock(opts.existingPairings ?? [])
   const scoredBlock = formatScoredDestinationsBlock(opts.matrixRows ?? [])
@@ -819,7 +788,8 @@ ${destList}
 
 <task>
 ${task}
-Use realistic regional corridors from their departure city — same country or adjacent countries in one region only.
+Use realistic regional corridors from their departure city — respect TRIP_BRIEF forbidden_combos and PACE_AND_STOPS.
+Routes must respect forbidden_combos and PACE_AND_STOPS from TRIP_BRIEF when present.
 Output ${header}: with exactly two --- blocks (RANK 1 and RANK 2). Nothing else.
 </task>`
 
@@ -843,22 +813,16 @@ export async function generateMatrixTriples(
   opts: MatrixGenOpts & { destinationNames: string[]; existingPairings?: string[] },
 ): Promise<DestinationMatrixCombo[]> {
   const mode = opts.mode ?? (opts.consideringList.length > 0 ? 'considering' : 'brainstorm')
-  const context = buildMatrixContextBlock(
-    opts.trip,
-    opts.travelerCount,
-    opts.answers,
-    opts.chatSupplement || '',
-    {
-      mode,
-      consideringList: mode === 'considering' ? opts.consideringList : undefined,
-    },
-  )
+  const context = buildMatrixUserContext(opts, mode)
   const tripShapeAnswers = {
+    travelPace: opts.answers.travelPace as string | undefined,
     stops: opts.answers.stops as string | undefined,
     stopsOther: opts.answers.stopsOther as string | undefined,
     flexLength: opts.answers.flexLength as string | undefined,
     fixedDates: opts.answers.fixedDates as { start?: string; end?: string } | undefined,
     dates: opts.answers.dates as string | undefined,
+    q1: String(opts.answers.q1 || ''),
+    q3: String(opts.answers.q3 || ''),
   }
   const destList = opts.destinationNames.map((d, i) => `${i + 1}. ${d}`).join('\n')
   const usedPairings = formatExistingPairingsBlock(opts.existingPairings ?? [])
@@ -892,7 +856,7 @@ ${destList}
 
 <task>
 ${triplesGenerationTaskLine(tripShapeAnswers, tripShapePromptOpts(opts.answers, opts.chatSupplement || ''))}
-Prefer three cities in one region or a sensible travel loop — no random multi-continent stitching.
+Prefer three cities in one region or a sensible travel loop — no random multi-continent stitching; respect TRIP_BRIEF forbidden_combos.
 Output TRIPLES: with up to 3 ranked blocks. Nothing else.
 </task>`
 
@@ -906,16 +870,7 @@ export async function generateMatrixRecommendations(
   opts: MatrixGenOpts & { destinationNames: string[] },
 ): Promise<{ summary: string; recommendedTab: MatrixTabId | null; recommendedShape: string }> {
   const mode = opts.mode ?? (opts.consideringList.length > 0 ? 'considering' : 'brainstorm')
-  const context = buildMatrixContextBlock(
-    opts.trip,
-    opts.travelerCount,
-    opts.answers,
-    opts.chatSupplement || '',
-    {
-      mode,
-      consideringList: mode === 'considering' ? opts.consideringList : undefined,
-    },
-  )
+  const context = buildMatrixUserContext(opts, mode)
   const destList = opts.destinationNames.map((d, i) => `${i + 1}. ${d}`).join('\n')
   const scoredBlock = formatScoredDestinationsBlock(opts.matrixRows ?? [])
 
@@ -926,8 +881,8 @@ ${destList}
 
 <task>
 Write AVANTI_MATRIX_END, then ONE short sentence (max 25 words) naming your top pick for this group.
-Then RECOMMENDED_TAB: singles | pairings | triples
-Then RECOMMENDED_SHAPE: one short sentence (max 20 words) on ideal stop count for their dates.
+Then RECOMMENDED_TAB: singles | pairings | triples — must align with TRIP_BRIEF PACE_AND_STOPS when present.
+Then RECOMMENDED_SHAPE: one short sentence (max 20 words) — must match TRIP_BRIEF RECOMMENDED_SHAPE and PACE_AND_STOPS when present.
 </task>`
 
   const text = await callClaude(
@@ -995,15 +950,23 @@ export async function regenerateMatrixDestinationRow(
     keepNames: string[]
     chatSupplement?: string
     mode?: MatrixGenerationMode
+    tripBrief?: string
+    organizerProfile?: OrganizerDestinationProfile | null
   },
 ): Promise<DestinationMatrixRow | null> {
   const mode = opts.mode ?? 'brainstorm'
-  const context = buildMatrixContextBlock(
-    opts.trip,
-    opts.travelerCount,
-    opts.answers,
-    opts.chatSupplement || '',
-    { mode },
+  const context = buildMatrixUserContext(
+    {
+      trip: opts.trip,
+      travelerCount: opts.travelerCount,
+      answers: opts.answers,
+      consideringList: [],
+      chatSupplement: opts.chatSupplement,
+      mode,
+      tripBrief: opts.tripBrief ?? (opts.answers.tripBrief as string | undefined),
+      organizerProfile: opts.organizerProfile,
+    },
+    mode,
   )
   const keepList = opts.keepNames.filter(n => n !== opts.replaceName).join('\n')
 

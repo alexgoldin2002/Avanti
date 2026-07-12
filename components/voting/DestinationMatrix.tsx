@@ -39,6 +39,8 @@ type DestinationMatrixProps = {
   recommendedTab?: MatrixTabId | null
   recommendedShape?: string
   tripShapeAnswers?: {
+    travelPace?: string
+    /** @deprecated Legacy — migrated to travelPace */
     stops?: string
     stopsOther?: string
     flexLength?: string

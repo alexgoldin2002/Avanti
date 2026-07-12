@@ -3,11 +3,14 @@ import { nightsBetween, parseFlexLengthMinNights } from './group-date-overlap'
 export type PaceTier = 'fast' | 'moderate' | 'slow'
 
 type TripShapeAnswers = {
+  travelPace?: string
   stops?: string
   stopsOther?: string
   flexLength?: string
   fixedDates?: { start?: string; end?: string }
   dates?: string
+  q1?: string
+  q3?: string
 }
 
 function nightsFromFlexLength(flex: string): number | null {
@@ -161,18 +164,45 @@ export function tripSupportsThreeStops(
   pace?: PaceTier,
   freeTextSources: Array<string | undefined | null> = [],
 ): boolean {
+  if (answers.travelPace === 'one_place') return false
   const stops = normalizeStops(answers.stops, answers.stopsOther)
   if (stops.includes('just one') || stops === '1') return false
-  if (answers.stops === '3 stops') return true
 
-  const tier = pace ?? inferPaceTier(...freeTextSources)
+  const tier =
+    pace ??
+    explicitTravelPaceTier(answers.travelPace) ??
+    legacyStopsToPaceTier(answers.stops) ??
+    inferPaceTier(...freeTextSources)
   const rec = recommendStopCount(answers, tier)
   return rec.max >= 3
 }
 
+function explicitTravelPaceTier(travelPace?: string): PaceTier | null {
+  if (travelPace === 'pack_it_in') return 'fast'
+  if (travelPace === 'one_place') return 'slow'
+  if (travelPace === 'balanced') return 'moderate'
+  return null
+}
+
+function legacyStopsToPaceTier(stops?: string): PaceTier | null {
+  if (!stops?.trim()) return null
+  const s = stops.trim().toLowerCase()
+  if (s.includes('just one') || s === '1') return 'slow'
+  if (s.includes('3 stop')) return 'fast'
+  if (s.includes('2 stop') || s.includes('open')) return 'moderate'
+  return null
+}
+
+function travelPaceDisplayLabel(travelPace?: string): string {
+  if (travelPace === 'pack_it_in') return 'Pack it in'
+  if (travelPace === 'balanced') return 'Balanced'
+  if (travelPace === 'one_place') return 'Stay put'
+  return ''
+}
+
 export const MATRIX_TRIP_STRUCTURE_RULES = `TRIP STRUCTURE RULES
 
-Step 1 — Detect pace preference from free-text (trip story, deal-breakers, chat). Do NOT require a dropdown.
+Step 1 — Use explicit travel pace from the form when present (pack it in / balanced / stay put). Otherwise infer from free-text (trip story, deal-breakers, chat).
 
 FAST (pack it in): willing to take early trains, move every 2–3 days, optimize for coverage. Unlock one extra stop vs. default when transit allows.
 MODERATE (default): move every 3–4 days, balance exploration with rest. Use the base stop count.
@@ -226,14 +256,20 @@ export function describeTripStructureContext(
 ): string {
   const tripStory = String(answers.q1 || '').trim()
   const dealBreakers = String(answers.q3 || '').trim()
-  const pace = inferPaceTier(tripStory, dealBreakers, chatSupplement)
+  const pace =
+    explicitTravelPaceTier(answers.travelPace as string | undefined) ??
+    legacyStopsToPaceTier(answers.stops as string | undefined) ??
+    inferPaceTier(tripStory, dealBreakers, chatSupplement)
 
   const tripShapeAnswers = {
+    travelPace: answers.travelPace as string | undefined,
     stops: answers.stops as string | undefined,
     stopsOther: answers.stopsOther as string | undefined,
     flexLength: answers.flexLength as string | undefined,
     fixedDates: answers.fixedDates as { start?: string; end?: string } | undefined,
     dates: answers.dates as string | undefined,
+    q1: tripStory,
+    q3: dealBreakers,
   }
 
   const rec = recommendStopCount(tripShapeAnswers, pace)
@@ -246,10 +282,12 @@ export function describeTripStructureContext(
     pace === 'fast'
       ? 'FAST — pack it in; may add one stop when transit allows'
       : pace === 'slow'
-        ? 'SLOW — sink in; prefer fewer stops and more depth'
-        : 'MODERATE — default balanced pace'
+        ? 'SLOW — stay put; prefer fewer stops and more depth'
+        : 'MODERATE — balanced pace'
 
-  return `Pace tier (inferred from their words): ${paceLabel}
+  const explicitPace = travelPaceDisplayLabel(answers.travelPace as string | undefined)
+
+  return `Travel pace: ${explicitPace || paceLabel}
 Recommended stop count for this trip: ${rec.min}${rec.min !== rec.max ? `–${rec.max}` : ''} stops (${nightsLine})
 
 ${MATRIX_TRIP_STRUCTURE_RULES}`

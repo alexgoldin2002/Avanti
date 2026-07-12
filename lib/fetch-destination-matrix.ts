@@ -16,7 +16,7 @@ import { coerceMatrixRecommendedTab, shouldIncludeTripleRoutes, type MatrixTabId
 import type { ChatMessage } from '@/lib/infer-trip-context'
 
 export const MATRIX_GENERATION_TIME_HINT =
-  'This usually takes 2–3 minutes to build your destination options.'
+  'This usually takes 3–4 minutes while we analyze your trip and build destination options.'
 
 function formatMatrixProgress(completed: number, total: number, label: string): string {
   const percent = total > 0 ? Math.min(100, Math.round((completed / total) * 100)) : 0
@@ -30,7 +30,7 @@ export function parseMatrixProgressStatus(status: string | null): {
   if (!status) {
     return {
       percent: null,
-      label: 'Weighing destinations against your vibe, budget, and deal breakers…',
+      label: 'Understanding your trip story…',
     }
   }
   const match = status.match(/^(\d+)% done — (.+)$/)
@@ -52,7 +52,7 @@ function matrixGenerationStepCount(
       q1: String(answers.q1 || ''),
       q3: String(answers.q3 || ''),
     }) && rowCount >= 3
-  return rowCount + PAIRING_CATEGORY_ORDER.length + (includeTriples ? 1 : 0) + 1
+  return 1 + rowCount + PAIRING_CATEGORY_ORDER.length + (includeTriples ? 1 : 0) + 1
 }
 
 type MatrixFetchOpts = {
@@ -73,6 +73,7 @@ type MatrixFetchResult = {
   summary: string
   recommendedTab: MatrixTabId | null
   recommendedShape: string
+  tripBrief: string | null
 }
 
 async function authHeaders(): Promise<HeadersInit> {
@@ -196,6 +197,26 @@ async function fetchMatrixBatched(opts: MatrixFetchOpts): Promise<MatrixFetchRes
     opts.onStatus?.(formatMatrixProgress(completedSteps, totalSteps, label))
   }
 
+  report('Understanding your trip story…')
+  let tripBrief: string | null = null
+  try {
+    const { res: synthRes, data: synthData } = await postMatrixPhaseWithRetry({
+      ...baseBody,
+      phase: 'synthesis',
+    })
+    if (synthRes.ok) {
+      tripBrief = (synthData.tripBrief as string | null) || null
+    }
+  } catch {
+    tripBrief = null
+  }
+  if (tripBrief) {
+    baseBody.tripBrief = tripBrief
+    finishStep('Trip analysis complete')
+  } else {
+    finishStep('Continuing — scoring destinations…')
+  }
+
   if (mode === 'considering') {
     const list = opts.consideringList ?? []
     for (let i = 0; i < list.length; i++) {
@@ -230,7 +251,7 @@ async function fetchMatrixBatched(opts: MatrixFetchOpts): Promise<MatrixFetchRes
   } else {
     const existingNames: string[] = []
     for (let i = 0; i < BRAINSTORM_MATRIX_DESTINATION_COUNT; i++) {
-      report(`Researching destination ${i + 1} of ${BRAINSTORM_MATRIX_DESTINATION_COUNT}…`)
+      report(`Scoring destination ${i + 1} of ${BRAINSTORM_MATRIX_DESTINATION_COUNT}…`)
       const row = await fetchBrainstormMatrixRow(
         baseBody,
         existingNames,
@@ -240,7 +261,7 @@ async function fetchMatrixBatched(opts: MatrixFetchOpts): Promise<MatrixFetchRes
       )
       matrix.push(row)
       existingNames.push(row.name)
-      finishStep(`Researched ${row.name.split(',')[0]?.trim() || row.name}`)
+      finishStep(`Scored ${row.name.split(',')[0]?.trim() || row.name}`)
     }
   }
 
@@ -313,6 +334,7 @@ async function fetchMatrixBatched(opts: MatrixFetchOpts): Promise<MatrixFetchRes
       opts.answers,
     ),
     recommendedShape: (recData.recommendedShape as string) || '',
+    tripBrief,
   }
 }
 

@@ -12,6 +12,12 @@ import {
   departureCitiesFromAnswers,
   formatDepartureCitiesForPrompt,
 } from './departure-cities'
+import {
+  legacyStopsToTravelPace,
+  travelPaceLabel,
+  travelPacePromptLine,
+  type TravelPacePreferenceId,
+} from './travel-pace-preference'
 
 export const DESTINATION_SYSTEM_PROMPT = `You are Avanti's group travel AI. Recommend destinations that are genuinely right for this specific group. Reason carefully before writing anything.
 
@@ -210,19 +216,24 @@ function buildTripTypeRule(
   return rules.length ? `\n${rules.join('\n')}` : ''
 }
 
-function buildMultiStopRule(stops: string | undefined): string {
-  const normalized = (stops || '').trim()
-  if (!normalized || normalized === 'Just one') return ''
-
-  if (normalized === 'Open to anything') {
-    return `\nMULTI-STOP: Open to multi-stop — if this destination works as a hub, note a logical 2–3 stop routing in LOGISTICS (order, transit time, cost between stops).`
+function resolveTravelPaceForPrompt(answers: Record<string, unknown>): TravelPacePreferenceId | undefined {
+  if (typeof answers.travelPace === 'string' && answers.travelPace.trim()) {
+    return answers.travelPace as TravelPacePreferenceId
   }
+  return legacyStopsToTravelPace(answers.stops as string | undefined)
+}
 
-  if (/^\d+\s*stops?$/i.test(normalized) || normalized === 'Other') {
-    return `\nMULTI-STOP: They want ${normalized} — in LOGISTICS, suggest how to split nights across cities/regions, transit between stops (train/flight/drive), and whether trip length is enough. Flag if multi-stop eats too many days.`
+function buildTravelPaceRule(answers: Record<string, unknown>): string {
+  const pace = resolveTravelPaceForPrompt(answers)
+  if (!pace) return ''
+
+  if (pace === 'one_place') {
+    return `\nTRAVEL PACE: ${travelPacePromptLine(pace)} In LOGISTICS, favor one deep base; only mention multi-city splits if dates clearly support them without rushing.`
   }
-
-  return `\nMULTI-STOP: Stops preference "${normalized}" — address multi-city routing in LOGISTICS when this destination supports it.`
+  if (pace === 'pack_it_in') {
+    return `\nTRAVEL PACE: ${travelPacePromptLine(pace)} In LOGISTICS, suggest how to split nights across cities when this destination works as a hub — transit between stops, and whether trip length is enough.`
+  }
+  return `\nTRAVEL PACE: ${travelPacePromptLine(pace)} In LOGISTICS, note a sensible 2-stop routing when this destination supports it — order, transit time, and whether the trip length fits.`
 }
 
 export function buildDestinationUserMessage(
@@ -245,7 +256,8 @@ export function buildDestinationUserMessage(
   const flexLength = answers.flexLength as string | undefined
   const travelTimeRule = buildTravelTimeRule(flexLength, departure, regions, answers.domestic as string | undefined)
   const tripTypeRule = buildTripTypeRule(trip, answers, activities)
-  const multiStopRule = buildMultiStopRule(answers.stops as string | undefined)
+  const travelPaceRule = buildTravelPaceRule(answers)
+  const pace = resolveTravelPaceForPrompt(answers)
 
   const eventLine = trip?.is_event_centered
     ? `Yes — ${trip.event_name} on ${trip.event_date_end && trip.event_date_end !== trip.event_date ? `${trip.event_date} to ${trip.event_date_end}` : trip.event_date} in ${trip.event_location}`
@@ -270,7 +282,7 @@ Logistics:
 - Departure: ${departure}
 - Dates: ${datesLine}${flexLength ? ` (preferred length: ${flexLength})` : ''}
 - Domestic/international: ${answers.domestic || 'No preference'}${regions?.length ? ` — regions: ${regions.join(', ')}` : ''}
-- Number of stops: ${answers.stops || 'flexible'}${travelTimeRule}${tripTypeRule}${multiStopRule}${chatSupplement}
+- Travel pace: ${pace ? travelPaceLabel(pace) : 'not specified'}${travelTimeRule}${tripTypeRule}${travelPaceRule}${chatSupplement}
 </context>`
 
   const taskBlock = `<task>

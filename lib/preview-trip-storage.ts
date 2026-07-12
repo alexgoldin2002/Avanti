@@ -37,6 +37,7 @@ export type PreviewTripMeta = {
   matrixSummary?: string
   matrixRecommendedTab?: MatrixTabId | null
   matrixRecommendedShape?: string
+  tripBrief?: string
 }
 
 function readStorage(key: string): string | null {
@@ -160,8 +161,7 @@ export function buildStep2FromPreviewAnswers(
     flexLength: String(answers.flexLength || ''),
     domestic: String(answers.domestic || ''),
     regions: Array.isArray(answers.regions) ? answers.regions : [],
-    stops: String(answers.stops || ''),
-    stopsOther: String(answers.stopsOther || ''),
+    travelPace: String(answers.travelPace || ''),
     activities: Array.isArray(answers.activities) ? answers.activities : [],
     vibe: Array.isArray(answers.vibe) ? answers.vibe : [],
     accommodation: String(answers.accommodation || ''),

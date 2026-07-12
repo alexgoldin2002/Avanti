@@ -89,3 +89,21 @@ export function buildChatSupplementBlock(chatMessages: ChatMessage[] | undefined
   if (!formatted) return ''
   return `\n\nADDITIONAL CONTEXT FROM CHAT (factor this into routing, group size, and trip length):\n${truncate(formatted, 2000)}`
 }
+
+/** Derive age band from ISO date of birth for destination prompts. */
+export function ageBandFromDateOfBirth(dob: string | null | undefined): string | null {
+  if (!dob?.trim()) return null
+  const born = new Date(dob.trim())
+  if (Number.isNaN(born.getTime())) return null
+  const now = new Date()
+  let age = now.getFullYear() - born.getFullYear()
+  const monthDelta = now.getMonth() - born.getMonth()
+  if (monthDelta < 0 || (monthDelta === 0 && now.getDate() < born.getDate())) age -= 1
+  if (age < 18) return 'under 18'
+  if (age < 25) return '18–24'
+  if (age < 35) return '25–34'
+  if (age < 45) return '35–44'
+  if (age < 55) return '45–54'
+  if (age < 65) return '55–64'
+  return '65+'
+}
