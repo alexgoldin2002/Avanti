@@ -1,9 +1,10 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect, useRef, Suspense } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import Footer from './components/Footer'
+import HomeTripPlanner from './components/HomeTripPlanner'
 import { getPostAuthPath } from '@/lib/preview-trip-storage'
 import { authCallbackUrl } from '@/lib/auth/oauth'
 import PhoneAuthForm from './components/PhoneAuthForm'
@@ -23,20 +24,22 @@ const panels = [
   },
   {
     eyebrow: '2',
-    title: 'The Plan',
-    body: 'Itineraries, reservations, logistics — quietly handled before you board.',
-    label: 'PLAN',
-  },
-  {
-    eyebrow: '3',
     title: 'The Place',
     body: 'Rooms, tables, and corners worth flying for. Booked, confirmed, yours.',
     label: 'PLACE',
+  },
+  {
+    eyebrow: '3',
+    title: 'The Plan',
+    body: 'Itineraries, reservations, logistics — quietly handled before you board.',
+    label: 'PLAN',
   },
 ]
 
 export default function Home() {
   const router = useRouter()
+  const tryItRef = useRef<HTMLElement>(null)
+  const [tryItExpanded, setTryItExpanded] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [authMode, setAuthMode] = useState<'signin' | 'signup' | null>(null)
   const [email, setEmail] = useState('')
@@ -109,6 +112,29 @@ export default function Home() {
     })
     if (oauthError) setError(oauthError.message)
   }
+
+  const openTryIt = () => {
+    setTryItExpanded(true)
+    window.history.replaceState(null, '', '#try-it')
+    requestAnimationFrame(() => {
+      tryItRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+  }
+
+  const collapseTryIt = () => {
+    setTryItExpanded(false)
+    window.history.replaceState(null, '', window.location.pathname)
+    document.getElementById('home-hero')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }
+
+  useEffect(() => {
+    if (window.location.hash === '#try-it') {
+      setTryItExpanded(true)
+      requestAnimationFrame(() => {
+        tryItRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      })
+    }
+  }, [])
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
@@ -201,17 +227,37 @@ export default function Home() {
             >
               Let&apos;s get planning
             </button>
-            <Link
-              href="/try"
+            <button
+              type="button"
+              onClick={openTryIt}
               className={`mt-14 flex flex-col items-center gap-1 text-forest-deep/60 hover:text-forest-deep transition-colors animate-bounce-down`}
             >
               <span className="eyebrow text-[10px] tracking-widest">Try it first</span>
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                 <polyline points="6 9 12 15 18 9" />
               </svg>
-            </Link>
+            </button>
           </div>
         </div>
+
+        <section
+          id="try-it"
+          ref={tryItRef}
+          className={`relative z-10 border-t border-cream/15 bg-cream scroll-mt-0 transition-all duration-300 ${
+            tryItExpanded ? '' : 'max-h-0 overflow-hidden border-t-0'
+          }`}
+        >
+          {tryItExpanded && (
+            <Suspense fallback={null}>
+              <HomeTripPlanner
+                embedded
+                onCollapse={collapseTryIt}
+                onSignupRequest={() => router.push('/auth?mode=signup&from=try')}
+                onSigninRequest={() => router.push('/auth?mode=signin&from=try')}
+              />
+            </Suspense>
+          )}
+        </section>
 
         <div className="relative z-10 border-t border-cream/15 bg-forest-deep">
           <div className="relative grid grid-cols-1 md:grid-cols-3">

@@ -1,10 +1,9 @@
-/** One-line trip takeaway for the matrix UI — no markdown, capped length. */
+/** One-line trip takeaway — shape only; summary lives in the page header. */
 export function compactMatrixBlurb(recommendedShape?: string, summary?: string): string {
   const shape = stripMarkdown(recommendedShape || '').trim()
+  if (shape) return truncateBlurb(shape, 100)
   const body = stripMarkdown(summary || '').trim()
-
-  const pick = shape || body
-  return truncateBlurb(pick)
+  return truncateBlurb(body, 100)
 }
 
 export function truncateBlurb(text: string, max = 140): string {

@@ -39,9 +39,13 @@ type Stage = 'path' | 'known' | 1 | 2 | 3 | 'generate' | 'done'
 export default function HomeTripPlanner({
   onSignupRequest,
   onSigninRequest,
+  embedded = false,
+  onCollapse,
 }: {
   onSignupRequest: () => void
   onSigninRequest: () => void
+  embedded?: boolean
+  onCollapse?: () => void
 }) {
   const [stage, setStage] = useState<Stage>('path')
   const [planningPath, setPlanningPath] = useState<DestinationPlanningPath | null>(null)
@@ -156,10 +160,18 @@ export default function HomeTripPlanner({
     loadGoogleMapsScript()
   }, [])
 
-  const showQ2 = planningPath && ((typeof stage === 'number' && stage >= 2) || stage === 'generate' || stage === 'done')
+  const showQ2 = stage === 2
+  const showQ3 = stage === 3
+
+  const goBack = () => {
+    if (stage === 1) setStage('path')
+    else if (stage === 'known') setStage(1)
+    else if (stage === 2) setStage(isKnownPath ? 'known' : 1)
+    else if (stage === 3) setStage(2)
+  }
 
   useEffect(() => {
-    if (stage !== 'known' && !showQ2) return
+    if (stage !== 'known' && stage !== 2) return
     const initAutocomplete = (inputId: string, onPick: (name: string) => void) => {
       const input = document.getElementById(inputId) as HTMLInputElement
       if (!input) return
@@ -195,7 +207,7 @@ export default function HomeTripPlanner({
       }
     }
     whenGooglePlacesReady().then(() => tryInit())
-  }, [showQ2, stage, isConsideringPath, isKnownPath])
+  }, [stage, isConsideringPath, isKnownPath])
 
   const isKnownSetupComplete = () => {
     if (knownPlaces.length === 0) return false
@@ -237,7 +249,6 @@ export default function HomeTripPlanner({
 
   const q2Valid = isQ2Complete()
   const q3Valid = q3.trim().length > 0
-  const showQ3 = stage === 'generate' || stage === 'done' || (typeof stage === 'number' && stage >= 3 && q2Valid)
 
   const toggleMulti = (arr: string[], val: string, setter: (a: string[]) => void) => {
     setter(arr.includes(val) ? arr.filter(x => x !== val) : [...arr, val])
@@ -421,22 +432,59 @@ export default function HomeTripPlanner({
     </div>
   )
 
+  const backBtn = (stage !== 'path' && stage !== 'generate' && stage !== 'done') ? (
+    <button
+      type="button"
+      onClick={goBack}
+      className="eyebrow text-muted-foreground hover:text-forest-deep transition mb-6"
+      style={s}
+    >
+      ← Back
+    </button>
+  ) : null
+
   return (
-    <div className="bg-cream text-forest-deep py-16 md:py-24 px-6" style={s}>
+    <div className={`bg-cream text-forest-deep ${embedded ? 'py-10 md:py-14' : 'py-16 md:py-24'} px-6`} style={s}>
       <div className={`mx-auto px-0 ${stage === 'done' ? 'max-w-6xl' : 'max-w-2xl'}`}>
-        <div className="text-center mb-12">
-          <p className="eyebrow text-muted-foreground mb-3">Try it free</p>
-          <h2 className="font-serif text-3xl md:text-4xl text-forest-deep italic leading-tight">
-            Tell us about your trip
-          </h2>
-          <p className="mt-4 text-muted-foreground text-base leading-relaxed max-w-md mx-auto">
-            No account needed to preview options. Create an account to save your picks, invite your group, and start voting together.
+        {embedded && (
+          <div className="flex items-center justify-between mb-6">
+            <span className="eyebrow text-muted-foreground">Try it free</span>
+            {onCollapse && (
+              <button
+                type="button"
+                onClick={onCollapse}
+                className="eyebrow text-muted-foreground hover:text-forest-deep transition"
+                style={s}
+              >
+                ↑ Back to top
+              </button>
+            )}
+          </div>
+        )}
+
+        {!embedded && (
+          <div className="text-center mb-12">
+            <p className="eyebrow text-muted-foreground mb-3">Try it free</p>
+            <h2 className="font-serif text-3xl md:text-4xl text-forest-deep italic leading-tight">
+              Tell us about your trip
+            </h2>
+            <p className="mt-4 text-muted-foreground text-base leading-relaxed max-w-md mx-auto">
+              Preview options without an account. Sign in to save picks and invite your group.
+            </p>
+          </div>
+        )}
+
+        {embedded && stage !== 'done' && stage !== 'generate' && (
+          <p className="text-sm text-muted-foreground mb-8 leading-relaxed">
+            No account needed to preview. Sign in when you&apos;re ready to vote with your group.
           </p>
-        </div>
+        )}
+
+        {backBtn}
 
         {stage === 'path' && (
           <>
-            <AvantiQuestion>What stage best describes your group right now?</AvantiQuestion>
+            <AvantiQuestion>Where is your group at right now?</AvantiQuestion>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '24px', paddingLeft: '54px' }}>
               {PLANNING_PATH_OPTIONS.map(opt => (
                 <button
@@ -453,9 +501,6 @@ export default function HomeTripPlanner({
                     ...s,
                   }}
                 >
-                  <span style={{ fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--muted-foreground)', display: 'block', marginBottom: '4px' }}>
-                    Step {opt.stepLabel}
-                  </span>
                   <span style={{ display: 'block', fontSize: '16px', color: 'var(--foreground)', marginBottom: '4px' }}>{opt.title}</span>
                   <span style={{ display: 'block', fontSize: '13px', color: 'var(--muted-foreground)', lineHeight: 1.5 }}>{opt.description}</span>
                 </button>
@@ -565,23 +610,7 @@ export default function HomeTripPlanner({
           </>
         )}
 
-        {stage !== 1 && stage !== 'path' && stage !== 'known' && (
-          <div style={{ marginBottom: '32px' }}>
-            <AvantiQuestion>
-              Tell us about this trip. Who is going? What kind of trip are you looking for? Any idea where? What&apos;s the reason for the trip?
-            </AvantiQuestion>
-            <UserBubble>{q1}</UserBubble>
-            {stage !== 'done' && stage !== 'generate' && (
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '-16px', marginBottom: '24px' }}>
-                <button type="button" onClick={() => setStage(1)} style={{ fontSize: '11px', color: 'var(--muted-foreground)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', ...s }}>
-                  Edit
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-
-        {showQ2 && stage !== 'done' && (
+        {showQ2 && (
           <>
             <AvantiQuestion>A few more details — tap to answer each one.</AvantiQuestion>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '28px', marginBottom: showQ3 ? '32px' : '0', paddingLeft: '54px' }}>
@@ -784,10 +813,10 @@ export default function HomeTripPlanner({
           </>
         )}
 
-        {showQ3 && stage !== 'done' && (
+        {showQ3 && (
           <>
             <AvantiQuestion>What don&apos;t you want? Any deal breakers? Anything else Avanti should know?</AvantiQuestion>
-            {stage === 3 || stage === 'generate' ? (
+            {stage === 3 ? (
               <div style={{ marginBottom: '32px', paddingLeft: '54px' }}>
                 <textarea
                   value={q3}
@@ -813,8 +842,6 @@ export default function HomeTripPlanner({
                   </div>
                 )}
               </div>
-            ) : q3.trim() ? (
-              <UserBubble>{q3}</UserBubble>
             ) : null}
           </>
         )}
@@ -870,17 +897,10 @@ export default function HomeTripPlanner({
 
         {!generating && matrixRows.length > 0 && (
           <div ref={previewResultsRef}>
-            <div className="mt-10 mb-8 text-center">
-              <p className="eyebrow text-muted-foreground mb-2">Your preview</p>
+            <div className="mt-10 mb-6 text-center">
               <h3 className="font-serif text-2xl text-forest-deep italic">
-                {isConsideringPath ? 'Your comparison matrix' : 'Destination options for your group'}
+                {isConsideringPath ? 'Compare your shortlist' : 'Destination options'}
               </h3>
-              {matrixSummary && (
-                <p className="mt-3 text-sm text-foreground max-w-lg mx-auto leading-relaxed">{matrixSummary}</p>
-              )}
-              <p className="mt-3 text-sm text-muted-foreground max-w-md mx-auto leading-relaxed">
-                Voting and inviting your group requires an account — nothing is shared until you sign in.
-              </p>
             </div>
             <ProtectedContent className="mb-8">
               <DestinationMatrix
@@ -896,6 +916,8 @@ export default function HomeTripPlanner({
                   flexLength,
                   fixedDates,
                   dates,
+                  q1,
+                  q3,
                 }}
                 selected={{}}
                 maxVotes={2}
@@ -907,9 +929,9 @@ export default function HomeTripPlanner({
               />
             </ProtectedContent>
             <div className="text-center border border-forest-deep/20 bg-ivory p-8 md:p-10">
-              <p className="font-serif text-xl text-forest-deep mb-3 italic">Ready to share with your group?</p>
+              <p className="font-serif text-xl text-forest-deep mb-3 italic">Ready to plan with your group?</p>
               <p className="text-sm text-muted-foreground mb-6 max-w-sm mx-auto leading-relaxed">
-                Create an account to save these options, invite travel mates, and unlock group voting. You can&apos;t vote or invite anyone until you&apos;re signed in.
+                Create an account to save these options and start voting.
               </p>
               <button
                 type="button"
@@ -925,9 +947,20 @@ export default function HomeTripPlanner({
               >
                 Already have an account? Sign in
               </button>
-              <Link href="/" className="mt-6 inline-block eyebrow text-muted-foreground/70 hover:text-forest-deep transition">
-                ← Back to home
-              </Link>
+              {embedded && onCollapse ? (
+                <button
+                  type="button"
+                  onClick={onCollapse}
+                  className="mt-6 inline-block eyebrow text-muted-foreground/70 hover:text-forest-deep transition"
+                  style={s}
+                >
+                  ↑ Back to top
+                </button>
+              ) : (
+                <Link href="/" className="mt-6 inline-block eyebrow text-muted-foreground/70 hover:text-forest-deep transition">
+                  ← Back to home
+                </Link>
+              )}
             </div>
           </div>
         )}

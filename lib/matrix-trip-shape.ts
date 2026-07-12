@@ -1,4 +1,10 @@
 import { nightsBetween, parseFlexLengthMinNights } from './group-date-overlap'
+import {
+  inferPaceTier,
+  recommendStopCount,
+  tripSupportsThreeStops,
+  type PaceTier,
+} from './matrix-trip-structure-rules'
 
 export type MatrixTabId = 'singles' | 'pairings' | 'triples'
 
@@ -8,6 +14,9 @@ type TripShapeAnswers = {
   flexLength?: string
   fixedDates?: { start?: string; end?: string }
   dates?: string
+  /** Free-text for pace inference in tab resolution */
+  q1?: string
+  q3?: string
 }
 
 function nightsFromFlexLength(flex: string): number | null {
@@ -77,19 +86,24 @@ export function tripFeasibleForThreeStops(answers: TripShapeAnswers): boolean {
   return false
 }
 
-/** Show and generate three-stop routes when explicitly chosen or dates make them practical. */
-export function shouldIncludeTripleRoutes(answers: TripShapeAnswers): boolean {
-  return hostWantsThreeStops(answers) || tripFeasibleForThreeStops(answers)
+/** Show and generate three-stop routes when explicitly chosen or dates + pace make them practical. */
+export function shouldIncludeTripleRoutes(
+  answers: TripShapeAnswers,
+  opts?: { q1?: string; q3?: string; chatSupplement?: string },
+): boolean {
+  return tripSupportsThreeStops(answers, undefined, [opts?.q1, opts?.q3, opts?.chatSupplement])
 }
 
 /** Which itinerary-shape tabs to show in the matrix UI. */
 export function resolveMatrixTabs(
   answers: TripShapeAnswers,
   opts?: { hasPairings?: boolean; hasTriples?: boolean },
-): { tabs: MatrixTabId[]; defaultTab: MatrixTabId; nights: number | null } {
-  const nights = estimateTripNights(answers)
+): { tabs: MatrixTabId[]; defaultTab: MatrixTabId; nights: number | null; pace: PaceTier } {
+  const pace = inferPaceTier(answers.q1, answers.q3)
+  const rec = recommendStopCount(answers, pace)
+  const nights = rec.nights ?? estimateTripNights(answers)
   const stops = normalizeStops(answers.stops, answers.stopsOther)
-  const includeTriples = shouldIncludeTripleRoutes(answers)
+  const triplesFeasible = shouldIncludeTripleRoutes(answers, { q1: answers.q1, q3: answers.q3 })
 
   const tabs: MatrixTabId[] = ['singles']
 
@@ -101,30 +115,32 @@ export function resolveMatrixTabs(
   const showPairings =
     !!opts?.hasPairings &&
     !wantsOne &&
+    rec.max >= 2 &&
     (wantsTwo || wantsThree || open || nights == null || nights >= 5)
 
-  const showTriples = includeTriples
+  const showTriples =
+    !!opts?.hasTriples &&
+    triplesFeasible &&
+    rec.max >= 3 &&
+    !wantsOne
 
   if (showPairings) tabs.push('pairings')
   if (showTriples) tabs.push('triples')
 
   let defaultTab: MatrixTabId = 'singles'
-  if (wantsOne) {
+  if (wantsOne || rec.max <= 1) {
     defaultTab = 'singles'
-  } else if (wantsThree && showTriples) {
+  } else if (showTriples && (wantsThree || (pace === 'fast' && rec.max >= 3))) {
     defaultTab = 'triples'
-  } else if (wantsTwo && showPairings) {
+  } else if (showPairings && (wantsTwo || rec.max >= 2)) {
     defaultTab = 'pairings'
-  } else if (nights != null) {
-    if (nights <= 5) defaultTab = 'singles'
-    else if (showTriples && nights >= MIN_NIGHTS_FOR_THREE_STOPS && (open || wantsThree)) {
-      defaultTab = 'triples'
-    } else if (showPairings) defaultTab = 'pairings'
+  } else if (showTriples) {
+    defaultTab = 'triples'
   } else if (showPairings) {
     defaultTab = 'pairings'
   }
 
-  return { tabs, defaultTab, nights }
+  return { tabs, defaultTab, nights, pace }
 }
 
 /** Ignore AI triple recommendation when three-stop routes are not feasible. */
@@ -133,17 +149,27 @@ export function coerceMatrixRecommendedTab(
   answers: TripShapeAnswers,
 ): MatrixTabId | null {
   if (!tab) return null
-  if (tab === 'triples' && !shouldIncludeTripleRoutes(answers)) return null
+  if (tab === 'triples' && !shouldIncludeTripleRoutes(answers, { q1: answers.q1, q3: answers.q3 })) {
+    return null
+  }
+  const rec = recommendStopCount(answers, inferPaceTier(answers.q1, answers.q3))
+  if (tab === 'triples' && rec.max < 3) return null
+  if (tab === 'pairings' && rec.max < 2) return null
   return tab
 }
 
 /** Hint for the AI about which combo sections to generate. */
-export function describeTripShapeHint(answers: TripShapeAnswers): string {
+export function describeTripShapeHint(
+  answers: TripShapeAnswers,
+  opts?: { q1?: string; q3?: string; chatSupplement?: string },
+): string {
   const nights = estimateTripNights(answers)
   const stops = normalizeStops(answers.stops, answers.stopsOther)
   const mode = answers.dates?.trim() || ''
   const flex = answers.flexLength?.trim() || ''
   const { start, end } = answers.fixedDates || {}
+  const pace = inferPaceTier(opts?.q1, opts?.q3, opts?.chatSupplement)
+  const stopRec = recommendStopCount(answers, pace)
 
   let nightsLine: string
   if (mode === 'Flexible — I have a range' && flex) {
@@ -159,9 +185,7 @@ export function describeTripShapeHint(answers: TripShapeAnswers): string {
   let guidance =
     'Infer the best stop count from their dates and trip shape preference. Short trips (≤5 nights) favor one base; ~6–9 nights often suit two stops.'
 
-  const triplesFeasible =
-    shouldIncludeTripleRoutes(answers) &&
-    (nights == null || nights >= MIN_NIGHTS_FOR_THREE_STOPS || hostWantsThreeStops(answers))
+  const triplesFeasible = shouldIncludeTripleRoutes(answers, opts)
 
   if (stops.includes('just one')) {
     guidance =
@@ -183,12 +207,15 @@ export function describeTripShapeHint(answers: TripShapeAnswers): string {
     guidance += ' Omit TRIPLES when the trip is too short for three bases.'
   }
 
-  return `Trip length: ${nightsLine}. Stops preference: ${answers.stops || 'not specified'}${answers.stops === 'Other' && answers.stopsOther ? ` (${answers.stopsOther})` : ''}. ${guidance}`
+  return `Trip length: ${nightsLine}. Stops preference: ${answers.stops || 'not specified'}${answers.stops === 'Other' && answers.stopsOther ? ` (${answers.stopsOther})` : ''}. Pace (inferred): ${pace} → target ${stopRec.min}${stopRec.min !== stopRec.max ? `–${stopRec.max}` : ''} stops. ${guidance}`
 }
 
 /** Explicit TRIPLES instruction injected into matrix generation tasks. */
-export function triplesGenerationTaskLine(answers: TripShapeAnswers): string {
-  if (!shouldIncludeTripleRoutes(answers)) {
+export function triplesGenerationTaskLine(
+  answers: TripShapeAnswers,
+  opts?: { q1?: string; q3?: string; chatSupplement?: string },
+): string {
+  if (!shouldIncludeTripleRoutes(answers, opts)) {
     return 'Do NOT include a TRIPLES section — the planned trip length is too short for three bases.'
   }
   const nights = estimateTripNights(answers)
@@ -196,10 +223,12 @@ export function triplesGenerationTaskLine(answers: TripShapeAnswers): string {
   return `REQUIRED: Include a TRIPLES section with up to 3 ranked three-stop routes${nightsBit}. When three bases fit the dates, list concrete routes here — do not only mention three stops in RECOMMENDED_SHAPE without a TRIPLES section.`
 }
 
-export function matrixTabLabel(tab: MatrixTabId): string {
-  if (tab === 'singles') return 'One stop'
-  if (tab === 'pairings') return 'Pairings'
-  return 'Three stops'
+export function matrixTabLabel(tab: MatrixTabId, pace?: PaceTier): string {
+  if (tab === 'singles') return 'One city'
+  if (tab === 'pairings') {
+    return pace === 'slow' ? 'Two stops (relaxed)' : 'Two stops'
+  }
+  return pace === 'fast' ? 'Three stops (packed)' : 'Three stops'
 }
 
 /** Match a combo place string to a matrix row name for voting. */

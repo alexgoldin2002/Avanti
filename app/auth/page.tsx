@@ -114,7 +114,7 @@ function AuthPageContent() {
           <Link href="/" className="font-serif tracking-[0.45em] text-cream text-lg">
             AVANTI
           </Link>
-          <Link href="/try" className="eyebrow text-cream/70 hover:text-cream transition">
+          <Link href="/#try-it" className="eyebrow text-cream/70 hover:text-cream transition">
             Try it first
           </Link>
         </div>

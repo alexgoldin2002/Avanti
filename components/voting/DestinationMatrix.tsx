@@ -44,6 +44,8 @@ type DestinationMatrixProps = {
     flexLength?: string
     fixedDates?: { start?: string; end?: string }
     dates?: string
+    q1?: string
+    q3?: string
   }
   selected: Record<string, boolean>
   maxVotes: number
@@ -431,7 +433,10 @@ export default function DestinationMatrix({
   const triggerGate = () => {
     if (gateSelection) onPreviewGate!()
   }
-  const includeTripleRoutes = shouldIncludeTripleRoutes(tripShapeAnswers)
+  const includeTripleRoutes = shouldIncludeTripleRoutes(tripShapeAnswers, {
+    q1: tripShapeAnswers.q1,
+    q3: tripShapeAnswers.q3,
+  })
   const visibleTriples = includeTripleRoutes ? triples : []
   const safeRecommendedTab = coerceMatrixRecommendedTab(recommendedTab, tripShapeAnswers)
 
@@ -475,7 +480,7 @@ export default function DestinationMatrix({
     [selected, tripleLabels],
   )
 
-  const { tabs, defaultTab } = useMemo(
+  const { tabs, defaultTab, pace } = useMemo(
     () =>
       resolveMatrixTabs(tripShapeAnswers, {
         hasPairings: pairings.length > 0,
@@ -658,14 +663,6 @@ export default function DestinationMatrix({
 
   const renderSingles = () => (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '16px' }}>
-      {matrixBlurb && (
-        <p style={{ fontSize: '13px', color: 'var(--forest-deep)', margin: 0, lineHeight: 1.5, ...s }}>
-          {matrixBlurb}
-        </p>
-      )}
-      <p style={{ fontSize: '12px', color: 'var(--muted-foreground)', margin: 0, lineHeight: 1.5, ...s }}>
-        Pick up to {maxVotes} destinations — each counts as one choice for the group vote.
-      </p>
       {sortedRows.map((row, index) => renderSingleCard(row, index))}
     </div>
   )
@@ -867,16 +864,6 @@ export default function DestinationMatrix({
     },
   ) => (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '16px' }}>
-      {selectable && matrixBlurb && (
-        <p style={{ fontSize: '13px', color: 'var(--forest-deep)', margin: 0, lineHeight: 1.5, ...s }}>
-          {matrixBlurb}
-        </p>
-      )}
-      {selectable && opts.pickHint && (
-        <p style={{ fontSize: '12px', color: 'var(--muted-foreground)', margin: 0, lineHeight: 1.5, ...s }}>
-          {opts.pickHint}
-        </p>
-      )}
       {opts.grouped ? (
         PAIRING_CATEGORY_ORDER.map(cat => {
           const items = pairingsByCategory.get(cat) || []
@@ -890,7 +877,7 @@ export default function DestinationMatrix({
               </h3>
               {cat === 'budget' && items.length > 0 && (
                 <p style={{ fontSize: '12px', color: 'var(--muted-foreground)', margin: '0 0 4px', lineHeight: 1.5, ...s }}>
-                  One cheapest route, one splurge paired with a budget-friendly stop.
+                  Cheapest route + one splurge/budget mix.
                 </p>
               )}
               {items.length === 0 ? (
@@ -935,8 +922,25 @@ export default function DestinationMatrix({
     </div>
   )
 
+  const tabPickHint =
+    activeTab === 'singles'
+      ? `Pick up to ${maxVotes} cities.`
+      : activeTab === 'pairings'
+        ? `Pick up to ${maxVotes} two-stop routes.`
+        : `Pick up to ${maxVotes} three-stop routes.`
+
   return (
     <div style={{ marginTop: '24px' }}>
+      {matrixBlurb && (
+        <p style={{ fontSize: '13px', color: 'var(--forest-deep)', margin: '0 0 8px', lineHeight: 1.5, ...s }}>
+          {matrixBlurb}
+        </p>
+      )}
+      {!readOnly && (
+        <p style={{ fontSize: '12px', color: 'var(--muted-foreground)', margin: '0 0 16px', lineHeight: 1.5, ...s }}>
+          {tabPickHint}
+        </p>
+      )}
       {tabs.length > 1 && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '20px' }}>
           {tabs.map(tab => (
@@ -946,7 +950,7 @@ export default function DestinationMatrix({
               onClick={() => setActiveTab(tab)}
               style={tabButtonStyle(activeTab === tab)}
             >
-              {matrixTabLabel(tab)}
+              {matrixTabLabel(tab, pace)}
             </button>
           ))}
         </div>
@@ -959,7 +963,6 @@ export default function DestinationMatrix({
           {sortedPairings.length > 0 ? (
             renderPairings(sortedPairings, true, {
               grouped: true,
-              pickHint: `Pick up to ${maxVotes} two-stop routes for the group vote — each counts as one proposal.`,
               selectedCount: pairingsSelectedCount,
               onToggle: handlePairingClick,
             })
@@ -975,7 +978,6 @@ export default function DestinationMatrix({
         <>
           {sortedTriples.length > 0 ? (
             renderPairings(sortedTriples, true, {
-              pickHint: `Pick up to ${maxVotes} three-stop routes for the group vote — each counts as one proposal.`,
               selectedCount: triplesSelectedCount,
               onToggle: handleTripleClick,
               cardKeyPrefix: 'triple',

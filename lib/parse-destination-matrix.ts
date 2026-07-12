@@ -1,4 +1,9 @@
-import { isSingleCityPlace } from './matrix-geo-rules'
+import {
+  comboUnorderedKey,
+  dedupeMatrixCombos,
+  dedupeMatrixRows,
+  isSingleCityPlace,
+} from './matrix-geo-rules'
 import { truncateBlurb } from './matrix-display-helpers'
 import type { MatrixTabId } from './matrix-trip-shape'
 import type { ParsedDestinationCard } from './parse-destination-cards'
@@ -247,29 +252,24 @@ function finalizePairings(pairings: DestinationMatrixCombo[]): DestinationMatrix
 }
 
 function limitPairingsPerCategory(pairings: DestinationMatrixCombo[]): DestinationMatrixCombo[] {
-  const byCategory = new Map<PairingCategory, DestinationMatrixCombo[]>()
-  for (const cat of PAIRING_CATEGORY_ORDER) {
-    byCategory.set(cat, [])
-  }
+  const globalSeen = new Set<string>()
+  const out: DestinationMatrixCombo[] = []
 
-  for (const p of pairings) {
-    if (!p.pairingCategory) continue
-    const list = byCategory.get(p.pairingCategory) || []
-    if (list.length < 2) {
-      list.push(p)
-      byCategory.set(p.pairingCategory, list)
+  for (const cat of PAIRING_CATEGORY_ORDER) {
+    const inCat = pairings.filter(p => p.pairingCategory === cat)
+    sortMatrixCombosByRank(inCat)
+    let count = 0
+    for (const p of inCat) {
+      if (count >= 2) break
+      const key = comboUnorderedKey(p.places)
+      if (globalSeen.has(key)) continue
+      globalSeen.add(key)
+      out.push({ ...p, rank: count + 1, pairingCategory: cat })
+      count++
     }
   }
 
-  return PAIRING_CATEGORY_ORDER.flatMap(cat => {
-    const list = byCategory.get(cat) || []
-    sortMatrixCombosByRank(list)
-    list.forEach((p, i) => {
-      p.rank = i + 1
-      p.pairingCategory = cat
-    })
-    return list
-  })
+  return out
 }
 
 function parseTripleRow(clean: string, index: number): DestinationMatrixCombo | null {
@@ -443,9 +443,13 @@ export function parseDestinationMatrix(text: string): DestinationMatrixResult {
     }
   }
 
-  const singles = parseSectionRows(block, 'MATRIX:', 'single') as DestinationMatrixRow[]
+  const singles = dedupeMatrixRows(
+    parseSectionRows(block, 'MATRIX:', 'single') as DestinationMatrixRow[],
+  )
   const pairings = parseAllPairings(block)
-  const triples = parseSectionRows(block, 'TRIPLES:', 'triple') as DestinationMatrixCombo[]
+  const triples = dedupeMatrixCombos(
+    parseSectionRows(block, 'TRIPLES:', 'triple') as DestinationMatrixCombo[],
+  ).slice(0, 3)
 
   sortMatrixCombosByRank(triples)
   sortMatrixRowsByScore(singles)
@@ -507,7 +511,8 @@ export function enrichMatrixPairings(pairings: DestinationMatrixCombo[]): void {
     }
     p.pairingTitle = pairingCardLabel(p.places)
   })
-  const finalized = finalizePairings(pairings)
+  const deduped = dedupeMatrixCombos(pairings)
+  const finalized = finalizePairings(deduped)
   pairings.splice(0, pairings.length, ...finalized)
 }
 
@@ -524,13 +529,22 @@ export function enrichMatrixChipRows(rows: Array<{
 }>): void {
   const isSingles = rows.length > 0 && !('rank' in rows[0])
   if (isSingles) {
+    const deduped = dedupeMatrixRows(rows as DestinationMatrixRow[])
+    if (deduped.length !== rows.length) {
+      rows.splice(0, rows.length, ...deduped)
+    }
     dedupeHighlightChips(rows)
     dedupeConsiderChips(rows)
     sortMatrixRowsByScore(rows as DestinationMatrixRow[])
     return
   }
   if (rows.length > 0) {
-    sortMatrixCombosByRank(rows as DestinationMatrixCombo[])
+    const combos = rows as DestinationMatrixCombo[]
+    const deduped = dedupeMatrixCombos(combos)
+    if (deduped.length !== rows.length) {
+      rows.splice(0, rows.length, ...deduped)
+    }
+    sortMatrixCombosByRank(combos)
   }
 }
 

@@ -1850,7 +1850,7 @@ export default function Step2() {
               summary={displayMatrixSummary}
               recommendedTab={displayMatrixRecommendedTab}
               recommendedShape={displayMatrixRecommendedShape}
-              tripShapeAnswers={{ stops, stopsOther, flexLength, fixedDates, dates }}
+              tripShapeAnswers={{ stops, stopsOther, flexLength, fixedDates, dates, q1, q3 }}
               selected={displayVotes}
               maxVotes={maxVotes}
               readOnly={!canEditBrainstorm || isViewingPrior}

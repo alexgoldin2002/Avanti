@@ -47,7 +47,11 @@ function matrixGenerationStepCount(
 ): number {
   const rowCount =
     mode === 'considering' ? consideringCount : BRAINSTORM_MATRIX_DESTINATION_COUNT
-  const includeTriples = shouldIncludeTripleRoutes(answers) && rowCount >= 3
+  const includeTriples =
+    shouldIncludeTripleRoutes(answers, {
+      q1: String(answers.q1 || ''),
+      q3: String(answers.q3 || ''),
+    }) && rowCount >= 3
   return rowCount + PAIRING_CATEGORY_ORDER.length + (includeTriples ? 1 : 0) + 1
 }
 
@@ -247,6 +251,12 @@ async function fetchMatrixBatched(opts: MatrixFetchOpts): Promise<MatrixFetchRes
 
   const destinationNames = matrix.map(row => row.name)
   const pairings: DestinationMatrixCombo[] = []
+  const existingPairingLabels: string[] = []
+
+  const tripleOpts = {
+    q1: String(opts.answers.q1 || ''),
+    q3: String(opts.answers.q3 || ''),
+  }
 
   for (const category of PAIRING_CATEGORY_ORDER) {
     report(`Building ${PAIRING_CATEGORY_SECTION_LABELS[category].toLowerCase()}…`)
@@ -255,19 +265,28 @@ async function fetchMatrixBatched(opts: MatrixFetchOpts): Promise<MatrixFetchRes
       phase: 'pairing-category',
       destinationNames,
       pairingCategory: category,
+      existingPairings: existingPairingLabels,
+      matrixRows: matrix,
     })
     if (!res.ok) throw matrixFetchError(res, data)
-    pairings.push(...((data.pairings as DestinationMatrixCombo[]) || []))
+    const newPairings = ((data.pairings as DestinationMatrixCombo[]) || [])
+    pairings.push(...newPairings)
+    for (const pairing of newPairings) {
+      const label = pairing.pairingTitle || pairing.label
+      if (label) existingPairingLabels.push(label)
+    }
     finishStep(`Built ${PAIRING_CATEGORY_SECTION_LABELS[category].toLowerCase()}`)
   }
 
   let triples: DestinationMatrixCombo[] = []
-  if (shouldIncludeTripleRoutes(opts.answers) && destinationNames.length >= 3) {
+  if (shouldIncludeTripleRoutes(opts.answers, tripleOpts) && destinationNames.length >= 3) {
     report('Building three-stop routes…')
     const { res, data } = await postMatrixPhaseWithRetry({
       ...baseBody,
       phase: 'triples',
       destinationNames,
+      existingPairings: existingPairingLabels,
+      matrixRows: matrix,
     })
     if (!res.ok) throw matrixFetchError(res, data)
     triples = (data.triples as DestinationMatrixCombo[]) || []
@@ -279,6 +298,7 @@ async function fetchMatrixBatched(opts: MatrixFetchOpts): Promise<MatrixFetchRes
     ...baseBody,
     phase: 'recommendations',
     destinationNames,
+    matrixRows: matrix,
   })
   if (!recRes.ok) throw matrixFetchError(recRes, recData)
   finishStep('Recommendations ready')

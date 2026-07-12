@@ -16,7 +16,11 @@ import {
 } from '@/lib/generate-destination-matrix'
 import type { PairingCategory } from '@/lib/matrix-pairing-categories'
 import { isDestinationPlanningPath, type DestinationPlanningPath } from '@/lib/step2/planning-path'
-import { enrichMatrixChipRows, enrichMatrixPairings } from '@/lib/parse-destination-matrix'
+import {
+  enrichMatrixChipRows,
+  enrichMatrixPairings,
+  type DestinationMatrixRow,
+} from '@/lib/parse-destination-matrix'
 import { syncTripGroupOverlap } from '@/lib/group-date-overlap/sync-trip-overlap'
 import { tryCreateAdminClient } from '@/lib/supabase-admin'
 import { supabaseFromRequest, requireUser } from '@/lib/destination-decision/supabase-server'
@@ -51,6 +55,8 @@ export async function POST(request: NextRequest) {
       destinationName,
       existingNames,
       pairingCategory,
+      existingPairings,
+      matrixRows,
       preview = false,
       planningPath: planningPathRaw,
     } = await request.json()
@@ -168,10 +174,15 @@ export async function POST(request: NextRequest) {
       if (names.length < 2) {
         return NextResponse.json({ error: 'destinationNames required' }, { status: 400 })
       }
+      const rows = Array.isArray(matrixRows) ? (matrixRows as DestinationMatrixRow[]) : []
       const pairings = await generateMatrixPairingCategory(client, {
         ...genOpts,
         destinationNames: names,
         category,
+        existingPairings: Array.isArray(existingPairings)
+          ? existingPairings.map(String).filter(Boolean)
+          : [],
+        matrixRows: rows,
       })
       enrichMatrixPairings(pairings)
       return NextResponse.json({ pairings })
@@ -182,7 +193,15 @@ export async function POST(request: NextRequest) {
       if (names.length < 3) {
         return NextResponse.json({ error: 'destinationNames required' }, { status: 400 })
       }
-      const triples = await generateMatrixTriples(client, { ...genOpts, destinationNames: names })
+      const rows = Array.isArray(matrixRows) ? (matrixRows as DestinationMatrixRow[]) : []
+      const triples = await generateMatrixTriples(client, {
+        ...genOpts,
+        destinationNames: names,
+        existingPairings: Array.isArray(existingPairings)
+          ? existingPairings.map(String).filter(Boolean)
+          : [],
+        matrixRows: rows,
+      })
       enrichMatrixChipRows(triples)
       return NextResponse.json({ triples })
     }
@@ -192,7 +211,12 @@ export async function POST(request: NextRequest) {
       if (names.length === 0) {
         return NextResponse.json({ error: 'destinationNames required' }, { status: 400 })
       }
-      const recs = await generateMatrixRecommendations(client, { ...genOpts, destinationNames: names })
+      const rows = Array.isArray(matrixRows) ? (matrixRows as DestinationMatrixRow[]) : []
+      const recs = await generateMatrixRecommendations(client, {
+        ...genOpts,
+        destinationNames: names,
+        matrixRows: rows,
+      })
       return NextResponse.json(recs)
     }
 
